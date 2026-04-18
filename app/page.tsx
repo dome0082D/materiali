@@ -24,8 +24,9 @@ export default function HomePage() {
         ann.description?.toLowerCase().includes(searchTerm.toLowerCase())
       )
     }
-    // Filtro Tipo
-    if (activeFilter === 'offered') results = results.filter(ann => ann.type === 'offered' || !ann.type)
+    // Filtro Tipo (Vendi / Offri / Cerco)
+    if (activeFilter === 'sell') results = results.filter(ann => ann.type === 'sell')
+    if (activeFilter === 'offered') results = results.filter(ann => ann.type === 'offered')
     if (activeFilter === 'wanted') results = results.filter(ann => ann.type === 'wanted')
     
     setFilteredAnnouncements(results)
@@ -49,7 +50,7 @@ export default function HomePage() {
     <div className="min-h-screen bg-[#f3f4f6] p-2 md:p-4 font-sans text-slate-900">
       <main className="bg-white max-w-[1600px] mx-auto rounded-xl shadow-lg border border-gray-200 min-h-screen overflow-hidden flex flex-col relative">
         
-        {/* NAVBAR PROFESSIONALE */}
+        {/* NAVBAR */}
         <nav className="sticky top-0 z-50 bg-white/95 backdrop-blur-sm border-b border-gray-200 px-6 py-4 flex justify-between items-center shadow-sm">
           <Link href="/" className="text-2xl font-serif text-slate-900 tracking-tighter font-black">MATERIALI</Link>
           <div className="flex items-center gap-4">
@@ -71,13 +72,15 @@ export default function HomePage() {
           </div>
         </nav>
 
-        {/* HEADER / HERO SECTION */}
+        {/* HERO SECTION */}
         <div className="px-4 md:px-8 mt-6">
           <div className="relative h-[250px] md:h-[350px] rounded-xl overflow-hidden shadow-sm border border-gray-100">
-            <img src="/gazebo.jpeg" alt="Gazebo Attrezzi" className="absolute inset-0 w-full h-full object-cover object-center" />
+            <img src="/gazebo.png" alt="Gazebo Attrezzi" className="absolute inset-0 w-full h-full object-cover object-center" />
             <div className="absolute inset-0 bg-gradient-to-r from-black/60 to-black/30 flex flex-col items-start justify-center p-8 md:p-16">
-              <h1 className="text-3xl md:text-5xl font-serif text-white drop-shadow-md font-bold leading-tight mb-4">
-                Il mercato edile circolare.
+              
+              {/* NUOVO TITOLO */}
+              <h1 className="text-3xl md:text-5xl font-serif text-white drop-shadow-md font-bold leading-tight mb-4 uppercase tracking-tighter">
+                Recupera, regala, vendi.
               </h1>
               
               <div className="w-full max-w-xl relative mt-4">
@@ -93,10 +96,8 @@ export default function HomePage() {
           </div>
         </div>
 
-        {/* DUE RIQUADRI PROMOZIONALI (NUOVO / USATO) */}
+        {/* DUE RIQUADRI PROMOZIONALI */}
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6 px-4 md:px-8 mt-6">
-          
-          {/* Riquadro Usato */}
           <div className="relative h-[180px] md:h-[220px] rounded-xl overflow-hidden shadow-sm group border border-gray-200">
             <img src="/usato.png" alt="Mercatino Usato" className="absolute inset-0 w-full h-full object-cover transition-transform duration-[5s] group-hover:scale-110" />
             <div className="absolute inset-0 bg-black/40 group-hover:bg-black/50 transition-colors flex items-center justify-center p-6">
@@ -105,8 +106,6 @@ export default function HomePage() {
               </h3>
             </div>
           </div>
-
-          {/* Riquadro Nuovo */}
           <div className="relative h-[180px] md:h-[220px] rounded-xl overflow-hidden shadow-sm group border border-gray-200">
             <img src="/nuovo.png" alt="Negozio Nuovo" className="absolute inset-0 w-full h-full object-cover transition-transform duration-[5s] group-hover:scale-110" />
             <div className="absolute inset-0 bg-black/40 group-hover:bg-black/50 transition-colors flex items-center justify-center p-6">
@@ -115,17 +114,17 @@ export default function HomePage() {
               </h3>
             </div>
           </div>
-
         </div>
 
-        {/* TABELLA ANNUNCI (GRANDE CATALOGO) */}
+        {/* TABELLA ANNUNCI */}
         <div className="px-4 md:px-8 py-10 flex-grow">
           
           <div className="flex justify-between items-end mb-8 border-b border-gray-200 pb-4">
             <h2 className="text-xl font-bold uppercase tracking-widest text-slate-800">Catalogo Annunci</h2>
             <div className="flex gap-2 overflow-x-auto">
               <button onClick={() => setActiveFilter('all')} className={`px-4 py-2 rounded-md text-[10px] font-bold uppercase tracking-widest border ${activeFilter === 'all' ? 'bg-slate-800 text-white' : 'bg-white text-slate-500 border-gray-300'}`}>Tutti</button>
-              <button onClick={() => setActiveFilter('offered')} className={`px-4 py-2 rounded-md text-[10px] font-bold uppercase tracking-widest border ${activeFilter === 'offered' ? 'bg-sky-600 text-white' : 'bg-white text-slate-500 border-gray-300'}`}>Disponibili</button>
+              <button onClick={() => setActiveFilter('sell')} className={`px-4 py-2 rounded-md text-[10px] font-bold uppercase tracking-widest border ${activeFilter === 'sell' ? 'bg-indigo-600 text-white' : 'bg-white text-slate-500 border-gray-300'}`}>In Vendita</button>
+              <button onClick={() => setActiveFilter('offered')} className={`px-4 py-2 rounded-md text-[10px] font-bold uppercase tracking-widest border ${activeFilter === 'offered' ? 'bg-teal-600 text-white' : 'bg-white text-slate-500 border-gray-300'}`}>In Regalo</button>
               <button onClick={() => setActiveFilter('wanted')} className={`px-4 py-2 rounded-md text-[10px] font-bold uppercase tracking-widest border ${activeFilter === 'wanted' ? 'bg-orange-500 text-white' : 'bg-white text-slate-500 border-gray-300'}`}>Cercasi</button>
             </div>
           </div>
@@ -133,15 +132,14 @@ export default function HomePage() {
           {loading ? (
             <div className="flex justify-center py-20"><div className="animate-spin h-8 w-8 border-4 border-sky-500 border-t-transparent rounded-full"></div></div>
           ) : filteredAnnouncements.length > 0 ? (
-            /* GRIGLIA ALLARGATA (Fino a 5 colonne su schermi grandi) */
             <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4 md:gap-6">
               {filteredAnnouncements.map((ann) => (
                 <div key={ann.id} className="bg-white rounded-lg shadow-sm hover:shadow-md transition-all border border-gray-200 flex flex-col">
                   <div className="relative p-2 h-40">
-                    <img src={ann.image_url || "/gazebo.jpeg"} className="w-full h-full object-cover rounded-md border border-gray-100" />
+                    <img src={ann.image_url || "/gazebo.png"} className="w-full h-full object-cover rounded-md border border-gray-100" />
                     <div className="absolute top-4 right-4">
-                      <span className={`px-2 py-1 rounded text-[8px] font-black uppercase tracking-tighter shadow-sm ${ann.type === 'wanted' ? 'bg-orange-500 text-white' : 'bg-emerald-500 text-white'}`}>
-                        {ann.type === 'wanted' ? 'CERCASI' : 'OFFRESI'}
+                      <span className={`px-2 py-1 rounded text-[8px] font-black uppercase tracking-tighter shadow-sm ${ann.type === 'wanted' ? 'bg-orange-500 text-white' : ann.type === 'sell' ? 'bg-indigo-600 text-white' : 'bg-teal-600 text-white'}`}>
+                        {ann.type === 'wanted' ? 'CERCASI' : ann.type === 'sell' ? 'IN VENDITA' : 'IN REGALO'}
                       </span>
                     </div>
                   </div>
