@@ -1,7 +1,8 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { supabase } from '@/lib/supabase'; // Assicurati che questo percorso corrisponda al tuo file supabase.ts
+import { supabase } from '@/lib/supabase'; // Assicurati che questo percorso sia corretto
+import Link from 'next/link';
 
 export default function HomePage() {
   const [announcements, setAnnouncements] = useState<any[]>([]);
@@ -10,7 +11,7 @@ export default function HomePage() {
   const [activeFilter, setActiveFilter] = useState('all');
   const [user, setUser] = useState<any>(null);
 
-  // Carica i dati all'avvio della pagina
+  // Carica i dati e lo stato dell'utente all'avvio della pagina
   useEffect(() => {
     fetchData();
   }, []);
@@ -34,11 +35,11 @@ export default function HomePage() {
   }, [searchTerm, activeFilter, announcements]);
 
   const fetchData = async () => {
-    // Recupera l'utente loggato (se presente)
+    // 1. Recupera l'utente loggato (se presente)
     const { data: { user } } = await supabase.auth.getUser();
     setUser(user);
 
-    // Recupera gli annunci dalla tabella Supabase
+    // 2. Recupera gli annunci dalla tabella Supabase
     const { data, error } = await supabase
       .from('announcements')
       .select('*')
@@ -52,14 +53,35 @@ export default function HomePage() {
 
   return (
     <main className="min-h-screen bg-gray-50">
-      {/* NAVBAR */}
+      {/* NAVBAR DINAMICA */}
       <nav className="flex items-center justify-between px-8 py-4 bg-white border-b sticky top-0 z-50">
         <div className="text-2xl font-bold tracking-tighter text-gray-800">
           MATERIALI
         </div>
-        <button className="bg-sky-500 hover:bg-sky-600 text-white px-6 py-2 rounded-md font-medium text-sm transition-colors shadow-sm">
-          ACCEDI
-        </button>
+        
+        {/* Mostra "Esci" se l'utente è loggato, altrimenti "Accedi" */}
+        {user ? (
+          <div className="flex items-center gap-4">
+            <span className="text-sm font-medium text-gray-600 hidden md:block">
+              {user.email}
+            </span>
+            <button 
+              onClick={async () => {
+                await supabase.auth.signOut();
+                setUser(null); // Aggiorna lo stato localmente
+              }}
+              className="bg-red-500 hover:bg-red-600 text-white px-6 py-2 rounded-md font-medium text-sm transition-colors shadow-sm"
+            >
+              ESCI
+            </button>
+          </div>
+        ) : (
+          <Link href="/login">
+            <button className="bg-sky-500 hover:bg-sky-600 text-white px-6 py-2 rounded-md font-medium text-sm transition-colors shadow-sm">
+              ACCEDI
+            </button>
+          </Link>
+        )}
       </nav>
 
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
@@ -67,7 +89,7 @@ export default function HomePage() {
         <section 
           className="relative w-full h-[450px] flex flex-col items-center justify-center rounded-2xl overflow-hidden shadow-2xl mt-6"
           style={{ 
-            backgroundImage: "url('/gazebo.jpg')", 
+            backgroundImage: "url('/hero-background.jpg')", 
             backgroundSize: 'cover', 
             backgroundPosition: 'center' 
           }}
@@ -110,7 +132,6 @@ export default function HomePage() {
             <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
               {filteredAnnouncements.map((item) => (
                 <div key={item.id} className="bg-white border rounded-xl overflow-hidden hover:shadow-lg transition-shadow duration-300">
-                  {/* Immagine dell'annuncio */}
                   <div className="h-48 bg-gray-200 relative">
                     {item.image_url ? (
                       <img src={item.image_url} alt={item.title} className="object-cover w-full h-full" />
@@ -120,7 +141,6 @@ export default function HomePage() {
                       </div>
                     )}
                   </div>
-                  {/* Testo dell'annuncio */}
                   <div className="p-4">
                     <h3 className="font-bold text-lg text-gray-900 mb-1 truncate">{item.title}</h3>
                     <p className="text-gray-600 text-sm line-clamp-2">{item.description}</p>
