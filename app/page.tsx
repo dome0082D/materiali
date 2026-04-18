@@ -64,7 +64,7 @@ export default function HomePage() {
 
       {/* HERO SECTION CON IMMAGINE */}
       <section 
-        className="relative h-[1920px] flex items-center justify-center overflow-hidden mx-4 my-4 rounded-xl shadow-lg"
+        className="relative h-[480px] flex items-center justify-center overflow-hidden mx-4 my-4 rounded-xl shadow-lg"
         style={{ 
           backgroundImage: "url('/gazebo.jpg')", // Assicurati di aver salvato l'immagine in /public
           backgroundSize: 'cover',
