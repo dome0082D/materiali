@@ -81,7 +81,7 @@ export default function HomePage() {
         <div className="px-4 md:px-8 mt-6">
           <div className="relative h-[300px] md:h-[400px] rounded-xl overflow-hidden shadow-lg border border-gray-100">
             <img 
-              src="/cantiere.jpg" 
+              src="/gazzebo.jpg" 
               alt="Cantiere Edile" 
               className="absolute inset-0 w-full h-full object-cover object-center"
             />
