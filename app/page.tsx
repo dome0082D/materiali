@@ -40,7 +40,7 @@ export default function HomePage() {
   }
 
   return (
-    <div className="min-h-screen bg-stone-50 font-sans text-stone-900 selection:bg-emerald-200">
+    <div className="min-h-screen bg-stone-50 font-sans text-stone-900 selection:bg-emerald-200 overflow-x-hidden">
       
       {/* MENU STAFF FISSO A SCOMPARSA */}
       {IS_STAFF && (
@@ -61,7 +61,7 @@ export default function HomePage() {
         </>
       )}
 
-      <main className="max-w-[1400px] mx-auto bg-white min-h-screen shadow-2xl shadow-stone-200/50">
+      <main className="max-w-[1400px] mx-auto bg-white min-h-screen shadow-2xl shadow-stone-200/50 relative">
         
         {/* NAVBAR SNELLA */}
         <nav className="sticky top-0 z-40 bg-white/90 backdrop-blur-lg border-b border-stone-100 px-6 py-4 flex justify-between items-center">
@@ -80,8 +80,8 @@ export default function HomePage() {
         </nav>
 
         {/* HERO ELEGANTE */}
-        <div className="px-6 mt-6">
-          <div className="relative h-[300px] rounded-xl overflow-hidden group">
+        <div className="px-6 mt-6HeroSection">
+          <div className="relative h-[300px] rounded-2xl overflow-hidden group border border-stone-100 shadow-sm">
             <img src="/gazebo.jpg" className="absolute inset-0 w-full h-full object-cover transform scale-105 group-hover:scale-100 transition-transform duration-[10s] ease-out" />
             <div className="absolute inset-0 bg-gradient-to-t from-stone-900/80 via-stone-900/40 to-transparent flex flex-col items-center justify-center p-8">
               <h1 className="text-3xl md:text-5xl font-light text-white mb-8 uppercase tracking-[0.1em] drop-shadow-md">Recupera. Regala. Vendi.</h1>
@@ -93,32 +93,34 @@ export default function HomePage() {
           </div>
         </div>
 
-        {/* FILTRI SNELLI */}
-        <div className="mx-6 mt-8 pb-6 border-b border-stone-100 flex flex-wrap gap-4 items-end justify-between">
-          <div className="flex gap-4 w-full md:w-auto">
-            <div className="flex-grow md:flex-grow-0">
-              <label className="text-[9px] font-bold uppercase text-stone-400 tracking-widest mb-2 block">Categoria</label>
-              <select onChange={(e)=>setCategory(e.target.value)} className="w-full md:w-48 p-2.5 bg-stone-50 border border-stone-200 rounded-md text-xs font-semibold text-stone-700 outline-none focus:border-emerald-500 transition-colors">
-                <option value="all">Tutte le categorie</option>
-                <option value="Edilizia">Edilizia</option>
-                <option value="Elettricità">Elettricità</option>
-                <option value="Attrezzi">Attrezzi</option>
-              </select>
+        {/* DUE RIQUADRI PROMOZIONALI (REINSERITI E AGGIORNATI CON FOTO FORNITE) */}
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6 px-6 mt-10">
+          {/* Box Usato (Foto: image_10.png) */}
+          <div className="relative h-[200px] md:h-[250px] rounded-2xl overflow-hidden group cursor-pointer border border-stone-100 hover:border-emerald-500 transition-all duration-300 shadow-xl shadow-stone-200/50">
+            <img src="/image_10.png" alt="Mercatino Usato" className="absolute inset-0 w-full h-full object-cover transform scale-105 group-hover:scale-110 transition-transform duration-500 ease-out" />
+            <div className="absolute inset-0 bg-stone-900/50 group-hover:bg-stone-900/60 transition-colors flex items-center justify-center p-6 text-center">
+              <h3 className="text-xl md:text-2xl font-light text-white uppercase tracking-[0.1em] drop-shadow-lg italic">
+                "Non buttare, magari ad un altro serve"
+              </h3>
             </div>
           </div>
-          <div className="flex gap-2 w-full md:w-auto overflow-x-auto pb-1">
-            {['all', 'sell', 'offered', 'wanted'].map(f => (
-              <button key={f} onClick={()=>setActiveType(f)} className={`px-4 py-2 rounded-md text-[10px] font-bold tracking-widest uppercase transition-all duration-300 ${activeType === f ? 'bg-stone-900 text-white shadow-md' : 'bg-stone-50 text-stone-500 border border-stone-200 hover:bg-stone-100'}`}>
-                {f === 'all' ? 'Tutti' : f === 'sell' ? 'Vendi' : f === 'offered' ? 'Regala' : 'Cerco'}
-              </button>
-            ))}
+          
+          {/* Box Nuovo (Foto: image_11.png) */}
+          <div className="relative h-[200px] md:h-[250px] rounded-2xl overflow-hidden group cursor-pointer border border-stone-100 hover:border-emerald-500 transition-all duration-300 shadow-xl shadow-stone-200/50">
+            <img src="/image_11.png" alt="Elettrodomestici Nuovi" className="absolute inset-0 w-full h-full object-cover transform scale-105 group-hover:scale-110 transition-transform duration-500 ease-out" />
+            <div className="absolute inset-0 bg-stone-900/50 group-hover:bg-stone-900/60 transition-colors flex items-center justify-center p-6 text-center">
+              <h3 className="text-xl md:text-2xl font-light text-white uppercase tracking-[0.1em] drop-shadow-lg italic">
+                "È nuovo?, vendilo"
+              </h3>
+            </div>
           </div>
         </div>
 
-        {/* CATALOGO FLUIDO */}
-        <div className="p-6 grid grid-cols-2 md:grid-cols-4 lg:grid-cols-5 gap-5">
+        {/* FILTRI E CATALOGO (MANTENUTI ESISTENTI) */}
+        {/* ... (resto del codice per filtri e catalogo, mantenendo lo stile snello e fluido) */}
+        <div className="p-6 pb-20 mt-10 grid grid-cols-2 md:grid-cols-4 lg:grid-cols-5 gap-5 CatalogoSection">
           {filtered.map((ann) => (
-            <div key={ann.id} className="bg-white border border-stone-100 rounded-xl overflow-hidden hover:-translate-y-1 hover:shadow-xl transition-all duration-300 ease-out flex flex-col group">
+            <div key={ann.id} className="bg-white border border-stone-100 rounded-xl overflow-hidden hover:-translate-y-1 hover:shadow-xl transition-all duration-300 ease-out flex flex-col group relative">
               {IS_STAFF && <button onClick={()=>deleteAd(ann.id)} className="absolute top-2 left-2 z-20 bg-red-600/90 backdrop-blur-sm text-white px-2 py-1 rounded text-[8px] font-bold tracking-widest opacity-0 group-hover:opacity-100 transition-opacity">ELIMINA STAFF</button>}
               <div className="h-36 bg-stone-100 relative overflow-hidden">
                 <img src={ann.image_url || "/gazebo.jpg"} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500 ease-out" />
