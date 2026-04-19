@@ -91,7 +91,6 @@ function HomePageContent() {
           </Link>
         </div>
 
-        {/* MODIFICA: VETRINA CON CARD CLICCABILI */}
         <section className="mt-16">
           <h2 className="text-[10px] font-black uppercase tracking-[0.3em] text-stone-400 mb-6 border-b pb-2">Vetrina Top Nuovo</h2>
           <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
@@ -111,7 +110,6 @@ function HomePageContent() {
           </div>
         </section>
 
-        {/* MODIFICA: FEED CON CARD CLICCABILI E TASTO */}
         <section className="mt-12">
           <h2 className="text-[10px] font-black uppercase tracking-[0.3em] text-stone-400 mb-6 border-b pb-2">Tutti gli Oggetti</h2>
           <div className="grid grid-cols-2 md:grid-cols-6 gap-3">
@@ -136,13 +134,14 @@ function HomePageContent() {
         </section>
       </main>
 
+      {/* POP-UP STAFF MODIFICATO */}
       {isStaffOpen && (
         <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-stone-900/60 backdrop-blur-sm">
           <div className="bg-white w-full max-w-sm rounded-3xl p-8 shadow-2xl relative text-center space-y-3">
              <button onClick={() => setIsStaffOpen(false)} className="absolute top-6 right-6 text-stone-400 font-black">✕</button>
              <h2 className="text-xl font-black uppercase italic mb-8 border-b pb-4">Area Staff</h2>
-             <button className="block w-full p-4 bg-stone-50 rounded-xl font-black uppercase text-[10px] border border-stone-200">👥 Gestione Profili (In arrivo)</button>
-             <Link href="/chat" className="block w-full p-4 bg-stone-50 rounded-xl font-black uppercase text-[10px] border border-stone-200 hover:bg-stone-900 hover:text-white transition-all">💬 Visualizza Chat Globali</Link>
+             <Link href="/staff/users" className="block w-full p-4 bg-stone-50 rounded-xl font-black uppercase text-[10px] border border-stone-200 hover:bg-stone-900 hover:text-white transition-all">👥 Gestione Profili</Link>
+             <Link href="/chat" className="block w-full p-4 bg-stone-50 rounded-xl font-black uppercase text-[10px] border border-stone-200 hover:bg-stone-900 hover:text-white transition-all">💬 Chat</Link>
           </div>
         </div>
       )}
