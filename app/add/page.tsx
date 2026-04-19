@@ -10,6 +10,7 @@ export default function AddAnnouncement() {
   const [model, setModel] = useState('')
   const [description, setDescription] = useState('')
   const [price, setPrice] = useState('')
+  const [quantity, setQuantity] = useState('1') // Stato per la quantità
   const [category, setCategory] = useState('Edilizia')
   const [file, setFile] = useState<File | null>(null)
   const [type, setType] = useState('sell')
@@ -34,7 +35,9 @@ export default function AddAnnouncement() {
 
     const { error } = await supabase.from('announcements').insert([{ 
       title, brand, model, description, category, 
-      price: parseFloat(price) || 0, image_url: imageUrl, type, 
+      price: parseFloat(price) || 0, 
+      quantity: parseInt(quantity) || 1, // Salvataggio quantità
+      image_url: imageUrl, type, 
       user_id: user.id, contact_email: user.email 
     }])
 
@@ -52,7 +55,7 @@ export default function AddAnnouncement() {
           <div className="grid grid-cols-3 gap-2 p-1 bg-stone-100 rounded-xl">
             {['sell', 'offered', 'wanted'].map((t) => (
               <button key={t} type="button" onClick={() => setType(t)} 
-                className={`py-3 rounded-lg text-[10px] font-black tracking-widest uppercase transition-all ${type === t ? 'bg-white text-emerald-600 shadow-md' : 'text-stone-500'}`}>
+                className={`py-3 rounded-lg text-[10px] font-black tracking-widest uppercase transition-all ${type === t ? 'bg-white text-emerald-600 shadow-md' : 'text-stone-50'}`}>
                 {t === 'sell' ? 'Vendi' : t === 'offered' ? 'Regala' : 'Cerco'}
               </button>
             ))}
@@ -67,7 +70,7 @@ export default function AddAnnouncement() {
              </div>
           </div>
           
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <select onChange={(e)=>setCategory(e.target.value)} className="w-full p-4 bg-stone-50 border border-stone-200 rounded-xl text-xs font-black uppercase outline-none">
               <option value="Edilizia">Edilizia</option>
               <option value="Elettricità">Elettricità</option>
@@ -75,24 +78,34 @@ export default function AddAnnouncement() {
               <option value="Attrezzi">Attrezzi</option>
               <option value="Altro">Altro</option>
             </select>
-            
-            {/* HO AGGIUNTO step="0.01" E min="0" QUI SOTTO */}
-            <input 
-              type="number" 
-              step="0.01" 
-              min="0" 
-              placeholder="Prezzo (€)" 
-              className="w-full p-4 bg-stone-50 border border-stone-200 rounded-xl font-bold text-sm outline-none focus:border-emerald-500" 
-              onChange={(e)=>setPrice(e.target.value)} 
-              required 
-            />
 
-            <div className="relative">
-              <input type="file" accept="image/*" className="hidden" id="file-upload" onChange={(e)=>setFile(e.target.files?.[0] || null)} />
-              <label htmlFor="file-upload" className="flex items-center justify-center w-full h-full p-4 bg-emerald-50 border border-dashed border-emerald-300 rounded-xl cursor-pointer text-[10px] font-black text-emerald-600 tracking-widest uppercase hover:bg-emerald-100 transition-colors">
-                {file ? '✅ Allegato' : '📸 Foto'}
-              </label>
+            <div className="grid grid-cols-2 gap-2">
+                <input 
+                  type="number" 
+                  step="0.01" 
+                  min="0" 
+                  placeholder="Prezzo (€)" 
+                  className="w-full p-4 bg-stone-50 border border-stone-200 rounded-xl font-bold text-sm outline-none focus:border-emerald-500" 
+                  onChange={(e)=>setPrice(e.target.value)} 
+                  required 
+                />
+                <input 
+                  type="number" 
+                  min="1" 
+                  value={quantity}
+                  placeholder="Quantità" 
+                  className="w-full p-4 bg-stone-50 border border-stone-200 rounded-xl font-bold text-sm outline-none focus:border-emerald-500" 
+                  onChange={(e)=>setQuantity(e.target.value)} 
+                  required 
+                />
             </div>
+          </div>
+
+          <div className="relative">
+            <input type="file" accept="image/*" className="hidden" id="file-upload" onChange={(e)=>setFile(e.target.files?.[0] || null)} />
+            <label htmlFor="file-upload" className="flex items-center justify-center w-full p-4 bg-emerald-50 border border-dashed border-emerald-300 rounded-xl cursor-pointer text-[10px] font-black text-emerald-600 tracking-widest uppercase hover:bg-emerald-100 transition-colors">
+              {file ? '✅ Foto Allegata' : '📸 Aggiungi Foto'}
+            </label>
           </div>
 
           <textarea placeholder="Descrizione dettagliata delle condizioni..." className="w-full p-4 bg-stone-50 border border-stone-200 rounded-xl outline-none h-32 text-sm focus:border-emerald-500 transition-colors" onChange={(e)=>setDescription(e.target.value)} />
