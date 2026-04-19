@@ -10,7 +10,7 @@ export default function AddAnnouncement() {
   const [model, setModel] = useState('')
   const [description, setDescription] = useState('')
   const [price, setPrice] = useState('')
-  const [quantity, setQuantity] = useState('1') // Stato per la quantità
+  const [quantity, setQuantity] = useState('1')
   const [category, setCategory] = useState('Edilizia')
   const [file, setFile] = useState<File | null>(null)
   const [type, setType] = useState('sell')
@@ -36,7 +36,7 @@ export default function AddAnnouncement() {
     const { error } = await supabase.from('announcements').insert([{ 
       title, brand, model, description, category, 
       price: parseFloat(price) || 0, 
-      quantity: parseInt(quantity) || 1, // Salvataggio quantità
+      quantity: parseInt(quantity) || 1, 
       image_url: imageUrl, type, 
       user_id: user.id, contact_email: user.email 
     }])
@@ -52,10 +52,11 @@ export default function AddAnnouncement() {
         <h1 className="text-3xl font-black mb-8 uppercase tracking-[0.1em] text-stone-900 italic">Nuovo Annuncio</h1>
         <form onSubmit={handleSubmit} className="space-y-6">
           
+          {/* TASTI VENDI - REGALA - CERCO (Colori Corretti!) */}
           <div className="grid grid-cols-3 gap-2 p-1 bg-stone-100 rounded-xl">
             {['sell', 'offered', 'wanted'].map((t) => (
               <button key={t} type="button" onClick={() => setType(t)} 
-                className={`py-3 rounded-lg text-[10px] font-black tracking-widest uppercase transition-all ${type === t ? 'bg-white text-emerald-600 shadow-md' : 'text-stone-50'}`}>
+                className={`py-3 rounded-lg text-[10px] font-black tracking-widest uppercase transition-all ${type === t ? 'bg-white text-emerald-600 shadow-md' : 'text-stone-500 hover:text-stone-700'}`}>
                 {t === 'sell' ? 'Vendi' : t === 'offered' ? 'Regala' : 'Cerco'}
               </button>
             ))}
@@ -87,7 +88,7 @@ export default function AddAnnouncement() {
                   placeholder="Prezzo (€)" 
                   className="w-full p-4 bg-stone-50 border border-stone-200 rounded-xl font-bold text-sm outline-none focus:border-emerald-500" 
                   onChange={(e)=>setPrice(e.target.value)} 
-                  required 
+                  required={type === 'sell'} 
                 />
                 <input 
                   type="number" 
