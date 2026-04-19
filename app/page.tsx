@@ -42,7 +42,6 @@ function HomePageContent() {
         <button onClick={() => setIsStaffOpen(true)} className="fixed bottom-6 right-6 z-50 bg-stone-900 text-emerald-400 w-14 h-14 rounded-full shadow-lg font-black flex items-center justify-center border border-emerald-400 hover:scale-110 transition-all">👑</button>
       )}
 
-      {/* TESTATA */}
       <div className="relative h-[220px] flex flex-col items-center justify-center p-6 text-center overflow-hidden border-b border-stone-200 bg-white">
           <img src="/gazebo.jpg" className="absolute inset-0 w-full h-full object-cover opacity-30" alt="Materiali Sfondo" />
           <div className="relative z-10 w-full max-w-lg">
@@ -65,7 +64,6 @@ function HomePageContent() {
       </div>
 
       <main className="max-w-7xl mx-auto px-4 mt-8">
-        {/* FILTRI */}
         <section className="mb-8 grid grid-cols-1 md:grid-cols-3 gap-3">
           <input type="text" value={adNumberSearch} placeholder="Cerca numero annuncio" className="p-4 bg-white border border-stone-200 rounded-xl text-xs font-bold outline-none shadow-sm" onChange={(e)=>setAdNumberSearch(e.target.value)} />
           <select onChange={(e)=>setSearchCategory(e.target.value)} className="p-4 bg-white border border-stone-200 rounded-xl text-[10px] font-black uppercase outline-none shadow-sm">
@@ -78,60 +76,66 @@ function HomePageContent() {
           </select>
         </section>
 
-        {/* 3 RIQUADRI */}
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
           <Link href="/add?mode=new" className="group relative h-48 rounded-2xl border border-stone-200 overflow-hidden bg-white hover:border-stone-400 transition-all shadow-sm flex items-center justify-center text-center">
              <img src="/nuovo.png" className="absolute inset-0 w-full h-full object-cover opacity-20 group-hover:opacity-40 transition-all" alt="Nuovo" />
              <div className="relative z-10 p-6"><h3 className="text-2xl font-black uppercase italic text-stone-900">Vendi Nuovo</h3></div>
           </Link>
-
           <Link href="/add?mode=used" className="group relative h-48 rounded-2xl border border-stone-200 overflow-hidden bg-white hover:border-stone-400 transition-all shadow-sm flex items-center justify-center text-center">
              <img src="/usato.png" className="absolute inset-0 w-full h-full object-cover opacity-20 group-hover:opacity-40 transition-all" alt="Usato" />
              <div className="relative z-10 p-6"><h3 className="text-2xl font-black uppercase italic text-stone-900">Vendi Usato</h3></div>
           </Link>
-
           <Link href="/add?mode=gift" className="group relative h-48 rounded-2xl border-2 border-emerald-500 overflow-hidden bg-white hover:bg-emerald-50 transition-all shadow-md flex items-center justify-center text-center">
              <img src="/regala.jpeg" className="absolute inset-0 w-full h-full object-cover opacity-30 group-hover:opacity-50 transition-all" alt="Regala" />
              <div className="relative z-10 p-6"><h3 className="text-lg font-black uppercase italic text-emerald-800 leading-tight">Non sai cosa fartene e non vuoi i soldi?<br/>Regalalo</h3></div>
           </Link>
         </div>
 
-        {/* VETRINA TOP NUOVO */}
+        {/* MODIFICA: VETRINA CON CARD CLICCABILI */}
         <section className="mt-16">
           <h2 className="text-[10px] font-black uppercase tracking-[0.3em] text-stone-400 mb-6 border-b pb-2">Vetrina Top Nuovo</h2>
           <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
             {showcaseNew.map(ann => (
-              <div key={ann.id} className="group bg-white p-2 rounded-xl shadow-sm border border-stone-100">
-                <div className="aspect-square rounded-lg overflow-hidden bg-stone-50 border border-stone-100 mb-2"><img src={ann.image_url || "/nuovo.png"} className="w-full h-full object-cover" /></div>
-                <h4 className="text-[10px] font-bold uppercase truncate px-1">{ann.title}</h4>
-                <p className="text-emerald-600 font-black text-[11px] mt-1 px-1">€ {ann.price}</p>
-              </div>
+              <Link href={`/announcement/${ann.id}`} key={ann.id} className="group bg-white p-3 rounded-xl shadow-sm border border-stone-100 hover:border-stone-400 transition-all flex flex-col justify-between">
+                <div>
+                  <div className="aspect-square rounded-lg overflow-hidden bg-stone-50 border border-stone-100 mb-3">
+                    <img src={ann.image_url || "/nuovo.png"} className="w-full h-full object-cover" />
+                  </div>
+                  <h4 className="text-[11px] font-bold uppercase truncate px-1">{ann.title}</h4>
+                  {ann.brand && <p className="text-[9px] text-stone-400 px-1 uppercase truncate">{ann.brand}</p>}
+                  <p className="text-emerald-600 font-black text-sm mt-1 px-1">€ {ann.price}</p>
+                </div>
+                <button className="mt-3 w-full bg-stone-50 text-stone-800 text-[9px] font-black uppercase py-2 rounded-lg group-hover:bg-stone-900 group-hover:text-white transition-colors">Vedi Dettagli</button>
+              </Link>
             ))}
           </div>
         </section>
 
-        {/* FEED TUTTI GLI OGGETTI (GRIGLIA FITTA) */}
+        {/* MODIFICA: FEED CON CARD CLICCABILI E TASTO */}
         <section className="mt-12">
           <h2 className="text-[10px] font-black uppercase tracking-[0.3em] text-stone-400 mb-6 border-b pb-2">Tutti gli Oggetti</h2>
           <div className="grid grid-cols-2 md:grid-cols-6 gap-3">
             {others.map(ann => (
-              <div key={ann.id} className="bg-white rounded-xl overflow-hidden border border-stone-200 shadow-sm flex flex-col">
-                <div className="h-28 bg-stone-50 relative border-b border-stone-100">
+              <Link href={`/announcement/${ann.id}`} key={ann.id} className="bg-white rounded-xl overflow-hidden border border-stone-200 shadow-sm flex flex-col group hover:border-stone-400 transition-all">
+                <div className="h-32 bg-stone-50 relative border-b border-stone-100">
                   <img src={ann.image_url || "/usato.png"} className="w-full h-full object-cover" />
                   {ann.type === 'offered' && <span className="absolute top-2 right-2 bg-emerald-500 text-white text-[8px] font-black px-2 py-1 rounded uppercase shadow-sm">Regalo</span>}
                 </div>
-                <div className="p-3">
-                    <h4 className="text-[10px] font-bold uppercase truncate text-stone-800">{ann.title}</h4>
-                    <p className="text-[11px] font-black mt-1 text-stone-900">{ann.type === 'offered' ? 'GRATIS' : `€ ${ann.price}`}</p>
-                  {IS_STAFF && <button onClick={async ()=>{if(confirm("Eliminare?")){await supabase.from('announcements').delete().eq('id', ann.id); fetchData()}}} className="mt-3 text-[8px] font-black text-red-500 uppercase bg-red-50 px-2 py-2 rounded w-full border border-red-100">Elimina Staff</button>}
+                <div className="p-3 flex flex-col flex-grow justify-between">
+                    <div>
+                      <h4 className="text-[11px] font-bold uppercase truncate text-stone-800">{ann.title}</h4>
+                      {ann.brand && <p className="text-[9px] text-stone-400 uppercase truncate">{ann.brand}</p>}
+                      <p className="text-[13px] font-black mt-1 text-stone-900">{ann.type === 'offered' ? 'GRATIS' : `€ ${ann.price}`}</p>
+                    </div>
+                  <button className="mt-3 w-full bg-stone-50 text-stone-800 text-[9px] font-black uppercase py-2 rounded-lg group-hover:bg-stone-900 group-hover:text-white transition-colors">Vedi Dettagli</button>
+                  {IS_STAFF && <button onClick={async (e)=>{e.preventDefault(); if(confirm("Eliminare?")){await supabase.from('announcements').delete().eq('id', ann.id); fetchData()}}} className="mt-2 text-[8px] font-black text-red-500 uppercase bg-red-50 px-2 py-2 rounded w-full border border-red-100 hover:bg-red-500 hover:text-white">Elimina Staff</button>}
                 </div>
-              </div>
+              </Link>
             ))}
           </div>
         </section>
       </main>
 
-      {/* POP-UP STAFF */}
       {isStaffOpen && (
         <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-stone-900/60 backdrop-blur-sm">
           <div className="bg-white w-full max-w-sm rounded-3xl p-8 shadow-2xl relative text-center space-y-3">
