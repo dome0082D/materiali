@@ -9,8 +9,8 @@ function HomePageContent() {
   const [announcements, setAnnouncements] = useState<any[]>([])
   
   // STATI PER RICERCA E FILTRI
-  const [mainSearch, setMainSearch] = useState('') // Ricerca in testata
-  const [adNumberSearch, setAdNumberSearch] = useState('') // Ricerca per numero annuncio
+  const [mainSearch, setMainSearch] = useState('') 
+  const [adNumberSearch, setAdNumberSearch] = useState('') 
   const [searchCategory, setSearchCategory] = useState('all')
   const [condition, setCondition] = useState('all')
   
@@ -32,20 +32,14 @@ function HomePageContent() {
 
   // LOGICA FILTRI IN TEMPO REALE
   const filteredAnnouncements = announcements.filter(a => {
-    // Ricerca principale (titolo)
     const matchMain = String(a.title || '').toLowerCase().includes(mainSearch.toLowerCase());
-    // Ricerca per numero annuncio (ID)
     const matchAdNumber = adNumberSearch === '' || String(a.id).includes(adNumberSearch);
-    
     const matchCat = searchCategory === 'all' || a.category === searchCategory;
     const matchCond = condition === 'all' || a.condition === condition;
-    
     return matchMain && matchAdNumber && matchCat && matchCond;
   });
 
-  // VETRINA OGGETTI NUOVI
   const showcaseNew = filteredAnnouncements.filter(a => a.condition === 'Nuovo').slice(0, 5);
-  // FEED GENERALE
   const others = filteredAnnouncements.filter(a => showcaseNew.every(s => s.id !== a.id));
 
   const handleLogout = async () => {
@@ -62,11 +56,11 @@ function HomePageContent() {
         <button onClick={() => setIsStaffOpen(true)} className="fixed bottom-6 right-6 z-50 bg-stone-900 text-emerald-400 w-14 h-14 rounded-full shadow-lg font-black flex items-center justify-center border border-emerald-400 hover:scale-110 transition-all">👑</button>
       )}
 
-      {/* INTESTAZIONE */}
+      {/* INTESTAZIONE SLIM */}
       <div className="relative h-[220px] flex flex-col items-center justify-center p-6 text-center overflow-hidden border-b border-stone-200 bg-white">
-          <img src="/1000097182.png" className="absolute inset-0 w-full h-full object-cover opacity-20" alt="Materiali Sfondo" />
+          <img src="/gazebo.jpg" className="absolute inset-0 w-full h-full object-cover opacity-20" alt="Materiali Sfondo" />
           <div className="relative z-10 w-full max-w-lg">
-            <h1 className="text-5xl font-black uppercase italic tracking-tighter text-stone-900 drop-shadow-sm">Materiali</h1>
+            <h1 className="text-5xl font-black uppercase italic tracking-tighter text-stone-900">Materiali</h1>
             
             <div className="mt-6 w-full relative">
               <input type="text" placeholder="Cerca materiale..." className="w-full p-4 pl-12 rounded-2xl bg-white border border-stone-200 outline-none text-sm focus:border-stone-400 transition-all shadow-sm" onChange={(e)=>setMainSearch(e.target.value)} value={mainSearch} />
@@ -75,9 +69,9 @@ function HomePageContent() {
 
             <div className="mt-4 text-[10px] font-black uppercase flex justify-center gap-4 text-stone-600">
                {user ? (
-                 <button onClick={handleLogout} className="hover:text-red-500 transition-colors">Esci Sessione</button>
+                 <button onClick={handleLogout} className="hover:text-red-500 transition-colors">Logout</button>
                ) : (
-                 <Link href="/login" className="hover:text-emerald-600 transition-colors">Accedi / Registrati</Link>
+                 <Link href="/login" className="hover:text-emerald-600 transition-colors">Accedi con conferma Email</Link>
                )}
             </div>
           </div>
@@ -99,25 +93,25 @@ function HomePageContent() {
           </select>
         </section>
 
-        {/* I 3 RIQUADRI IDENTICI */}
+        {/* I 3 RIQUADRI (Bordi Snelli) */}
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
           
           <Link href="/add?mode=new" className="group relative h-48 rounded-2xl border border-stone-200 overflow-hidden bg-white hover:border-stone-400 transition-all shadow-sm flex items-center justify-center text-center">
-             <img src="/1000097134.png" className="absolute inset-0 w-full h-full object-cover opacity-10 group-hover:opacity-30 transition-all duration-700" alt="Nuovo" />
+             <img src="/nuovo.png" className="absolute inset-0 w-full h-full object-cover opacity-10 group-hover:opacity-30 transition-all duration-700" alt="Nuovo" />
              <div className="relative z-10 p-6">
                 <h3 className="text-2xl font-black uppercase italic text-stone-900">Vendi Nuovo</h3>
              </div>
           </Link>
 
           <Link href="/add?mode=used" className="group relative h-48 rounded-2xl border border-stone-200 overflow-hidden bg-white hover:border-stone-400 transition-all shadow-sm flex items-center justify-center text-center">
-             <img src="/1000097133.png" className="absolute inset-0 w-full h-full object-cover opacity-10 group-hover:opacity-30 transition-all duration-700" alt="Usato" />
+             <img src="/usato.png" className="absolute inset-0 w-full h-full object-cover opacity-10 group-hover:opacity-30 transition-all duration-700" alt="Usato" />
              <div className="relative z-10 p-6">
                 <h3 className="text-2xl font-black uppercase italic text-stone-900">Vendi Usato</h3>
              </div>
           </Link>
 
-          <Link href="/add?mode=gift" className="group relative h-48 rounded-2xl border border-emerald-500 overflow-hidden bg-white hover:bg-emerald-50 transition-all shadow-md flex items-center justify-center text-center">
-             <img src="/1000097182.png" className="absolute inset-0 w-full h-full object-cover opacity-20 group-hover:opacity-40 transition-all duration-700" alt="Regala" />
+          <Link href="/add?mode=gift" className="group relative h-48 rounded-2xl border-2 border-emerald-500 overflow-hidden bg-white hover:bg-emerald-50 transition-all shadow-md flex items-center justify-center text-center">
+             <img src="/regala.jpeg" className="absolute inset-0 w-full h-full object-cover opacity-20 group-hover:opacity-40 transition-all duration-700" alt="Regala" />
              <div className="relative z-10 p-6">
                 <h3 className="text-lg font-black uppercase italic text-emerald-800 leading-tight">Non sai cosa fartene e non vuoi i soldi?<br/>Regalalo</h3>
              </div>
@@ -133,7 +127,7 @@ function HomePageContent() {
               {showcaseNew.map(ann => (
                 <Link href={`/announcement/${ann.id}`} key={ann.id} className="group bg-white p-2 rounded-xl shadow-sm border border-stone-100 hover:border-stone-400 transition-all">
                   <div className="aspect-square rounded-lg overflow-hidden bg-stone-50 border border-stone-100 mb-2">
-                    <img src={ann.image_url || "/1000097134.png"} className="w-full h-full object-cover" />
+                    <img src={ann.image_url || "/nuovo.png"} className="w-full h-full object-cover" />
                   </div>
                   <h4 className="text-[10px] font-bold uppercase truncate px-1 text-stone-800">{ann.title}</h4>
                   <p className="text-emerald-600 font-black text-[11px] mt-1 px-1">€ {ann.price}</p>
@@ -150,7 +144,7 @@ function HomePageContent() {
             {others.map(ann => (
               <Link href={`/announcement/${ann.id}`} key={ann.id} className="bg-white rounded-xl overflow-hidden border border-stone-200 hover:border-stone-400 transition-all group flex flex-col shadow-sm">
                 <div className="h-28 bg-stone-50 overflow-hidden relative border-b border-stone-100">
-                  <img src={ann.image_url || "/1000097133.png"} className="w-full h-full object-cover" />
+                  <img src={ann.image_url || "/usato.png"} className="w-full h-full object-cover" />
                   {ann.type === 'offered' && <span className="absolute top-2 right-2 bg-emerald-500 text-white text-[8px] font-black px-2 py-1 rounded uppercase shadow-sm">Regalo</span>}
                 </div>
                 <div className="p-3 flex-grow flex flex-col justify-between">
@@ -158,7 +152,7 @@ function HomePageContent() {
                     <h4 className="text-[10px] font-bold uppercase truncate text-stone-800">{ann.title}</h4>
                     <p className="text-[11px] font-black mt-1 text-stone-900">{ann.type === 'offered' ? 'GRATIS' : `€ ${ann.price}`}</p>
                   </div>
-                  {IS_STAFF && <button onClick={async (e)=>{e.preventDefault(); if(confirm("Eliminare definitivamente?")){await supabase.from('announcements').delete().eq('id', ann.id); fetchData()}}} className="mt-3 text-[8px] font-black text-red-500 uppercase bg-red-50 px-2 py-2 rounded w-full hover:bg-red-500 hover:text-white transition-colors text-center border border-red-100">Staff: Elimina</button>}
+                  {IS_STAFF && <button onClick={async (e)=>{e.preventDefault(); if(confirm("Eliminare?")){await supabase.from('announcements').delete().eq('id', ann.id); fetchData()}}} className="mt-3 text-[8px] font-black text-red-500 uppercase bg-red-50 px-2 py-2 rounded w-full hover:bg-red-500 hover:text-white transition-colors text-center border border-red-100">Staff: Elimina</button>}
                 </div>
               </Link>
             ))}

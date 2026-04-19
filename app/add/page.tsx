@@ -2,70 +2,93 @@
 import { useState, useEffect, Suspense } from 'react'
 import { supabase } from '@/lib/supabase'
 import { useRouter, useSearchParams } from 'next/navigation'
-import Link from 'next/link'
 
-function AddForm() {
+function AddPageContent() {
   const router = useRouter()
   const searchParams = useSearchParams()
-  const modeParam = searchParams.get('mode')
+  const mode = searchParams.get('mode') // 'new', 'used', 'gift'
 
-  const [uiMode, setUiMode] = useState('gift')
-  const [title, setTitle] = useState('')
-  const [category, setCategory] = useState('Altro')
-  const [price, setPrice] = useState('0')
-  const [files, setFiles] = useState<File[]>([])
   const [loading, setLoading] = useState(false)
+  const [formData, setFormData] = useState({
+    title: '',
+    category: 'Casa',
+    price: mode === 'gift' ? '0' : '',
+    image_url: '',
+    condition: mode === 'new' ? 'Nuovo' : 'Usato'
+  })
 
-  useEffect(() => { if (modeParam) setUiMode(modeParam) }, [modeParam])
+  useEffect(() => {
+    if (!mode) router.push('/')
+  }, [mode])
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault(); setLoading(true)
+  async function handleSubmit(e: React.FormEvent) {
+    e.preventDefault()
+    setLoading(true)
+    
     const { data: { user } } = await supabase.auth.getUser()
-    if (!user) { alert("Devi accedere!"); setLoading(false); return; }
+    if (!user) { alert("Accedi per pubblicare"); return }
 
-    let type = 'sell'; let cond = 'Usato';
-    if (uiMode === 'gift') { type = 'offered'; cond = 'Usato'; }
-    if (uiMode === 'new') { type = 'sell'; cond = 'Nuovo'; }
-
-    let imageUrl = ""
-    if (files.length > 0) {
-      const name = `${Math.random()}-${files[0].name}`
-      await supabase.storage.from('announcements').upload(name, files[0])
-      const { data: { publicUrl } } = supabase.storage.from('announcements').getPublicUrl(name)
-      imageUrl = publicUrl
-    }
-
-    await supabase.from('announcements').insert([{ 
-      title, category, price: uiMode === 'gift' ? 0 : parseFloat(price),
-      type, condition: cond, image_url: imageUrl, user_id: user.id, contact_email: user.email 
+    const { error } = await supabase.from('announcements').insert([{
+      ...formData,
+      price: parseFloat(formData.price),
+      type: mode === 'gift' ? 'offered' : 'sell',
+      user_id: user.id,
+      contact_email: user.email
     }])
-    router.push('/')
+
+    if (error) alert(error.message)
+    else router.push('/')
+    setLoading(false)
   }
 
   return (
-    <main className="bg-white w-full max-w-xl rounded-[2.5rem] shadow-xl p-8 border border-stone-100">
-      <h1 className="text-2xl font-black uppercase italic mb-8 text-center text-stone-800 leading-tight">Cosa vuoi<br/><span className="text-emerald-600">rimettere in circolo?</span></h1>
-      <form onSubmit={handleSubmit} className="space-y-5">
-        <div className="grid grid-cols-3 gap-2 p-1.5 bg-stone-50 rounded-2xl border">
-          {[{id:'gift',l:'Regalo'},{id:'used',l:'Usato'},{id:'new',l:'Nuovo'}].map(m=>(
-            <button key={m.id} type="button" onClick={()=>setUiMode(m.id)} className={`py-3 rounded-xl text-[10px] font-black uppercase transition-all ${uiMode===m.id?'bg-emerald-600 text-white shadow-md':'text-stone-500'}`}>{m.l}</button>
-          ))}
-        </div>
-        <input type="text" placeholder="Nome dell'oggetto..." className="w-full p-4 bg-stone-50 border rounded-2xl text-sm font-bold outline-none" onChange={(e)=>setTitle(e.target.value)} required />
-        <div className="grid grid-cols-2 gap-4">
-           <select className="p-4 bg-stone-50 border rounded-2xl text-[10px] font-black uppercase outline-none" onChange={(e)=>setCategory(e.target.value)}>
-              <option value="Casa">Casa</option><option value="Elettronica">Elettronica</option><option value="Libri">Libri</option><option value="Sport">Sport</option><option value="Altro">Altro</option>
-           </select>
-           {uiMode !== 'gift' && <input type="number" placeholder="Prezzo (€)" className="p-4 bg-stone-50 border rounded-2xl text-sm font-bold outline-none" onChange={(e)=>setPrice(e.target.value)} />}
-        </div>
-        <input type="file" onChange={(e)=>e.target.files && setFiles(Array.from(e.target.files))} className="text-[10px] font-bold text-stone-500" />
-        <button type="submit" disabled={loading} className="w-full py-5 bg-stone-900 text-white rounded-2xl font-black uppercase text-[10px] shadow-lg hover:bg-emerald-600 transition-all">{loading ? 'CARICAMENTO...' : 'CONFERMA E PUBBLICA'}</button>
-      </form>
-      <Link href="/" className="block text-center mt-6 text-[9px] font-bold text-stone-400 uppercase hover:text-stone-900">← Torna Indietro</Link>
-    </main>
+    <div className="min-h-screen bg-stone-50 flex items-center justify-center p-4">
+      <div className="bg-white w-full max-w-md rounded-3xl p-8 border border-stone-200 shadow-sm">
+        <h2 className="text-2xl font-black uppercase italic mb-2">Pubblica</h2>
+        <p className="text-[10px] font-bold uppercase text-stone-400 mb-8 tracking-widest">
+          {mode === 'gift' ? 'Percorso Regalo: Niente soldi, solo recupero' : `Percorso ${mode}`}
+        </p>
+
+        <form onSubmit={handleSubmit} className="space-y-4">
+          <div>
+            <label className="text-[9px] font-black uppercase ml-1">Titolo Oggetto</label>
+            <input required type="text" className="w-full p-4 mt-1 bg-stone-50 border border-stone-100 rounded-xl text-sm outline-none focus:border-stone-400" 
+              onChange={e => setFormData({...formData, title: e.target.value})} />
+          </div>
+
+          <div>
+            <label className="text-[9px] font-black uppercase ml-1">Categoria</label>
+            <select className="w-full p-4 mt-1 bg-stone-50 border border-stone-100 rounded-xl text-sm outline-none cursor-pointer"
+              onChange={e => setFormData({...formData, category: e.target.value})}>
+              <option>Casa</option><option>Elettronica</option><option>Libri</option><option>Sport</option><option>Altro</option>
+            </select>
+          </div>
+
+          {mode !== 'gift' && (
+            <div>
+              <label className="text-[9px] font-black uppercase ml-1">Prezzo (€)</label>
+              <input required type="number" className="w-full p-4 mt-1 bg-stone-50 border border-stone-100 rounded-xl text-sm outline-none focus:border-stone-400" 
+                onChange={e => setFormData({...formData, price: e.target.value})} />
+            </div>
+          )}
+
+          <div>
+            <label className="text-[9px] font-black uppercase ml-1">Link Immagine (URL)</label>
+            <input type="text" placeholder="https://..." className="w-full p-4 mt-1 bg-stone-50 border border-stone-100 rounded-xl text-sm outline-none focus:border-stone-400" 
+              onChange={e => setFormData({...formData, image_url: e.target.value})} />
+          </div>
+
+          <button disabled={loading} className="w-full bg-stone-900 text-white p-4 rounded-2xl font-black uppercase text-xs tracking-widest hover:bg-emerald-600 transition-all mt-4">
+            {loading ? 'Caricamento...' : 'Conferma e Pubblica'}
+          </button>
+          
+          <Link href="/" className="block text-center text-[9px] font-black uppercase text-stone-300 hover:text-stone-900 mt-4">Annulla</Link>
+        </form>
+      </div>
+    </div>
   )
 }
 
 export default function AddPage() {
-  return <div className="min-h-screen bg-stone-50 p-4 flex items-center justify-center font-sans"><Suspense fallback={<div className="font-black text-xs uppercase text-center">Caricamento...</div>}><AddForm /></Suspense></div>
+  return <Suspense fallback={<p>Caricamento...</p>}><AddPageContent /></Suspense>
 }
