@@ -11,10 +11,12 @@ export default function ProfilePage() {
     first_name: '', last_name: '', residence_country: '', residence_region: '', 
     residence_city: '', residence_street: '', residence_number: '', residence_zip: '' 
   })
-  const [allUsers, setAllUsers] = useState<any[]>([])
+  
+  // STATI PER ANNUNCI E PREFERITI
+  const [myAds, setMyAds] = useState<any[]>([])
+  const [wishlistAds, setWishlistAds] = useState<any[]>([])
+  
   const router = useRouter()
-
-  const IS_STAFF = user?.email === 'dome0082@gmail.com';
 
   useEffect(() => { load() }, [])
 
@@ -23,17 +25,26 @@ export default function ProfilePage() {
     if (!u) { router.push('/register'); return; }
     setUser(u)
 
+    // Carica Profilo
     const { data: p } = await supabase.from('profiles').select('*').eq('id', u.id).single()
     if (p) setProfile(p)
 
-    if (u.email === 'dome0082@gmail.com') {
-      const { data: users } = await supabase.from('profiles').select('*').order('user_serial_id', { ascending: true })
-      if (users) setAllUsers(users)
+    // Carica i Miei Annunci
+    const { data: ads } = await supabase.from('announcements').select('*').eq('user_id', u.id).order('created_at', { ascending: false })
+    if (ads) setMyAds(ads)
+
+    // Carica i Preferiti (Wishlist)
+    const { data: w } = await supabase.from('wishlist').select('announcement_id').eq('user_id', u.id)
+    if (w && w.length > 0) {
+      const ids = w.map((item: any) => item.announcement_id)
+      const { data: wAds } = await supabase.from('announcements').select('*').in('id', ids)
+      if (wAds) setWishlistAds(wAds)
     }
+
     setLoading(false)
   }
 
-  // FUNZIONE DI SALVATAGGIO CON GESTIONE ERRORI
+  // SALVATAGGIO PROFILO
   async function update() {
     setLoading(true)
     const { error } = await supabase.from('profiles').upsert({ 
@@ -41,37 +52,40 @@ export default function ProfilePage() {
       ...profile, 
       updated_at: new Date().toISOString() 
     })
-    
-    if (error) {
-      alert("Errore durante il salvataggio: " + error.message)
-    } else {
-      alert("Dati aggiornati e salvati con successo!")
-    }
+    if (error) alert("Errore durante il salvataggio: " + error.message)
+    else alert("Dati aggiornati e salvati con successo!")
     setLoading(false)
   }
 
-  async function deleteUser(id: string) {
-    if(!confirm("STAFF: Vuoi eliminare questo utente?")) return
-    await supabase.from('profiles').delete().eq('id', id)
-    load()
-  }
-
-  // NUOVA FUNZIONE LOGOUT
+  // LOGOUT
   async function handleLogout() {
     await supabase.auth.signOut()
     router.push('/')
   }
 
-  if (loading) return <div className="min-h-screen bg-stone-50 flex items-center justify-center font-bold uppercase tracking-widest text-[10px] text-stone-400">Sincronizzazione...</div>
+  // ELIMINA MIO ANNUNCIO
+  async function deleteMyAd(id: string) {
+    if(!confirm("Sei sicuro di voler eliminare definitivamente questo annuncio?")) return
+    await supabase.from('announcements').delete().eq('id', id)
+    setMyAds(myAds.filter(a => a.id !== id))
+  }
+
+  // RIMUOVI DAI PREFERITI
+  async function removeFromWishlist(annId: string) {
+    await supabase.from('wishlist').delete().match({ user_id: user.id, announcement_id: annId })
+    setWishlistAds(wishlistAds.filter(a => a.id !== annId))
+  }
+
+  if (loading) return <div className="min-h-screen bg-stone-50 flex items-center justify-center font-bold uppercase tracking-widest text-[10px] text-stone-400">Caricamento Profilo...</div>
 
   return (
     <div className="min-h-screen bg-stone-50 p-4 md:p-8 font-sans">
-      <div className="max-w-5xl mx-auto bg-white rounded-xl shadow-xl shadow-stone-200/50 overflow-hidden border border-stone-100">
+      <div className="max-w-5xl mx-auto bg-white rounded-xl shadow-xl border border-stone-100 overflow-hidden">
         
-        {/* HEADER CON TASTO LOGOUT */}
+        {/* HEADER PROFILO */}
         <div className="bg-stone-900 p-8 text-white flex justify-between items-center flex-wrap gap-4">
           <div>
-            <h1 className="text-2xl font-light uppercase tracking-[0.2em]">Il Mio Profilo</h1>
+            <h1 className="text-2xl font-light uppercase tracking-[0.2em]">Area Personale</h1>
             <p className="text-[10px] text-emerald-400 font-bold uppercase tracking-widest mt-2">ID: {profile.user_serial_id || 'In elaborazione...'}</p>
           </div>
           <div className="flex gap-3 items-center">
@@ -80,26 +94,10 @@ export default function ProfilePage() {
           </div>
         </div>
 
-        <div className="p-8">
-          {/* SEZIONE STAFF */}
-          {IS_STAFF && (
-            <div className="mb-10 bg-stone-50 rounded-xl p-6 border border-stone-200">
-              <h3 className="font-bold uppercase tracking-widest text-xs mb-4 text-stone-800">Amministrazione Utenti ({allUsers.length})</h3>
-              <div className="space-y-2 max-h-48 overflow-y-auto pr-2">
-                {allUsers.map(u => (
-                  <div key={u.id} className="flex justify-between items-center p-3 bg-white border border-stone-100 rounded-lg hover:shadow-sm transition-shadow">
-                    <span className="text-[10px] font-bold uppercase tracking-widest text-stone-600"><span className="text-emerald-600 mr-2">{u.user_serial_id}</span> {u.first_name || 'Anonimo'}</span>
-                    {u.user_serial_id !== 'USR-1' && (
-                      <button onClick={()=>deleteUser(u.id)} className="text-red-500 hover:text-red-700 text-[9px] font-bold uppercase tracking-widest">Elimina</button>
-                    )}
-                  </div>
-                ))}
-              </div>
-            </div>
-          )}
-
+        <div className="p-8 space-y-12">
+          
+          {/* SEZIONE 1: DATI E INDIRIZZO */}
           <div className="grid grid-cols-1 md:grid-cols-2 gap-10">
-            {/* DATI ANAGRAFICI */}
             <div className="space-y-4">
               <h3 className="text-[10px] font-bold uppercase tracking-[0.2em] text-stone-400 border-b border-stone-100 pb-2">Dati Personali</h3>
               <div className="grid grid-cols-2 gap-4">
@@ -108,22 +106,69 @@ export default function ProfilePage() {
               </div>
             </div>
 
-            {/* LUOGO DI RITIRO */}
             <div className="space-y-4">
               <h3 className="text-[10px] font-bold uppercase tracking-[0.2em] text-stone-400 border-b border-stone-100 pb-2">Luogo di Residenza / Ritiro Merce</h3>
               <div className="grid grid-cols-2 gap-3">
-                <input placeholder="Nazione (es. Italia)" className="p-3 bg-stone-50 border border-stone-100 rounded-lg text-sm outline-none" value={profile.residence_country || ''} onChange={(e)=>setProfile({...profile, residence_country: e.target.value})} />
-                <input placeholder="Paese / Regione" className="p-3 bg-stone-50 border border-stone-100 rounded-lg text-sm outline-none" value={profile.residence_region || ''} onChange={(e)=>setProfile({...profile, residence_region: e.target.value})} />
+                <input placeholder="Nazione" className="p-3 bg-stone-50 border border-stone-100 rounded-lg text-sm outline-none" value={profile.residence_country || ''} onChange={(e)=>setProfile({...profile, residence_country: e.target.value})} />
+                <input placeholder="Regione" className="p-3 bg-stone-50 border border-stone-100 rounded-lg text-sm outline-none" value={profile.residence_region || ''} onChange={(e)=>setProfile({...profile, residence_region: e.target.value})} />
                 <input placeholder="Città" className="col-span-2 p-3 bg-stone-50 border border-stone-100 rounded-lg text-sm outline-none" value={profile.residence_city || ''} onChange={(e)=>setProfile({...profile, residence_city: e.target.value})} />
                 <input placeholder="Via / Piazza" className="p-3 bg-stone-50 border border-stone-100 rounded-lg text-sm outline-none" value={profile.residence_street || ''} onChange={(e)=>setProfile({...profile, residence_street: e.target.value})} />
                 <div className="grid grid-cols-2 gap-2">
-                  <input placeholder="N. Civico" className="p-3 bg-stone-50 border border-stone-100 rounded-lg text-sm outline-none" value={profile.residence_number || ''} onChange={(e)=>setProfile({...profile, residence_number: e.target.value})} />
+                  <input placeholder="Civico" className="p-3 bg-stone-50 border border-stone-100 rounded-lg text-sm outline-none" value={profile.residence_number || ''} onChange={(e)=>setProfile({...profile, residence_number: e.target.value})} />
                   <input placeholder="CAP" className="p-3 bg-stone-50 border border-stone-100 rounded-lg text-sm outline-none" value={profile.residence_zip || ''} onChange={(e)=>setProfile({...profile, residence_zip: e.target.value})} />
                 </div>
               </div>
               <button onClick={update} className="w-full mt-4 bg-emerald-600 text-white py-3 rounded-lg text-[10px] font-bold uppercase tracking-widest hover:bg-emerald-700 transition-colors shadow-sm">Salva Indirizzo e Dati</button>
             </div>
           </div>
+
+          <hr className="border-stone-100" />
+
+          {/* SEZIONE 2: I MIEI ANNUNCI (CON TASTO MODIFICA) */}
+          <div className="space-y-4">
+            <h3 className="text-[10px] font-bold uppercase tracking-[0.2em] text-emerald-600 border-b border-stone-100 pb-2">I Miei Annunci ({myAds.length})</h3>
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+              {myAds.map(ad => (
+                <div key={ad.id} className="p-4 bg-stone-50 border border-stone-200 rounded-xl flex flex-col justify-between">
+                  <div>
+                    <span className={`px-2 py-1 text-[7px] font-black tracking-widest rounded-sm text-white ${ad.type === 'wanted' ? 'bg-amber-500' : 'bg-emerald-600'}`}>{ad.type}</span>
+                    <h4 className="text-sm font-bold uppercase text-stone-800 mt-2 truncate">{ad.title}</h4>
+                    <p className="text-[11px] font-black text-stone-900 mt-1">€{ad.price} <span className="font-normal text-stone-400 ml-2">Qta: {ad.quantity || 1}</span></p>
+                  </div>
+                  <div className="flex gap-2 mt-4 pt-4 border-t border-stone-200">
+                    <Link href={`/edit/${ad.id}`} className="flex-1 text-center bg-white border border-stone-200 text-stone-700 hover:text-emerald-600 hover:border-emerald-600 px-3 py-2 rounded-lg text-[9px] font-black uppercase tracking-widest transition-all">✏️ Modifica</Link>
+                    <button onClick={() => deleteMyAd(ad.id)} className="bg-red-50 text-red-500 hover:bg-red-600 hover:text-white px-4 py-2 rounded-lg text-[9px] font-black uppercase tracking-widest transition-all border border-red-100 hover:border-red-600">Elimina</button>
+                  </div>
+                </div>
+              ))}
+              {myAds.length === 0 && <p className="text-[10px] font-bold text-stone-400 uppercase tracking-widest">Non hai ancora pubblicato nessun annuncio.</p>}
+            </div>
+          </div>
+
+          <hr className="border-stone-100" />
+
+          {/* SEZIONE 3: I MIEI PREFERITI (WISHLIST) */}
+          <div className="space-y-4">
+            <h3 className="text-[10px] font-bold uppercase tracking-[0.2em] text-red-500 border-b border-stone-100 pb-2">I Miei Preferiti ❤️ ({wishlistAds.length})</h3>
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+              {wishlistAds.map(ad => (
+                <div key={ad.id} className="p-4 bg-white border border-stone-200 rounded-xl flex flex-col justify-between shadow-sm">
+                  <div className="flex justify-between items-start">
+                    <div>
+                      <h4 className="text-sm font-bold uppercase text-stone-800 truncate">{ad.title}</h4>
+                      <p className="text-[11px] font-black text-emerald-600 mt-1">€{ad.price}</p>
+                    </div>
+                    <button onClick={() => removeFromWishlist(ad.id)} className="text-stone-300 hover:text-red-500 text-xl transition-colors">❤️</button>
+                  </div>
+                  <div className="mt-4 pt-4 border-t border-stone-50 text-right">
+                    <Link href={`/chat/${ad.user_id}?ann=${ad.id}`} className="text-emerald-600 hover:text-emerald-800 text-[10px] font-black uppercase tracking-widest transition-colors">Vai in Chat →</Link>
+                  </div>
+                </div>
+              ))}
+              {wishlistAds.length === 0 && <p className="text-[10px] font-bold text-stone-400 uppercase tracking-widest">Nessun annuncio salvato nei preferiti.</p>}
+            </div>
+          </div>
+
         </div>
       </div>
     </div>
