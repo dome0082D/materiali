@@ -12,6 +12,9 @@ export default function AnnouncementPage() {
   const [loading, setLoading] = useState(true)
   const [showCoffeeModal, setShowCoffeeModal] = useState(false)
   const [actionLoading, setActionLoading] = useState(false)
+  
+  // NUOVO: Stato per gestire la quantità scelta dall'acquirente
+  const [selectedQuantity, setSelectedQuantity] = useState(1)
 
   useEffect(() => {
     async function fetchData() {
@@ -39,6 +42,8 @@ export default function AnnouncementPage() {
 
   const handleSecureBuy = async () => {
     if (!user) { alert("Devi accedere per acquistare."); return; }
+    if (user.id === ann.user_id) { alert("Non puoi acquistare un tuo stesso oggetto."); return; }
+    
     setActionLoading(true)
     const res = await fetch('/api/stripe/checkout', {
       method: 'POST',
@@ -47,8 +52,8 @@ export default function AnnouncementPage() {
         announcementId: ann.id,
         buyerId: user.id,
         sellerId: ann.user_id,
-        amount: ann.price,
-        title: ann.title
+        amount: ann.price * selectedQuantity, // Calcola il totale in base alla quantità
+        title: `${ann.title} (x${selectedQuantity})` // Mostra la quantità su Stripe
       })
     })
     const data = await res.json()
@@ -58,6 +63,9 @@ export default function AnnouncementPage() {
 
   if (loading) return <div className="p-10 text-center font-black uppercase text-xs">Caricamento in corso...</div>
   if (!ann) return <div className="p-10 text-center font-black uppercase text-xs text-red-500">Annuncio non trovato.</div>
+
+  // Recupera la quantità massima disponibile
+  const maxQty = ann.quantity || 1;
 
   return (
     <div className="min-h-screen bg-stone-50 p-6 font-sans flex items-center justify-center relative">
@@ -83,11 +91,37 @@ export default function AnnouncementPage() {
                  {ann.type === 'offered' && <span className="bg-emerald-500 text-white text-[10px] font-black px-3 py-1 rounded uppercase shadow-sm">Regalo</span>}
               </div>
               <h1 className="text-3xl font-black uppercase italic text-stone-900 mb-2">{ann.title}</h1>
-              <p className="text-2xl font-black text-emerald-600 mb-8">{ann.type === 'offered' ? 'GRATIS' : `€ ${ann.price}`}</p>
+              
+              {/* Prezzo aggiornato in base alla quantità selezionata */}
+              <p className="text-2xl font-black text-emerald-600 mb-8">
+                 {ann.type === 'offered' ? 'GRATIS' : `€ ${(ann.price * selectedQuantity).toFixed(2)}`}
+              </p>
               
               <div className="space-y-4 mb-8">
                  {ann.brand && <div><p className="text-[9px] font-black uppercase text-stone-400">Marca</p><p className="text-sm font-bold text-stone-800">{ann.brand}</p></div>}
-                 <div><p className="text-[9px] font-black uppercase text-stone-400">Quantità Disponibile</p><p className="text-sm font-bold text-stone-800">{ann.quantity || 1}</p></div>
+                 
+                 {/* SELETTORE QUANTITÀ */}
+                 <div className="flex flex-col gap-1">
+                    <p className="text-[9px] font-black uppercase text-stone-400">Quantità desiderata (Disponibili: {maxQty})</p>
+                    {ann.type !== 'offered' ? (
+                      <div className="flex items-center gap-3">
+                        <input 
+                          type="range" 
+                          min="1" 
+                          max={maxQty} 
+                          value={selectedQuantity} 
+                          onChange={(e) => setSelectedQuantity(Number(e.target.value))}
+                          className="w-full md:w-1/2 cursor-pointer accent-emerald-500"
+                        />
+                        <span className="text-sm font-bold text-stone-800 bg-stone-100 px-3 py-1 rounded-lg border border-stone-200">
+                          {selectedQuantity}
+                        </span>
+                      </div>
+                    ) : (
+                      <p className="text-sm font-bold text-stone-800">{maxQty}</p>
+                    )}
+                 </div>
+
                  <div className="pt-4 border-t border-stone-100">
                    <p className="text-[9px] font-black uppercase text-stone-400 mb-1">Descrizione / Note</p>
                    <p className="text-sm text-stone-700 whitespace-pre-wrap leading-relaxed">{ann.notes || 'Nessuna descrizione fornita.'}</p>
@@ -96,10 +130,19 @@ export default function AnnouncementPage() {
            </div>
 
            <div className="space-y-3 pt-6 border-t border-stone-100">
-              {/* TASTO COMPRA IN SICUREZZA (Solo se è in vendita e non è dell'utente stesso) */}
-              {ann.type !== 'offered' && user?.id !== ann.user_id && (
-                <button onClick={handleSecureBuy} disabled={actionLoading} className="w-full bg-emerald-500 text-white p-4 rounded-2xl font-black uppercase text-[10px] tracking-widest hover:bg-emerald-600 transition-all shadow-md">
-                  {actionLoading ? 'Elaborazione...' : 'Compra in Sicurezza (Escrow)'}
+              
+              {/* TASTO ACQUISTA (Visibile ma disabilitato se è il tuo annuncio) */}
+              {ann.type !== 'offered' && (
+                <button 
+                  onClick={handleSecureBuy} 
+                  disabled={actionLoading || user?.id === ann.user_id} 
+                  className={`w-full p-4 rounded-2xl font-black uppercase text-[10px] tracking-widest transition-all shadow-md ${
+                    user?.id === ann.user_id 
+                    ? 'bg-stone-300 text-stone-500 cursor-not-allowed' 
+                    : 'bg-emerald-500 text-white hover:bg-emerald-600'
+                  }`}
+                >
+                  {actionLoading ? 'Elaborazione...' : user?.id === ann.user_id ? 'Tuo Oggetto (Acquisto Disabilitato)' : 'Acquista'}
                 </button>
               )}
 
