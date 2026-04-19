@@ -9,15 +9,15 @@ function AddPageContent() {
   const searchParams = useSearchParams()
   const mode = searchParams.get('mode')
   const [loading, setLoading] = useState(false)
+  const [files, setFiles] = useState<File[]>([]) // Stato per i file allegati
   
-  // Aggiunti brand, quantity e image_urls allo stato
   const [formData, setFormData] = useState({ 
     title: '', 
     category: 'Casa', 
     brand: '',
     quantity: '1',
     price: mode === 'gift' ? '0' : '', 
-    image_urls: '', 
+    notes: '', // Nuova voce note
     condition: mode === 'new' ? 'Nuovo' : 'Usato' 
   })
 
@@ -25,11 +25,28 @@ function AddPageContent() {
     e.preventDefault()
     setLoading(true)
     const { data: { user } } = await supabase.auth.getUser()
-    if (!user) { alert("Accedi per pubblicare"); return }
+    if (!user) { alert("Accedi per pubblicare"); setLoading(false); return }
 
-    // Separa gli URL delle immagini inserite tramite virgola
-    const urlsArray = formData.image_urls.split(',').map(u => u.trim()).filter(Boolean);
-    const mainImageUrl = urlsArray.length > 0 ? urlsArray[0] : ''; // Mantiene compatibilità con la Home
+    // Logica di caricamento allegati su Supabase Storage
+    let uploadedUrls: string[] = [];
+    if (files.length > 0) {
+      for (const file of files) {
+        const fileExt = file.name.split('.').pop();
+        const fileName = `${Math.random()}.${fileExt}`;
+        const filePath = `${user.id}/${fileName}`;
+        
+        const { error: uploadError } = await supabase.storage.from('images').upload(filePath, file);
+        if (!uploadError) {
+           const { data: publicUrlData } = supabase.storage.from('images').getPublicUrl(filePath);
+           uploadedUrls.push(publicUrlData.publicUrl);
+        } else {
+           console.error("Errore upload immagine:", uploadError);
+           alert("Errore nel caricamento di un'immagine. Hai creato il bucket 'images' su Supabase come Pubblico?");
+        }
+      }
+    }
+
+    const mainImageUrl = uploadedUrls.length > 0 ? uploadedUrls[0] : '';
 
     const payload = {
       title: formData.title,
@@ -37,8 +54,9 @@ function AddPageContent() {
       brand: formData.brand,
       quantity: parseInt(formData.quantity) || 1,
       price: parseFloat(formData.price) || 0,
-      image_url: mainImageUrl, // Salva la prima immagine per la Home
-      image_urls: urlsArray,   // Salva tutte le immagini nel nuovo campo
+      notes: formData.notes,
+      image_url: mainImageUrl, 
+      image_urls: uploadedUrls, 
       condition: formData.condition,
       type: mode === 'gift' ? 'offered' : 'sell',
       user_id: user.id,
@@ -75,10 +93,15 @@ function AddPageContent() {
           ) : (
              <div className="p-4 bg-emerald-50 text-emerald-700 text-xs font-black uppercase text-center rounded-xl">Regalo: Prezzo 0€</div>
           )}
+
+          <textarea placeholder="Note e descrizione..." className="w-full p-4 bg-stone-50 border border-stone-100 rounded-xl text-sm outline-none focus:border-stone-400 min-h-[100px]" onChange={e => setFormData({...formData, notes: e.target.value})}></textarea>
           
-          <input placeholder="Link Immagini (URL, separati da virgola)" className="w-full p-4 bg-stone-50 border border-stone-100 rounded-xl text-sm outline-none focus:border-stone-400" onChange={e => setFormData({...formData, image_urls: e.target.value})} />
+          <div className="p-4 bg-stone-50 border border-stone-100 rounded-xl">
+             <label className="text-[9px] font-black uppercase text-stone-400 block mb-2">Allega Immagini (Seleziona più file)</label>
+             <input type="file" multiple accept="image/*" className="w-full text-xs outline-none" onChange={e => setFiles(Array.from(e.target.files || []))} />
+          </div>
           
-          <button disabled={loading} className="w-full bg-stone-900 text-white p-4 rounded-2xl font-black uppercase text-xs hover:bg-emerald-600 transition-all">{loading ? 'Pubblicazione...' : 'Conferma'}</button>
+          <button disabled={loading} className="w-full bg-stone-900 text-white p-4 rounded-2xl font-black uppercase text-xs hover:bg-emerald-600 transition-all">{loading ? 'Caricamento file...' : 'Conferma'}</button>
           
           <Link href="/" className="block text-center text-[9px] font-black uppercase text-stone-300 pt-2 hover:text-stone-900 transition-colors">Annulla</Link>
         </form>
