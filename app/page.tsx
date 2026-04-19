@@ -7,11 +7,12 @@ import { useRouter } from 'next/navigation'
 function HomePageContent() {
   const [user, setUser] = useState<any>(null)
   const [announcements, setAnnouncements] = useState<any[]>([])
-  const [favorites, setFavorites] = useState<string[]>([]) // NUOVO: Stato per i preferiti
+  const [favorites, setFavorites] = useState<string[]>([])
   const [mainSearch, setMainSearch] = useState('') 
   const [adNumberSearch, setAdNumberSearch] = useState('') 
   const [searchCategory, setSearchCategory] = useState('all')
   const [condition, setCondition] = useState('all')
+  const [distance, setDistance] = useState(0) // 0 = Tutte
   const [isStaffOpen, setIsStaffOpen] = useState(false)
   const router = useRouter()
 
@@ -22,24 +23,30 @@ function HomePageContent() {
   async function fetchData() {
     const { data: { user: u } } = await supabase.auth.getUser()
     setUser(u)
-    
-    // Carica annunci
     const { data } = await supabase.from('announcements').select('*').order('created_at', { ascending: false })
     if (data) setAnnouncements(data)
-
-    // NUOVO: Carica preferiti se utente loggato
     if (u) {
       const { data: favs } = await supabase.from('favorites').select('announcement_id').eq('user_id', u.id)
       if (favs) setFavorites(favs.map(f => f.announcement_id))
     }
   }
 
-  // NUOVO: Funzione per aggiungere/togliere preferiti
-  async function toggleFavorite(e: any, annId: string) {
-    e.preventDefault(); // Evita di aprire l'annuncio
-    e.stopPropagation();
-    if (!user) { alert("Accedi per salvare i preferiti!"); return; }
+  const toggleNearby = () => {
+    if (distance > 0) { setDistance(0); fetchData(); } 
+    else {
+      navigator.geolocation.getCurrentPosition(async (pos) => {
+        setDistance(20);
+        const { data } = await supabase.rpc('get_nearby_announcements', {
+          user_lat: pos.coords.latitude, user_lon: pos.coords.longitude, radius_meters: 20000
+        });
+        if (data) setAnnouncements(data);
+      });
+    }
+  };
 
+  async function toggleFavorite(e: any, annId: string) {
+    e.preventDefault(); e.stopPropagation();
+    if (!user) { alert("Accedi per i preferiti"); return; }
     if (favorites.includes(annId)) {
       await supabase.from('favorites').delete().eq('user_id', user.id).eq('announcement_id', annId);
       setFavorites(favorites.filter(id => id !== annId));
@@ -66,8 +73,9 @@ function HomePageContent() {
         <button onClick={() => setIsStaffOpen(true)} className="fixed bottom-6 right-6 z-50 bg-stone-900 text-emerald-400 w-14 h-14 rounded-full shadow-lg font-black flex items-center justify-center border border-emerald-400 hover:scale-110 transition-all">👑</button>
       )}
 
+      {/* TESTATA */}
       <div className="relative h-[220px] flex flex-col items-center justify-center p-6 text-center overflow-hidden border-b border-stone-200 bg-white">
-          <img src="/gazebo.jpg" className="absolute inset-0 w-full h-full object-cover opacity-30" alt="Materiali Sfondo" />
+          <img src="/gazebo.jpg" className="absolute inset-0 w-full h-full object-cover opacity-30" alt="Sfondo" />
           <div className="relative z-10 w-full max-w-lg">
             <h1 className="text-5xl font-black uppercase italic tracking-tighter text-stone-900">Materiali</h1>
             <div className="mt-6 w-full relative">
@@ -78,8 +86,8 @@ function HomePageContent() {
                {user ? (
                  <>
                   <Link href="/profile" className="hover:text-emerald-600">Mio Profilo</Link>
-                  <Link href="/dashboard/preferiti" className="hover:text-emerald-600">I Miei Preferiti</Link>
-                  <button onClick={() => supabase.auth.signOut().then(() => window.location.reload())} className="hover:text-red-500">Esci Sessione</button>
+                  <Link href="/dashboard/preferiti" className="hover:text-emerald-600">Preferiti ❤️</Link>
+                  <button onClick={() => supabase.auth.signOut().then(() => window.location.reload())} className="hover:text-red-500">Esci</button>
                  </>
                ) : (
                  <Link href="/login" className="hover:text-emerald-600">Accedi / Registrati</Link>
@@ -89,8 +97,8 @@ function HomePageContent() {
       </div>
 
       <main className="max-w-7xl mx-auto px-4 mt-8">
-        <section className="mb-8 grid grid-cols-1 md:grid-cols-3 gap-3">
-          <input type="text" value={adNumberSearch} placeholder="Cerca numero annuncio" className="p-4 bg-white border border-stone-200 rounded-xl text-xs font-bold outline-none shadow-sm" onChange={(e)=>setAdNumberSearch(e.target.value)} />
+        <section className="mb-8 grid grid-cols-1 md:grid-cols-4 gap-3">
+          <input type="text" placeholder="N. Annuncio" className="p-4 bg-white border border-stone-200 rounded-xl text-xs font-bold outline-none shadow-sm" onChange={(e)=>setAdNumberSearch(e.target.value)} />
           <select onChange={(e)=>setSearchCategory(e.target.value)} className="p-4 bg-white border border-stone-200 rounded-xl text-[10px] font-black uppercase outline-none shadow-sm">
             <option value="all">Tutte le Categorie</option>
             <option value="Casa">Casa</option><option value="Elettronica">Elettronica</option><option value="Libri">Libri</option><option value="Sport">Sport</option><option value="Altro">Altro</option>
@@ -99,42 +107,37 @@ function HomePageContent() {
             <option value="all">Tutte le Condizioni</option>
             <option value="Nuovo">Solo Nuovo</option><option value="Usato">Usato / Regalo</option>
           </select>
+          <button onClick={toggleNearby} className={`p-4 rounded-xl text-[10px] font-black uppercase shadow-sm border transition-all ${distance > 0 ? 'bg-emerald-500 text-white border-emerald-600' : 'bg-white text-stone-900 border-stone-200'}`}>
+            {distance > 0 ? `Entro 20km 📍` : "Vicino a me 📍"}
+          </button>
         </section>
 
+        {/* BOX AZIONI */}
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
           <Link href="/add?mode=new" className="group relative h-48 rounded-2xl border border-stone-200 overflow-hidden bg-white hover:border-stone-400 transition-all shadow-sm flex items-center justify-center text-center">
-             <img src="/nuovo.png" className="absolute inset-0 w-full h-full object-cover opacity-20 group-hover:opacity-40 transition-all" alt="Nuovo" />
+             <img src="/nuovo.png" className="absolute inset-0 w-full h-full object-cover opacity-20" alt="Nuovo" />
              <div className="relative z-10 p-6"><h3 className="text-2xl font-black uppercase italic text-stone-900">Vendi Nuovo</h3></div>
           </Link>
           <Link href="/add?mode=used" className="group relative h-48 rounded-2xl border border-stone-200 overflow-hidden bg-white hover:border-stone-400 transition-all shadow-sm flex items-center justify-center text-center">
-             <img src="/usato.png" className="absolute inset-0 w-full h-full object-cover opacity-20 group-hover:opacity-40 transition-all" alt="Usato" />
+             <img src="/usato.png" className="absolute inset-0 w-full h-full object-cover opacity-20" alt="Usato" />
              <div className="relative z-10 p-6"><h3 className="text-2xl font-black uppercase italic text-stone-900">Vendi Usato</h3></div>
           </Link>
           <Link href="/add?mode=gift" className="group relative h-48 rounded-2xl border-2 border-emerald-500 overflow-hidden bg-white hover:bg-emerald-50 transition-all shadow-md flex items-center justify-center text-center">
-             <img src="/regala.jpeg" className="absolute inset-0 w-full h-full object-cover opacity-30 group-hover:opacity-50 transition-all" alt="Regala" />
+             <img src="/regala.jpeg" className="absolute inset-0 w-full h-full object-cover opacity-30" alt="Regala" />
              <div className="relative z-10 p-6"><h3 className="text-lg font-black uppercase italic text-emerald-800 leading-tight">Non sai cosa fartene e non vuoi i soldi?<br/>Regalalo</h3></div>
           </Link>
         </div>
 
+        {/* FEED ANNUNCI */}
         <section className="mt-16">
           <h2 className="text-[10px] font-black uppercase tracking-[0.3em] text-stone-400 mb-6 border-b pb-2">Vetrina Top Nuovo</h2>
           <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
             {showcaseNew.map(ann => (
-              <Link href={`/announcement/${ann.id}`} key={ann.id} className="group bg-white p-3 rounded-xl shadow-sm border border-stone-100 hover:border-stone-400 transition-all flex flex-col justify-between relative">
-                
-                {/* ICONA PREFERITI */}
-                <button onClick={(e) => toggleFavorite(e, ann.id)} className="absolute top-4 right-4 z-20 bg-white/80 backdrop-blur rounded-full p-2 hover:scale-110 transition-transform">
-                  {favorites.includes(ann.id) ? '❤️' : '🤍'}
-                </button>
-
-                <div>
-                  <div className="aspect-square rounded-lg overflow-hidden bg-stone-50 border border-stone-100 mb-3">
-                    <img src={ann.image_url || "/nuovo.png"} className="w-full h-full object-cover" />
-                  </div>
-                  <h4 className="text-[11px] font-bold uppercase truncate px-1">{ann.title}</h4>
-                  {ann.brand && <p className="text-[9px] text-stone-400 px-1 uppercase truncate">{ann.brand}</p>}
-                  <p className="text-emerald-600 font-black text-sm mt-1 px-1">€ {ann.price}</p>
-                </div>
+              <Link href={`/announcement/${ann.id}`} key={ann.id} className="group bg-white p-3 rounded-xl shadow-sm border border-stone-100 relative">
+                <button onClick={(e) => toggleFavorite(e, ann.id)} className="absolute top-4 right-4 z-20 bg-white/80 rounded-full p-2 text-xs">{favorites.includes(ann.id) ? '❤️' : '🤍'}</button>
+                <div className="aspect-square rounded-lg overflow-hidden bg-stone-50 border border-stone-100 mb-3"><img src={ann.image_url || "/nuovo.png"} className="w-full h-full object-cover" /></div>
+                <h4 className="text-[11px] font-bold uppercase truncate">{ann.title}</h4>
+                <p className="text-emerald-600 font-black text-sm mt-1">€ {ann.price}</p>
                 <button className="mt-3 w-full bg-stone-50 text-stone-800 text-[9px] font-black uppercase py-2 rounded-lg group-hover:bg-stone-900 group-hover:text-white transition-colors">Vedi Dettagli</button>
               </Link>
             ))}
@@ -145,25 +148,13 @@ function HomePageContent() {
           <h2 className="text-[10px] font-black uppercase tracking-[0.3em] text-stone-400 mb-6 border-b pb-2">Tutti gli Oggetti</h2>
           <div className="grid grid-cols-2 md:grid-cols-6 gap-3">
             {others.map(ann => (
-              <Link href={`/announcement/${ann.id}`} key={ann.id} className="bg-white rounded-xl overflow-hidden border border-stone-200 shadow-sm flex flex-col group hover:border-stone-400 transition-all relative">
-                
-                {/* ICONA PREFERITI */}
-                <button onClick={(e) => toggleFavorite(e, ann.id)} className="absolute top-2 left-2 z-20 bg-white/80 backdrop-blur rounded-full p-1.5 hover:scale-110 transition-transform text-xs">
-                  {favorites.includes(ann.id) ? '❤️' : '🤍'}
-                </button>
-
-                <div className="h-32 bg-stone-50 relative border-b border-stone-100">
-                  <img src={ann.image_url || "/usato.png"} className="w-full h-full object-cover" />
-                  {ann.type === 'offered' && <span className="absolute top-2 right-2 bg-emerald-500 text-white text-[8px] font-black px-2 py-1 rounded uppercase shadow-sm">Regalo</span>}
-                </div>
-                <div className="p-3 flex flex-col flex-grow justify-between">
-                    <div>
-                      <h4 className="text-[11px] font-bold uppercase truncate text-stone-800">{ann.title}</h4>
-                      {ann.brand && <p className="text-[9px] text-stone-400 uppercase truncate">{ann.brand}</p>}
-                      <p className="text-[13px] font-black mt-1 text-stone-900">{ann.type === 'offered' ? 'GRATIS' : `€ ${ann.price}`}</p>
-                    </div>
-                  <button className="mt-3 w-full bg-stone-50 text-stone-800 text-[9px] font-black uppercase py-2 rounded-lg group-hover:bg-stone-900 group-hover:text-white transition-colors">Vedi Dettagli</button>
-                  {IS_STAFF && <button onClick={async (e)=>{e.preventDefault(); e.stopPropagation(); if(confirm("Eliminare?")){await supabase.from('announcements').delete().eq('id', ann.id); fetchData()}}} className="mt-2 text-[8px] font-black text-red-500 uppercase bg-red-50 px-2 py-2 rounded w-full border border-red-100 hover:bg-red-500 hover:text-white">Elimina Staff</button>}
+              <Link href={`/announcement/${ann.id}`} key={ann.id} className="bg-white rounded-xl overflow-hidden border border-stone-200 shadow-sm flex flex-col group relative">
+                <button onClick={(e) => toggleFavorite(e, ann.id)} className="absolute top-2 left-2 z-20 bg-white/80 rounded-full p-1.5 text-[10px]">{favorites.includes(ann.id) ? '❤️' : '🤍'}</button>
+                <div className="h-32 bg-stone-50 relative"><img src={ann.image_url || "/usato.png"} className="w-full h-full object-cover" /></div>
+                <div className="p-3">
+                    <h4 className="text-[11px] font-bold uppercase truncate">{ann.title}</h4>
+                    <p className="text-[13px] font-black mt-1">{ann.type === 'offered' ? 'GRATIS' : `€ ${ann.price}`}</p>
+                    <button className="mt-3 w-full bg-stone-50 text-stone-800 text-[9px] font-black uppercase py-2 rounded-lg group-hover:bg-stone-900 group-hover:text-white transition-colors">Dettagli</button>
                 </div>
               </Link>
             ))}
@@ -171,6 +162,7 @@ function HomePageContent() {
         </section>
       </main>
 
+      {/* POP-UP STAFF */}
       {isStaffOpen && (
         <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-stone-900/60 backdrop-blur-sm">
           <div className="bg-white w-full max-w-sm rounded-3xl p-8 shadow-2xl relative text-center space-y-3">
