@@ -4,7 +4,7 @@ import { supabase } from '@/lib/supabase'
 import Link from 'next/link'
 
 const SkeletonCard = () => (
-  <div className="bg-stone-100 animate-pulse rounded-2xl h-[400px] w-full border border-stone-200"></div>
+  <div className="bg-stone-100 animate-pulse rounded-2xl h-[380px] w-full border border-stone-200"></div>
 )
 
 export default function HomePage() {
@@ -23,8 +23,6 @@ export default function HomePage() {
   const [maxPrice, setMaxPrice] = useState('')
   const [sortBy, setSortBy] = useState('recent')
   const [isStaffMenuOpen, setIsStaffMenuOpen] = useState(false)
-  const [suggestions, setSuggestions] = useState<string[]>([])
-  const [showSuggestions, setShowSuggestions] = useState(false)
 
   const IS_STAFF = user?.email === 'dome0082@gmail.com';
 
@@ -35,11 +33,7 @@ export default function HomePage() {
     if (searchTerm) {
       const term = searchTerm.toLowerCase();
       res = res.filter(a => String(a?.title || '').toLowerCase().includes(term) || String(a?.brand || '').toLowerCase().includes(term));
-      const matches = new Set<string>();
-      announcements.forEach(a => { if (a?.title?.toLowerCase().includes(term)) matches.add(a.title); });
-      setSuggestions(Array.from(matches).slice(0, 5));
-    } else setSuggestions([]);
-
+    }
     if (searchBrand) res = res.filter(a => String(a?.brand || '').toLowerCase().includes(searchBrand.toLowerCase()));
     if (activeType !== 'all') res = res.filter(a => a?.type === activeType);
     if (category !== 'all') res = res.filter(a => a?.category === category);
@@ -67,7 +61,7 @@ export default function HomePage() {
   }
 
   const toggleWishlist = async (annId: string) => {
-    if (!user) return alert("Accedi per i preferiti!");
+    if (!user) return alert("Accedi!");
     if (wishlist.includes(annId)) {
       setWishlist(wishlist.filter(id => id !== annId));
       await supabase.from('wishlist').delete().match({ user_id: user.id, announcement_id: annId });
@@ -81,14 +75,11 @@ export default function HomePage() {
     <div className="min-h-screen bg-stone-50 font-sans text-stone-900 overflow-x-hidden">
       {IS_STAFF && (
         <>
-          <button onClick={() => setIsStaffMenuOpen(true)} className="fixed bottom-6 right-6 z-50 bg-emerald-700 text-white w-14 h-14 rounded-full shadow-lg font-black text-xl hover:scale-110">👑</button>
+          <button onClick={() => setIsStaffMenuOpen(true)} className="fixed bottom-6 right-6 z-50 bg-emerald-700 text-white w-14 h-14 rounded-full shadow-lg font-black text-xl flex items-center justify-center">👑</button>
           <div className={`fixed top-0 right-0 h-full w-80 bg-stone-900 z-[60] transform transition-transform duration-500 ease-out ${isStaffMenuOpen ? 'translate-x-0' : 'translate-x-full'} p-6 text-stone-100 shadow-2xl`}>
-             <div className="flex justify-between border-b border-stone-800 pb-4 mb-8">
-               <span className="font-bold uppercase tracking-widest text-xs tracking-tighter">Pannello Controllo</span>
-               <button onClick={() => setIsStaffMenuOpen(false)}>✕</button>
-             </div>
-             <Link href="/staff/users" className="block p-4 bg-stone-800 rounded-lg font-bold hover:bg-emerald-600 mb-4 text-center uppercase text-[10px] tracking-widest">Lista Utenti</Link>
-             <Link href="/chat" className="block p-4 bg-stone-800 rounded-lg font-bold hover:bg-emerald-600 text-center uppercase text-[10px] tracking-widest">Chat Globali</Link>
+             <div className="flex justify-between border-b border-stone-800 pb-4 mb-8 font-black uppercase text-[10px]">Pannello Staff <button onClick={() => setIsStaffMenuOpen(false)}>✕</button></div>
+             <Link href="/staff/users" className="block p-4 bg-stone-800 rounded-lg font-black hover:bg-emerald-600 mb-4 text-center uppercase text-[10px]">Lista Utenti</Link>
+             <Link href="/chat" className="block p-4 bg-stone-800 rounded-lg font-black hover:bg-emerald-600 text-center uppercase text-[10px]">Monitoraggio Chat</Link>
           </div>
           {isStaffMenuOpen && <div onClick={() => setIsStaffMenuOpen(false)} className="fixed inset-0 bg-stone-900/40 backdrop-blur-sm z-[55]"></div>}
         </>
@@ -110,32 +101,43 @@ export default function HomePage() {
           </div>
         </nav>
 
+        {/* HERO */}
         <div className="px-6 mt-6">
           <div className="relative h-[400px] rounded-3xl overflow-visible border shadow-lg z-30">
             <img src="/gazebo.jpg" alt="Hero" className="absolute inset-0 w-full h-full object-cover rounded-3xl" />
             <div className="absolute inset-0 bg-stone-900/60 flex flex-col items-center justify-center p-8 text-center rounded-3xl">
               <h1 className="text-4xl md:text-6xl font-black text-white mb-8 italic uppercase drop-shadow-lg tracking-tighter">Recupera, Regala, Vendi</h1>
               <div className="w-full max-w-2xl relative">
-                <input type="text" value={searchTerm} placeholder="Cosa ti serve oggi?" className="w-full p-5 pl-14 rounded-2xl bg-white shadow-2xl outline-none text-lg" onChange={(e) => setSearchTerm(e.target.value)} onFocus={() => setShowSuggestions(true)} onBlur={() => setTimeout(() => setShowSuggestions(false), 200)} />
+                <input type="text" value={searchTerm} placeholder="Cosa stai cercando?" className="w-full p-5 pl-14 rounded-2xl bg-white shadow-2xl outline-none text-lg" onChange={(e) => setSearchTerm(e.target.value)} />
                 <span className="absolute left-5 top-5 text-2xl opacity-40">🔍</span>
-                {showSuggestions && suggestions.length > 0 && (
-                  <div className="absolute top-full left-0 w-full mt-2 bg-white rounded-xl shadow-2xl border overflow-hidden text-left z-50">
-                    {suggestions.map((s, i) => (
-                      <div key={i} className="p-4 hover:bg-stone-50 cursor-pointer font-bold border-b last:border-0" onClick={() => { setSearchTerm(s); setShowSuggestions(false); }}>🔍 {s}</div>
-                    ))}
-                  </div>
-                )}
               </div>
             </div>
           </div>
         </div>
 
+        {/* RIQUADRI DINAMICI */}
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6 px-6 mt-8 relative z-10">
+          <Link href="/add?mode=used" className="relative h-[220px] rounded-3xl overflow-hidden group shadow-md border-2 border-transparent hover:border-emerald-500 transition-all">
+            <img src="/usato.png" alt="Usato" className="absolute inset-0 w-full h-full object-cover group-hover:scale-105 transition-transform duration-700" />
+            <div className="absolute inset-0 bg-stone-900/50 group-hover:bg-stone-900/40 transition-colors flex items-center justify-center p-8 text-center">
+              <h3 className="text-2xl font-black text-white uppercase italic drop-shadow-md">"Non buttare, magari ad un altro serve" (VENDI USATO)</h3>
+            </div>
+          </Link>
+          <Link href="/add?mode=new" className="relative h-[220px] rounded-3xl overflow-hidden group shadow-md border-2 border-transparent hover:border-emerald-500 transition-all">
+            <img src="/nuovo.png" alt="Nuovo" className="absolute inset-0 w-full h-full object-cover group-hover:scale-105 transition-transform duration-700" />
+            <div className="absolute inset-0 bg-stone-900/50 group-hover:bg-stone-900/40 transition-colors flex items-center justify-center p-8 text-center">
+              <h3 className="text-2xl font-black text-white uppercase italic drop-shadow-md">"È nuovo?, vendilo" (VENDI NUOVO)</h3>
+            </div>
+          </Link>
+        </div>
+
+        {/* FILTRI */}
         <div className="mx-6 mt-10 p-6 bg-stone-50 rounded-3xl border border-stone-200 shadow-sm flex flex-col gap-4">
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-            <input type="text" value={searchTerm} placeholder="Cerca parola..." className="p-3 bg-white border border-stone-200 rounded-lg text-sm font-bold outline-none" onChange={(e)=>setSearchTerm(e.target.value)} />
-            <input type="text" value={searchBrand} placeholder="Filtra per Marca" className="p-3 bg-white border border-stone-200 rounded-lg text-sm font-bold outline-none" onChange={(e)=>setSearchBrand(e.target.value)} />
-            <select value={category} onChange={(e)=>setCategory(e.target.value)} className="p-3 bg-white border border-stone-200 rounded-lg text-[11px] font-black uppercase outline-none text-stone-700">
-              <option value="all">Tutte le Categorie</option><option value="Edilizia">Edilizia</option><option value="Elettricità">Elettricità</option><option value="Idraulica">Idraulica</option><option value="Attrezzi">Attrezzi</option><option value="Altro">Altro</option>
+            <input type="text" value={searchTerm} placeholder="Cerca materiale..." className="p-3 bg-white border rounded-lg text-sm font-bold outline-none" onChange={(e)=>setSearchTerm(e.target.value)} />
+            <input type="text" value={searchBrand} placeholder="Marca" className="p-3 bg-white border rounded-lg text-sm font-bold outline-none" onChange={(e)=>setSearchBrand(e.target.value)} />
+            <select value={condition} onChange={(e)=>setCondition(e.target.value)} className="p-3 bg-white border rounded-lg text-[11px] font-black uppercase outline-none">
+              <option value="all">Condizione (Tutte)</option><option value="Nuovo">Nuovo</option><option value="Usato">Usato</option>
             </select>
           </div>
           <div className="flex flex-wrap gap-2 pt-4 border-t border-stone-200">
@@ -144,14 +146,10 @@ export default function HomePage() {
                 {f === 'all' ? 'Tutti' : f === 'sell' ? 'Vendi' : f === 'offered' ? 'Regala' : 'Cerco'}
               </button>
             ))}
-            <div className="ml-auto flex gap-4">
-              <select value={sortBy} onChange={(e)=>setSortBy(e.target.value)} className="p-2 bg-transparent text-[10px] font-black uppercase text-stone-500 outline-none">
-                <option value="recent">🕒 Più Recenti</option><option value="price_asc">💶 Prezzo Min</option><option value="price_desc">💶 Prezzo Max</option>
-              </select>
-            </div>
           </div>
         </div>
 
+        {/* GRIGLIA */}
         <div className="px-6 py-10 flex-grow pb-32">
           <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-5 gap-6">
             {loading ? (
@@ -159,33 +157,24 @@ export default function HomePage() {
             ) : (
               filtered.slice(0, visibleCount).map((ann) => (
                 <div key={ann.id} className="bg-white border border-stone-200 rounded-2xl overflow-hidden hover:-translate-y-1 hover:shadow-2xl transition-all duration-300 flex flex-col group relative">
-                  <button onClick={() => toggleWishlist(ann.id)} className="absolute top-2 left-2 z-20 bg-white/90 p-2 rounded-full shadow-md hover:scale-110">
+                  <button onClick={() => toggleWishlist(ann.id)} className="absolute top-2 left-2 z-20 bg-white/90 p-2 rounded-full shadow-md">
                     {wishlist.includes(ann.id) ? '❤️' : '🤍'}
                   </button>
-                  <Link href={`/announcement/${ann.id}`} className="block h-44 bg-stone-100 overflow-hidden">
+                  <Link href={`/announcement/${ann.id}`} className="block h-44 bg-stone-100 overflow-hidden cursor-pointer">
                     <img src={ann.image_url || "/gazebo.jpg"} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" alt={ann.title} />
+                    <span className={`absolute top-3 right-3 px-3 py-1.5 text-[9px] font-black rounded shadow-md text-white ${ann.condition === 'Nuovo' ? 'bg-amber-500' : 'bg-stone-600'}`}>{ann.condition?.toUpperCase()}</span>
                   </Link>
                   <div className="p-5 flex-grow flex flex-col justify-between">
                     <div>
                       <h4 className="text-sm font-black text-stone-900 uppercase truncate mb-1">{ann.title}</h4>
-                      <p className="text-[10px] font-bold text-emerald-600 uppercase mb-1">{ann.brand} {ann.model}</p>
-                      <p className="text-[9px] font-bold text-stone-400 uppercase mb-2">Quantità: {ann.quantity || 1}</p>
+                      <p className="text-[10px] font-bold text-emerald-600 uppercase mb-1">€{ann.price}</p>
                     </div>
-                    <div className="mt-5 pt-4 border-t flex justify-between items-center">
-                      <span className="font-black text-stone-900 text-sm">€{ann.price}</span>
-                      <Link href={`/announcement/${ann.id}`} className="bg-stone-100 text-stone-700 hover:bg-emerald-600 hover:text-white px-4 py-2 rounded-lg text-[10px] font-black uppercase shadow-sm">Vedi</Link>
-                    </div>
+                    <Link href={`/announcement/${ann.id}`} className="mt-4 block bg-stone-900 text-white text-center py-2 rounded-lg text-[9px] font-black uppercase tracking-widest hover:bg-emerald-600 transition-colors">Vedi Dettaglio</Link>
                   </div>
-                  {IS_STAFF && <button onClick={async ()=>{if(confirm("Cancello?")){await supabase.from('announcements').delete().eq('id', ann.id); fetchData()}}} className="absolute top-10 left-2 z-20 bg-red-600 text-white px-2 py-1 rounded-md text-[8px] font-black shadow-lg">ELIMINA</button>}
                 </div>
               ))
             )}
           </div>
-          {visibleCount < filtered.length && !loading && (
-            <div className="mt-12 text-center">
-              <button onClick={() => setVisibleCount(v => v + 15)} className="bg-stone-900 text-white px-10 py-4 rounded-xl font-black uppercase tracking-widest text-[11px] shadow-xl hover:bg-stone-800 transition-all">Mostra altri annunci</button>
-            </div>
-          )}
         </div>
       </main>
     </div>
