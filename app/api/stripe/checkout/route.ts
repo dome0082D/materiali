@@ -3,7 +3,7 @@ import Stripe from "stripe";
 
 // Inizializza Stripe con la tua chiave segreta
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!, {
-  apiVersion: "2023-10-16", // Usa la tua versione di Stripe
+  apiVersion: "2026-03-25.dahlia" as any, // Usa la versione richiesta da Vercel
 });
 
 export async function POST(req: Request) {
