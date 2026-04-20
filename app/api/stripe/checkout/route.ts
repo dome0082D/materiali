@@ -1,69 +1,54 @@
-import { NextResponse } from "next/server";
-import Stripe from "stripe";
+import { NextResponse } from 'next/server';
+import Stripe from 'stripe';
 
-// Inizializza Stripe con la tua chiave segreta
-const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!, {
-  apiVersion: "2026-03-25.dahlia" as any, // Usa la versione richiesta da Vercel
+const stripe = new Stripe(process.env.STRIPE_SECRET_KEY as string, {
+  apiVersion: "2026-03-25.dahlia" as any,
 });
 
 export async function POST(req: Request) {
   try {
-    // 1. Riceve i dati dal tuo sito (dal tasto "Acquista in sicurezza")
-    const body = await req.json();
-    
-    // Assicurati che i nomi di queste variabili corrispondano a quelli che invii dal frontend!
-    const { 
-      title, 
-      price, 
-      sellerStripeId, // L'ID acct_... del venditore
-      buyerId, // L'ID Supabase di chi compra (serve per "I miei acquisti")
-      productId // L'ID del prodotto (serve per "I miei acquisti")
-    } = body;
+    const { items, buyerId } = await req.json();
 
-    // 2. Stripe lavora in centesimi. Convertiamo il prezzo (es. 1.20€ -> 120)
-    const unitAmount = Math.round(price * 100);
+    if (!items || items.length === 0) {
+      return NextResponse.json({ error: "Il carrello è vuoto" }, { status: 400 });
+    }
 
-    // 3. Calcolo della TUA commissione (es. 10%)
-    // Se l'acqua costa 120 centesimi, il 10% è 12 centesimi.
-    const platformFee = Math.round(unitAmount * 0.10); 
+    // Trasformiamo i prodotti del tuo cartStore in formato Stripe
+    const line_items = items.map((item: any) => ({
+      price_data: {
+        currency: 'eur',
+        product_data: {
+          name: item.title,
+          images: item.image_url ? [item.image_url] : [],
+        },
+        unit_amount: Math.round(item.price * 100), // Conversione in centesimi
+      },
+      quantity: item.quantity,
+    }));
 
-    // 4. Creazione della sessione di pagamento Stripe Connect
+    // Calcolo del 10% di commissione per la piattaforma
+    const totalAmount = items.reduce((acc: number, item: any) => acc + (item.price * item.quantity), 0);
+    const platformFee = Math.round(totalAmount * 10); // 10% del totale in centesimi
+
     const session = await stripe.checkout.sessions.create({
-      payment_method_types: ["card"],
-      mode: "payment",
-      line_items: [
-        {
-          price_data: {
-            currency: "eur",
-            product_data: {
-              name: title || "Acqua",
-            },
-            unit_amount: unitAmount,
-          },
-          quantity: 1,
-        },
-      ],
-      // QUI È DOVE TRATTENI LA COMMISSIONE E PAGHI IL VENDITORE
+      payment_method_types: ['card'],
+      line_items,
+      mode: 'payment',
       payment_intent_data: {
+        // Questa è la tua commissione che resta sul tuo account Stripe
         application_fee_amount: platformFee,
-        transfer_data: {
-          destination: sellerStripeId,
-        },
       },
-      // I metadati servono al "Postino" (Webhook) per aggiornare il database
+      success_url: `${req.headers.get('origin')}/success?session_id={CHECKOUT_SESSION_ID}`,
+      cancel_url: `${req.headers.get('origin')}/`,
       metadata: {
-        buyerId: buyerId,
-        productId: productId,
+        buyerId,
+        productIds: items.map((i: any) => i.id).join(','),
       },
-      success_url: `${process.env.NEXT_PUBLIC_BASE_URL}/success`,
-      cancel_url: `${process.env.NEXT_PUBLIC_BASE_URL}/cancel`,
     });
 
-    // 5. Restituisce l'URL della pagina di pagamento
     return NextResponse.json({ url: session.url });
-
-  } catch (error: any) {
-    console.error("Errore durante il checkout:", error);
-    return NextResponse.json({ error: error.message }, { status: 500 });
+  } catch (err: any) {
+    console.error("Errore Stripe Checkout:", err);
+    return NextResponse.json({ error: err.message }, { status: 500 });
   }
 }
