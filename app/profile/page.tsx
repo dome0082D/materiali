@@ -1,4 +1,5 @@
 'use client'
+
 import { useEffect, useState } from 'react'
 import { supabase } from '@/lib/supabase'
 import { useRouter } from 'next/navigation'
@@ -14,6 +15,11 @@ export default function ProfilePage() {
   // Aggiunto full_address allo stato del modulo
   const [editForm, setEditForm] = useState<any>({ first_name: '', last_name: '', city: '', full_address: '' })
   const [saving, setSaving] = useState(false)
+
+  // NUOVI STATI PER LA VETRINA PERSONALE
+  const [myAds, setMyAds] = useState<any[]>([])
+  const [soldAds, setSoldAds] = useState<any[]>([])
+  const [boughtAds, setBoughtAds] = useState<any[]>([])
   
   const router = useRouter()
 
@@ -40,6 +46,39 @@ export default function ProfilePage() {
         full_address: data.full_address || ''
       })
     }
+
+    // --- NUOVA LOGICA: CARICAMENTO ANNUNCI E ACQUISTI ---
+    
+    // 1. Prendi gli annunci creati da questo utente
+    const { data: ads } = await supabase
+      .from('announcements')
+      .select('*')
+      .eq('user_id', currentUser.id)
+      .order('created_at', { ascending: false })
+
+    if (ads) {
+      // Divide tra "Ancora disponibili" e "Esauriti (Venduti)"
+      setMyAds(ads.filter(a => (a.quantity !== undefined ? a.quantity : 1) > 0))
+      setSoldAds(ads.filter(a => (a.quantity !== undefined ? a.quantity : 1) <= 0))
+    }
+
+    // 2. Prendi i MIEI ACQUISTI (interroga la tabella transactions del Webhook)
+    const { data: txs } = await supabase
+      .from('transactions')
+      .select('*')
+      .eq('buyer_id', currentUser.id)
+
+    if (txs && txs.length > 0) {
+      // Recupera gli ID degli annunci comprati e scarica i dettagli
+      const annIds = txs.map(t => t.announcement_id)
+      const { data: bought } = await supabase
+        .from('announcements')
+        .select('*')
+        .in('id', annIds)
+      if (bought) setBoughtAds(bought)
+    }
+    // ----------------------------------------------------
+
     setLoading(false)
   }
 
@@ -100,8 +139,33 @@ export default function ProfilePage() {
 
   if (loading) return <div className="p-10 text-center text-sm text-stone-500">Caricamento profilo...</div>
 
+  // FUNZIONE GRAFICA PER DISEGNARE LE GRIGLIE DEGLI ANNUNCI
+  const renderGrid = (items: any[], emptyMessage: string) => {
+    if (items.length === 0) return <p className="text-sm text-stone-500 italic px-2">{emptyMessage}</p>
+    return (
+      <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
+        {items.map(ann => (
+          <Link href={`/announcement/${ann.id}`} key={ann.id} className="bg-white rounded-xl overflow-hidden border border-stone-200 shadow-sm flex flex-col group relative hover:border-stone-400 transition-all">
+            <div className="aspect-square bg-stone-50 relative">
+              <img src={ann.image_url || "/usato.png"} className="w-full h-full object-cover" alt={ann.title} />
+            </div>
+            <div className="p-3 flex flex-col justify-between flex-grow">
+               <div>
+                  <h4 className="text-[11px] font-bold uppercase truncate">{ann.title}</h4>
+                  <p className="text-[13px] font-black mt-1">
+                    {ann.type === 'offered' ? 'GRATIS' : `€ ${ann.price}`}
+                  </p>
+               </div>
+               <button className="mt-3 w-full bg-stone-50 text-stone-800 text-[9px] font-black uppercase py-2 rounded-lg group-hover:bg-stone-900 group-hover:text-white transition-colors">Vedi Dettagli</button>
+            </div>
+          </Link>
+        ))}
+      </div>
+    )
+  }
+
   return (
-    <div className="min-h-screen bg-stone-50 p-6 font-sans text-stone-900">
+    <div className="min-h-screen bg-stone-50 p-6 font-sans text-stone-900 pb-20">
       <div className="max-w-2xl mx-auto space-y-6">
         
         {/* INTESTAZIONE E DATI PERSONALI */}
@@ -252,7 +316,7 @@ export default function ProfilePage() {
           )}
         </div>
 
-        {/* MENU RAPIDO NAVIGAZIONE */}
+        {/* MENU RAPIDO NAVIGAZIONE (Mantenuto l'originale) */}
         <div className="grid grid-cols-2 gap-4">
             <Link href="/dashboard/acquisti" className="bg-white p-6 rounded-3xl border border-stone-200 shadow-sm hover:border-stone-400 transition-all group">
                 <span className="text-2xl block mb-2 group-hover:scale-110 transition-transform">📦</span>
@@ -263,6 +327,33 @@ export default function ProfilePage() {
                 <p className="text-sm font-medium text-stone-900">I miei preferiti</p>
             </Link>
         </div>
+
+        {/* --- NUOVE SEZIONI VETRINA PERSONALE --- */}
+        
+        {/* SEZIONE 1: I MIEI ANNUNCI IN VENDITA */}
+        <div className="bg-white rounded-3xl p-8 border border-stone-200 shadow-sm mt-8">
+          <h2 className="text-[10px] font-black uppercase tracking-[0.3em] text-emerald-600 mb-6 flex items-center gap-2">
+            <span className="bg-emerald-100 p-2 rounded-lg">🏷️</span> In Vendita
+          </h2>
+          {renderGrid(myAds, "Non hai ancora inserito nessun annuncio.")}
+        </div>
+
+        {/* SEZIONE 2: I MIEI ACQUISTI (Storico visualizzato direttamente qui) */}
+        <div className="bg-white rounded-3xl p-8 border border-stone-200 shadow-sm mt-4">
+          <h2 className="text-[10px] font-black uppercase tracking-[0.3em] text-blue-600 mb-6 flex items-center gap-2">
+            <span className="bg-blue-100 p-2 rounded-lg">🛍️</span> Oggetti Acquistati
+          </h2>
+          {renderGrid(boughtAds, "Non hai ancora effettuato nessun acquisto.")}
+        </div>
+
+        {/* SEZIONE 3: I MIEI OGGETTI VENDUTI */}
+        <div className="bg-stone-100 rounded-3xl p-8 border border-stone-200 shadow-sm mt-4 opacity-90">
+          <h2 className="text-[10px] font-black uppercase tracking-[0.3em] text-stone-600 mb-6 flex items-center gap-2">
+            <span className="bg-stone-200 p-2 rounded-lg">✅</span> Oggetti Venduti (Esauriti)
+          </h2>
+          {renderGrid(soldAds, "Non hai ancora venduto nessun oggetto.")}
+        </div>
+        {/* --------------------------------------- */}
 
         <div className="pt-6 text-center">
           <Link href="/" className="text-sm font-medium text-stone-400 hover:text-stone-900 transition-colors">
