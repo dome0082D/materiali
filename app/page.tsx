@@ -1,4 +1,5 @@
 'use client'
+
 import { useEffect, useState, Suspense } from 'react'
 import { supabase } from '@/lib/supabase'
 import Link from 'next/link'
@@ -61,7 +62,11 @@ function HomePageContent() {
     const matchAdNumber = adNumberSearch === '' || String(a.id).includes(adNumberSearch);
     const matchCat = searchCategory === 'all' || a.category === searchCategory;
     const matchCond = condition === 'all' || a.condition === condition;
-    return matchMain && matchAdNumber && matchCat && matchCond;
+    
+    // NUOVO FILTRO: Nasconde automaticamente gli oggetti esauriti (quantità = 0)
+    const matchQty = a.quantity !== 0; 
+
+    return matchMain && matchAdNumber && matchCat && matchCond && matchQty;
   });
 
   const showcaseNew = filteredAnnouncements.filter(a => a.condition === 'Nuovo').slice(0, 5);

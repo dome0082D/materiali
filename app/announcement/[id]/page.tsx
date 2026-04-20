@@ -1,3 +1,5 @@
+'use client'
+
 import { useEffect, useState } from 'react'
 import { supabase } from '@/lib/supabase'
 import { useParams, useRouter } from 'next/navigation'
@@ -94,7 +96,8 @@ export default function AnnouncementPage() {
   if (loading) return <div className="p-10 text-center font-black uppercase text-xs">Caricamento in corso...</div>
   if (!ann) return <div className="p-10 text-center font-black uppercase text-xs text-red-500">Annuncio non trovato.</div>
 
-  const maxQty = ann.quantity || 1;
+  // CORREZIONE BUG QUANTITÀ: se quantity è 0, ora rimane 0 e non diventa 1
+  const maxQty = ann.quantity !== undefined ? ann.quantity : 1;
 
   return (
     <div className="min-h-screen bg-stone-50 p-6 font-sans flex items-center justify-center relative">
@@ -154,9 +157,10 @@ export default function AnnouncementPage() {
                           value={selectedQuantity} 
                           onChange={(e) => setSelectedQuantity(Number(e.target.value))}
                           className="w-full md:w-1/2 cursor-pointer accent-emerald-500"
+                          disabled={maxQty <= 0}
                         />
                         <span className="text-sm font-bold text-stone-800 bg-stone-100 px-3 py-1 rounded-lg border border-stone-200">
-                          {selectedQuantity}
+                          {maxQty <= 0 ? 0 : selectedQuantity}
                         </span>
                       </div>
                     ) : (
@@ -177,14 +181,15 @@ export default function AnnouncementPage() {
               {ann.type !== 'offered' && (
                 <button 
                   onClick={handleSecureBuy} 
-                  disabled={actionLoading || user?.id === ann.user_id} 
+                  disabled={actionLoading || user?.id === ann.user_id || maxQty <= 0} 
                   className={`w-full p-4 rounded-2xl font-black uppercase text-[10px] tracking-widest transition-all shadow-md ${
-                    user?.id === ann.user_id 
+                    user?.id === ann.user_id || maxQty <= 0
                     ? 'bg-stone-300 text-stone-500 cursor-not-allowed' 
                     : 'bg-emerald-500 text-white hover:bg-emerald-600'
                   }`}
                 >
-                  {actionLoading ? 'Elaborazione...' : user?.id === ann.user_id ? 'Tuo Oggetto (Acquisto Disabilitato)' : 'Acquista in Sicurezza'}
+                  {/* SE LA QUANTITÀ È 0, SCRIVE "ESAURITO" */}
+                  {actionLoading ? 'Elaborazione...' : user?.id === ann.user_id ? 'Tuo Oggetto (Acquisto Disabilitato)' : maxQty <= 0 ? 'ESAURITO' : 'Acquista in Sicurezza'}
                 </button>
               )}
 

@@ -19,18 +19,41 @@ export async function POST(req: Request) {
   // Se il pagamento è andato a buon fine
   if (event.type === 'checkout.session.completed') {
     const session = event.data.object as Stripe.Checkout.Session;
-    const { announcementId, buyerId, sellerId } = session.metadata || {};
+    
+    // Per sicurezza leggiamo sia announcementId che productId (a seconda di come l'avevi chiamato)
+    const announcementId = session.metadata?.announcementId || session.metadata?.productId;
+    const buyerId = session.metadata?.buyerId;
+    const sellerId = session.metadata?.sellerId;
 
-    if (announcementId && buyerId && sellerId) {
-       // Salva la transazione nel DB con stato "held" (Fondi Trattenuti/Escrow)
+    if (announcementId && buyerId) {
+       // 1. Salva la transazione nel DB (Lo storico per "I miei acquisti/vendite")
        await supabase.from('transactions').insert([{
          announcement_id: announcementId,
          buyer_id: buyerId,
-         seller_id: sellerId,
+         seller_id: sellerId || null,
          stripe_payment_intent_id: session.payment_intent,
          amount: session.amount_total ? session.amount_total / 100 : 0,
          status: 'held' 
        }]);
+
+       // 2. SCALA LA QUANTITÀ DELL'OGGETTO VENDUTO IN AUTOMATICO
+       // Prima legge quanti ce ne sono nel database
+       const { data: ann } = await supabase
+         .from('announcements')
+         .select('quantity')
+         .eq('id', announcementId)
+         .single();
+
+       if (ann) {
+         // Sottrae 1 alla quantità (e si assicura di non scendere mai sotto lo zero)
+         const nuovaQuantita = Math.max(0, (ann.quantity || 1) - 1);
+         
+         // Aggiorna l'oggetto nel database con la nuova scorta
+         await supabase
+           .from('announcements')
+           .update({ quantity: nuovaQuantita })
+           .eq('id', announcementId);
+       }
     }
   }
 
