@@ -3,17 +3,38 @@
 import { useEffect, useState } from 'react'
 import { supabase } from '@/lib/supabase'
 import Link from 'next/link'
-import { useRouter } from 'next/navigation'
+import { useRouter, useSearchParams } from 'next/navigation'
 
 export default function DashboardAnnunci() {
   const [announcements, setAnnouncements] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
   const [payLoading, setPayLoading] = useState<string | null>(null)
+  
   const router = useRouter()
+  const searchParams = useSearchParams()
 
   useEffect(() => {
     fetchMyAds()
-  }, [router])
+    checkPaymentSuccess()
+  }, [router, searchParams])
+
+  // Controlla se l'utente è appena tornato da Stripe dopo aver pagato
+  async function checkPaymentSuccess() {
+    const success = searchParams.get('success')
+    const adId = searchParams.get('ad_id')
+
+    if (success === 'true' && adId) {
+      // Aggiorna il database: l'annuncio è ufficialmente sponsorizzato!
+      await supabase.from('announcements').update({ is_sponsored: true }).eq('id', adId)
+      alert("Pagamento riuscito! Il tuo annuncio è ora in Vetrina Top 🚀")
+      router.push('/dashboard/annunci') // Pulisce l'URL
+      fetchMyAds()
+    }
+    if (searchParams.get('canceled') === 'true') {
+      alert("Pagamento annullato.")
+      router.push('/dashboard/annunci')
+    }
+  }
 
   async function fetchMyAds() {
     const { data: { user } } = await supabase.auth.getUser()
@@ -41,26 +62,29 @@ export default function DashboardAnnunci() {
     }
   }
 
-  // Funzione per simulare il pagamento e attivare la sponsorizzazione
-  // In seguito la collegheremo a Stripe
+  // NUOVA LOGICA: Chiama Stripe vero!
   const handleSponsor = async (adId: string) => {
     setPayLoading(adId)
+    const { data: { user } } = await supabase.auth.getUser()
     
-    // Simuliamo un ritardo di pagamento
-    setTimeout(async () => {
-      const { error } = await supabase
-        .from('announcements')
-        .update({ is_sponsored: true })
-        .eq('id', adId)
-
-      if (!error) {
-        alert("Pagamento riuscito! L'annuncio è ora in Vetrina Top 🚀")
-        fetchMyAds()
+    try {
+      const res = await fetch('/api/stripe/sponsor', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ announcementId: adId, userId: user?.id }),
+      });
+      
+      const data = await res.json();
+      if (data.url) {
+        window.location.href = data.url; // Ti porta sulla cassa di Stripe
       } else {
-        alert("Errore durante l'attivazione.")
+        alert("Errore nell'avvio del pagamento.");
+        setPayLoading(null);
       }
-      setPayLoading(null)
-    }, 1500)
+    } catch (err) {
+      alert("Errore di connessione al server.");
+      setPayLoading(null);
+    }
   }
 
   return (
@@ -118,7 +142,7 @@ export default function DashboardAnnunci() {
                         disabled={payLoading === ad.id}
                         className="w-full bg-stone-900 text-emerald-400 text-[9px] font-bold uppercase py-3 rounded-lg hover:bg-emerald-500 hover:text-white transition-all shadow-sm border border-emerald-400/30"
                       >
-                        {payLoading === ad.id ? 'Elaborazione...' : '🚀 Sponsorizza (2€)'}
+                        {payLoading === ad.id ? 'Apertura cassa...' : '🚀 Sponsorizza (2€)'}
                       </button>
                     )}
                   </div>
