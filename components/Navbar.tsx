@@ -18,17 +18,19 @@ export default function Navbar() {
 
   useEffect(() => {
     const getData = async () => {
-      const { data: { user } } = await supabase.auth.getUser()
-      setUser(user)
+      // RISOLUZIONE ERRORE "auth-token stole it": uso getSession invece di getUser
+      const { data: { session } } = await supabase.auth.getSession()
+      const currentUser = session?.user || null
+      setUser(currentUser)
       
       const { data: cats } = await supabase.from('categories').select('*').order('name')
       setCategories(cats || [])
 
-      if (user) {
-        fetchNotifications(user.id)
+      if (currentUser) {
+        fetchNotifications(currentUser.id)
         const channel = supabase.channel('realtime-notifications')
-          .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'notifications', filter: `user_id=eq.${user.id}` }, () => {
-            fetchNotifications(user.id)
+          .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'notifications', filter: `user_id=eq.${currentUser.id}` }, () => {
+            fetchNotifications(currentUser.id)
           }).subscribe()
           
         return () => { supabase.removeChannel(channel) }
