@@ -12,7 +12,7 @@ function AddPageContent() {
   
   const [loading, setLoading] = useState(false)
   const [categories, setCategories] = useState<any[]>([])
-  const [imageUrls, setImageUrls] = useState<string[]>(['']) // Array per allegati multipli
+  const [imageUrls, setImageUrls] = useState<string[]>(['']) 
 
   useEffect(() => {
     supabase.from('categories').select('*').then(({ data }) => setCategories(data || []))
@@ -33,7 +33,10 @@ function AddPageContent() {
     const { data: { user } } = await supabase.auth.getUser()
     if (!user) { alert('Devi accedere per pubblicare!'); setLoading(false); return; }
 
-    const formData = new FormData(e.currentTarget)
+    // RIGA CORRETTA QUI
+    const form = e.target as HTMLFormElement
+    const formData = new FormData(form)
+    
     const condition = mode === 'new' ? 'Nuovo' : mode === 'used' ? 'Usato' : 'Regalo'
     const price = mode === 'gift' ? 0 : parseFloat(formData.get('price') as string)
     const quantity = parseInt(formData.get('quantity') as string) || 1
@@ -47,7 +50,7 @@ function AddPageContent() {
       quantity: quantity,
       category_id: parseInt(formData.get('category_id') as string),
       condition: condition,
-      image_urls: validImages, // Array allegati
+      image_urls: validImages,
       image_url: validImages.length > 0 ? validImages[0] : '/usato.png'
     }])
 
@@ -60,7 +63,6 @@ function AddPageContent() {
     setLoading(false)
   }
 
-  // SCHERMATA DI SCELTA INIZIALE
   if (!mode) {
     return (
       <div className="min-h-screen bg-stone-50 p-6 md:p-10 flex flex-col items-center pt-10">
@@ -90,7 +92,6 @@ function AddPageContent() {
     )
   }
 
-  // MODULO DI INSERIMENTO
   return (
     <div className="min-h-screen bg-stone-50 p-4 md:p-8 flex flex-col items-center">
       <div className="w-full max-w-2xl bg-white p-6 md:p-8 rounded-[2rem] shadow-md border border-stone-200">
@@ -132,7 +133,6 @@ function AddPageContent() {
             <textarea name="description" required rows={4} className="w-full p-3 mt-1 bg-stone-50 rounded-xl border border-stone-100 outline-none focus:border-emerald-400 text-sm font-medium text-stone-800" placeholder="Descrivi il prodotto..."></textarea>
           </div>
 
-          {/* ALLEGATI MULTIPLI */}
           <div className="bg-stone-50 p-4 rounded-xl border border-stone-100">
              <label className="text-[10px] font-bold uppercase tracking-widest text-stone-400 mb-2 block">Allegati (URL Immagini)</label>
              {imageUrls.map((url, index) => (
