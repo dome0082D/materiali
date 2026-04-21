@@ -137,7 +137,7 @@ function HomePageContent() {
         </section>
 
         {!catFilter && !typeFilter && (
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-20">
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-16">
             <Link href="/add?mode=new" className="group relative h-64 rounded-3xl border border-stone-200 overflow-hidden bg-white hover:border-emerald-400 transition-all shadow-sm flex items-center justify-center text-center">
                <img src="/nuovo.png" className="absolute inset-0 w-full h-full object-cover opacity-10 group-hover:scale-105 transition-transform duration-[1s]" alt="Nuovo" />
                <div className="relative z-10 p-6"><h3 className="text-3xl font-bold uppercase italic text-stone-900 leading-tight">Vendi<br/>Nuovo</h3><p className="text-[10px] font-medium uppercase mt-4 text-stone-500 tracking-widest">Ideale per fondi di magazzino</p></div>
@@ -152,6 +152,20 @@ function HomePageContent() {
             </Link>
           </div>
         )}
+
+        {/* BANNER PUBBLICITARIO */}
+        <div className="bg-stone-900 rounded-3xl p-6 mb-16 flex flex-col md:flex-row items-center justify-between shadow-lg border border-stone-800">
+          <div className="flex items-center gap-6 mb-4 md:mb-0">
+            <span className="text-5xl drop-shadow-md">🚀</span>
+            <div>
+              <h4 className="text-[12px] font-bold uppercase tracking-widest text-emerald-400">Spazio Pubblicitario</h4>
+              <p className="text-[11px] text-stone-300 font-medium mt-1 uppercase tracking-wider">Aumenta la visibilità della tua azienda. Sponsorizzati qui!</p>
+            </div>
+          </div>
+          <a href="mailto:dome0082@gmail.com" className="bg-emerald-500 text-white px-6 py-3 rounded-xl text-[11px] font-bold uppercase tracking-widest hover:bg-emerald-400 transition-all shadow-md shadow-emerald-500/20 w-full md:w-auto text-center">
+            Contattami: dome0082@gmail.com
+          </a>
+        </div>
 
         <section className="mb-20">
           <div className="flex justify-between items-end mb-8 border-b border-stone-200 pb-4">

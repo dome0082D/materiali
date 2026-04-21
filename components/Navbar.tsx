@@ -11,19 +11,28 @@ export default function Navbar() {
   const [user, setUser] = useState<any>(null)
   const [categories, setCategories] = useState<any[]>([])
   const [loading, setLoading] = useState(false)
-  const [notifications, setNotifications] = useState(2) // Esempio numero notifiche
+  const [notifications, setNotifications] = useState(0)
   
-  // STATO GLOBALE CARRELLO (Zustand)
   const { items, isCartOpen, openCart, closeCart, removeItem, updateQuantity } = useCartStore()
-  
   const total = items.reduce((acc, i) => acc + (Number(i.price) * i.quantity), 0)
 
   useEffect(() => {
     const getData = async () => {
       const { data: { user } } = await supabase.auth.getUser()
       setUser(user)
+      
       const { data: cats } = await supabase.from('categories').select('*').order('name')
       setCategories(cats || [])
+
+      if (user) {
+        fetchNotifications(user.id)
+        const channel = supabase.channel('realtime-notifications')
+          .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'notifications', filter: `user_id=eq.${user.id}` }, () => {
+            fetchNotifications(user.id)
+          }).subscribe()
+          
+        return () => { supabase.removeChannel(channel) }
+      }
     }
     getData()
     
@@ -33,12 +42,18 @@ export default function Navbar() {
     return () => authListener.subscription.unsubscribe()
   }, [])
 
+  const fetchNotifications = async (userId: string) => {
+    try {
+      const { count, error } = await supabase.from('notifications').select('*', { count: 'exact', head: true }).eq('user_id', userId).eq('is_read', false)
+      if (!error && count !== null) setNotifications(count)
+    } catch (e) { console.error(e) }
+  }
+
   const handleLogout = async () => {
     await supabase.auth.signOut()
     window.location.href = '/'
   }
 
-  // LOGICA STRIPE
   const handleCheckout = async () => {
     if (!user) { alert("Devi accedere o registrarti per completare l'acquisto"); return; }
     setLoading(true);
@@ -89,7 +104,6 @@ export default function Navbar() {
             ➕ Pubblica Annuncio
           </Link>
 
-          {/* ICONA NOTIFICHE */}
           <button className="relative p-2 text-xl text-stone-500 hover:bg-stone-50 rounded-full transition-all">
             🔔
             {notifications > 0 && (
@@ -99,7 +113,6 @@ export default function Navbar() {
             )}
           </button>
 
-          {/* MENU A SCOMPARSA (TRE PUNTINI) */}
           <div className="relative">
             <button onClick={() => setIsQuickMenuOpen(!isQuickMenuOpen)} className="p-2 text-xl text-stone-500 hover:bg-stone-50 rounded-full transition-all">
               ⋮
@@ -124,13 +137,11 @@ export default function Navbar() {
         </div>
       </nav>
 
-      {/* OVERLAY */}
       {(isSidebarOpen || isCartOpen) && (
         <div className="fixed inset-0 bg-black/40 backdrop-blur-sm z-[9998] transition-opacity" 
              onClick={() => { setIsSidebarOpen(false); closeCart(); setIsQuickMenuOpen(false); }} />
       )}
 
-      {/* SIDEBAR SINISTRA */}
       <div className={`fixed top-0 left-0 h-full w-full max-w-[320px] bg-white z-[9999] shadow-2xl transition-transform duration-300 ease-in-out transform ${isSidebarOpen ? 'translate-x-0' : '-translate-x-full'}`}>
         <div className="flex flex-col h-full">
           <div className="p-8 bg-stone-900 text-white relative">
@@ -175,11 +186,18 @@ export default function Navbar() {
                 ))}
               </div>
             </section>
+
+            <section>
+              <h3 className="text-[10px] font-bold uppercase text-stone-400 mb-4 tracking-[0.2em] border-b pb-2">Informazioni</h3>
+              <div className="grid gap-1">
+                <Link href="/come-funziona" onClick={() => setIsSidebarOpen(false)} className="p-3 text-xs font-medium text-stone-500 hover:text-stone-900 transition-all">ℹ️ Come Funziona</Link>
+                <Link href="/privacy" onClick={() => setIsSidebarOpen(false)} className="p-3 text-xs font-medium text-stone-500 hover:text-stone-900 transition-all">🔒 Privacy e Sicurezza</Link>
+              </div>
+            </section>
           </div>
         </div>
       </div>
 
-      {/* DRAWER CARRELLO (Con quantità modificabile) */}
       <div className={`fixed top-0 right-0 h-full w-full max-w-[380px] bg-white z-[9999] shadow-2xl transition-transform duration-300 ease-in-out transform ${isCartOpen ? 'translate-x-0' : 'translate-x-full'} flex flex-col`}>
         <div className="p-6 flex justify-between items-center border-b border-stone-100">
           <h2 className="text-xl font-bold uppercase italic tracking-tighter text-stone-900">Carrello</h2>
@@ -203,7 +221,6 @@ export default function Navbar() {
                   <p className="text-xs font-bold uppercase truncate text-stone-900 mb-1">{item.title}</p>
                   <div className="flex items-center justify-between mt-1">
                     <p className="text-sm font-bold text-emerald-600">€ {item.price}</p>
-                    {/* SELETTORE QUANTITÀ */}
                     <div className="flex items-center border border-stone-200 rounded-lg bg-white">
                       <button onClick={() => updateQuantity && updateQuantity(item.id, Math.max(1, item.quantity - 1))} className="px-2 py-0.5 text-stone-500 hover:text-stone-900 font-bold">-</button>
                       <span className="px-2 text-[11px] font-medium border-x border-stone-200 text-stone-800">{item.quantity}</span>
