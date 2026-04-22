@@ -1,0 +1,248 @@
+'use client'
+
+import { Suspense, useEffect, useState } from 'react'
+import { supabase } from '@/lib/supabase'
+import { useParams, useRouter } from 'next/navigation'
+import Link from 'next/link'
+
+function AnnouncementContent() {
+  const { id } = useParams()
+  const router = useRouter()
+  const [ann, setAnn] = useState<any>(null)
+  const [user, setUser] = useState<any>(null)
+  const [loading, setLoading] = useState(true)
+  const [showCoffeeModal, setShowCoffeeModal] = useState(false)
+  const [actionLoading, setActionLoading] = useState(false)
+  const [selectedQuantity, setSelectedQuantity] = useState(1)
+  
+  const [reviews, setReviews] = useState<any[]>([])
+  const [hasPurchased, setHasPurchased] = useState(false)
+  const [newReview, setNewReview] = useState({ rating: 5, comment: '' })
+  const [submittingReview, setSubmittingReview] = useState(false)
+  const [visibleReviews, setVisibleReviews] = useState(3)
+
+  useEffect(() => {
+    async function fetchData() {
+      const { data: { user: currentUser } } = await supabase.auth.getUser()
+      setUser(currentUser)
+      
+      const { data } = await supabase.from('announcements').select('*').eq('id', id).single()
+      if (data) {
+        setAnn(data)
+        fetchReviews(data.user_id)
+        if (currentUser) checkIfPurchased(currentUser.id, data.id)
+      }
+      setLoading(false)
+    }
+    if (id) fetchData()
+  }, [id])
+
+  async function fetchReviews(sellerId: string) {
+    const { data } = await supabase
+      .from('reviews')
+      .select('*, reviewer:profiles!reviewer_id(first_name)')
+      .eq('reviewed_user_id', sellerId)
+      .order('created_at', { ascending: false })
+    if (data) setReviews(data)
+  }
+
+  async function checkIfPurchased(buyerId: string, annId: string) {
+    const { data } = await supabase
+      .from('transactions')
+      .select('id')
+      .eq('buyer_id', buyerId)
+      .eq('announcement_id', annId)
+      .eq('status', 'Pagato') 
+      .limit(1)
+    if (data && data.length > 0) setHasPurchased(true)
+  }
+
+  const handleContact = () => {
+    if (ann.type === 'offered') setShowCoffeeModal(true)
+    else router.push(`/chat`)
+  }
+
+  const handleBuyCoffee = async () => {
+    setActionLoading(true)
+    const res = await fetch('/api/stripe/coffee', { method: 'POST' })
+    const data = await res.json()
+    if (data.url) window.location.href = data.url
+    setActionLoading(false)
+  }
+
+  const handleSecureBuy = async () => {
+    if (!user) { alert("Devi accedere per acquistare."); return; }
+    if (user.id === ann.user_id) { alert("Non puoi acquistare un tuo stesso oggetto."); return; }
+    setActionLoading(true)
+
+    const { data: sellerProfile } = await supabase.from('profiles').select('stripe_account_id').eq('id', ann.user_id).single()
+
+    if (!sellerProfile || !sellerProfile.stripe_account_id) {
+      alert("Il venditore non ha ancora configurato il suo conto per ricevere pagamenti.");
+      setActionLoading(false);
+      return;
+    }
+
+    const res = await fetch('/api/stripe/checkout', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        title: `${ann.title} (x${selectedQuantity})`,
+        price: ann.price * selectedQuantity,
+        sellerStripeId: sellerProfile.stripe_account_id,
+        buyerId: user.id,
+        productId: ann.id
+      })
+    })
+    const data = await res.json()
+    if (data.error) { alert(data.error); setActionLoading(false); return; }
+    if (data.url) window.location.href = data.url
+  }
+
+  const submitReview = async (e: React.FormEvent) => {
+    e.preventDefault()
+    setSubmittingReview(true)
+    const { error } = await supabase.from('reviews').insert([{
+      reviewer_id: user.id,
+      reviewed_user_id: ann.user_id,
+      announcement_id: ann.id,
+      rating: newReview.rating,
+      comment: newReview.comment
+    }])
+
+    if (!error) {
+      alert('Recensione pubblicata!')
+      setNewReview({ rating: 5, comment: '' })
+      setHasPurchased(false)
+      fetchReviews(ann.user_id)
+    } else {
+      alert('Errore: ' + error.message)
+    }
+    setSubmittingReview(false)
+  }
+
+  if (loading) return <div className="p-10 text-center font-black uppercase text-xs">Caricamento in corso...</div>
+  if (!ann) return <div className="p-10 text-center font-black uppercase text-xs text-red-500">Annuncio non trovato.</div>
+
+  const maxQty = ann.quantity !== undefined ? ann.quantity : 1;
+  const avgRating = reviews.length > 0 
+    ? (reviews.reduce((acc, cur) => acc + cur.rating, 0) / reviews.length).toFixed(1) 
+    : 'Nuovo'
+
+  return (
+    <div className="min-h-screen bg-stone-50 p-6 font-sans flex flex-col items-center justify-start relative pb-20">
+      <div className="max-w-4xl w-full mx-auto bg-white rounded-3xl overflow-hidden border border-stone-200 shadow-sm flex flex-col md:flex-row mb-8">
+        <div className="md:w-1/2 bg-stone-100 p-6 flex flex-col gap-4">
+           <div className="bg-white rounded-2xl overflow-hidden border border-stone-200 shadow-sm">
+             <img src={ann.image_url || "/usato.png"} className="w-full h-auto object-cover aspect-square" alt={ann.title} />
+           </div>
+           {ann.image_urls && ann.image_urls.length > 1 && (
+             <div className="flex gap-2 overflow-x-auto pb-2">
+               {ann.image_urls.map((img: string, i: number) => (
+                  <img key={i} src={img} className="w-20 h-20 rounded-lg object-cover border border-stone-200 shadow-sm flex-shrink-0" />
+               ))}
+             </div>
+           )}
+        </div>
+
+        <div className="md:w-1/2 p-8 flex flex-col justify-between bg-white">
+           <div>
+              <div className="flex justify-between items-start mb-2">
+                 <p className="text-[10px] font-black uppercase tracking-widest text-stone-400">{ann.category} • {ann.condition}</p>
+                 {ann.type === 'offered' && <span className="bg-rose-500 text-white text-[10px] font-black px-3 py-1 rounded uppercase shadow-sm">Regalo</span>}
+              </div>
+              <h1 className="text-3xl font-black uppercase italic text-stone-900 mb-2">{ann.title}</h1>
+              <Link href={`/user/${ann.user_id}`} className="group flex items-center justify-between mb-4 bg-stone-50 p-3 rounded-xl border border-stone-100 hover:border-rose-200 transition-colors">
+                <div className="flex items-center gap-2">
+                  <span className="text-[10px] font-black uppercase text-stone-400">Venditore:</span>
+                  <span className="text-xs font-bold text-stone-800">Profilo</span>
+                </div>
+                <div className="flex items-center gap-1">
+                  <span className="text-sm">⭐️</span>
+                  <span className="text-xs font-bold text-stone-700">{avgRating}</span>
+                  <span className="text-[9px] text-stone-400">({reviews.length})</span>
+                </div>
+              </Link>
+              <p className="text-2xl font-black text-rose-600 mb-8">
+                 {ann.type === 'offered' ? 'GRATIS' : `€ ${(ann.price * selectedQuantity).toFixed(2)}`}
+              </p>
+              <div className="space-y-4 mb-8">
+                 {ann.brand && (
+                   <div><p className="text-[9px] font-black uppercase text-stone-400">Marca</p><p className="text-sm font-bold text-stone-800">{ann.brand}</p></div>
+                 )}
+                 <div className="flex flex-col gap-1">
+                    <p className="text-[9px] font-black uppercase text-stone-400">Quantità (Disponibili: {maxQty})</p>
+                    {ann.type !== 'offered' ? (
+                      <div className="flex items-center gap-3">
+                        <input type="range" min="1" max={maxQty} value={selectedQuantity} onChange={(e) => setSelectedQuantity(Number(e.target.value))} className="w-full md:w-1/2 cursor-pointer accent-rose-500" />
+                        <span className="text-sm font-bold text-stone-800 bg-stone-100 px-3 py-1 rounded-lg border border-stone-200">{selectedQuantity}</span>
+                      </div>
+                    ) : <p className="text-sm font-bold text-stone-800">{maxQty}</p>}
+                 </div>
+                 <div className="pt-4 border-t border-stone-100">
+                   <p className="text-[9px] font-black uppercase text-stone-400 mb-1">Descrizione</p>
+                   <p className="text-sm text-stone-700 whitespace-pre-wrap leading-relaxed">{ann.description || ann.notes || 'Nessuna descrizione.'}</p>
+                 </div>
+              </div>
+           </div>
+           <div className="space-y-3 pt-6 border-t border-stone-100">
+              {ann.type !== 'offered' && (
+                <button onClick={handleSecureBuy} disabled={actionLoading || user?.id === ann.user_id || maxQty <= 0} className="w-full p-4 rounded-2xl font-black uppercase text-[10px] tracking-widest bg-gradient-to-r from-rose-500 to-orange-400 text-white shadow-md">Acquista in Sicurezza</button>
+              )}
+              <button onClick={handleContact} className="w-full bg-stone-900 text-white p-4 rounded-2xl font-black uppercase text-[10px] tracking-widest hover:bg-stone-700 transition-all shadow-md">Contatta il Venditore</button>
+              <Link href="/" className="block text-center w-full bg-stone-100 text-stone-800 p-4 rounded-2xl font-black uppercase text-[10px] tracking-widest hover:bg-stone-200 transition-all">← Torna alla Vetrina</Link>
+           </div>
+        </div>
+      </div>
+
+      <div className="max-w-4xl w-full mx-auto bg-white rounded-3xl p-8 border border-stone-200 shadow-sm">
+        <h3 className="text-lg font-black uppercase italic text-stone-900 mb-6">Recensioni del Venditore</h3>
+        {hasPurchased && (
+          <form onSubmit={submitReview} className="mb-8 p-6 bg-rose-50 rounded-2xl border border-rose-100">
+            <h4 className="text-[11px] font-bold uppercase tracking-widest text-rose-600 mb-3">Lascia un Feedback</h4>
+            <div className="flex gap-2 mb-3">
+              {[1, 2, 3, 4, 5].map(star => (
+                <button key={star} type="button" onClick={() => setNewReview({...newReview, rating: star})} className={`text-2xl ${newReview.rating >= star ? 'text-orange-400' : 'text-stone-300'}`}>★</button>
+              ))}
+            </div>
+            <textarea required className="w-full p-3 rounded-xl border border-rose-200 outline-none text-sm mb-3" placeholder="Com'è andata?" value={newReview.comment} onChange={(e) => setNewReview({...newReview, comment: e.target.value})} />
+            <button disabled={submittingReview} type="submit" className="bg-rose-500 text-white px-6 py-2 rounded-xl text-[10px] font-bold uppercase tracking-widest">Pubblica</button>
+          </form>
+        )}
+        <div className="space-y-4">
+          {reviews.length === 0 ? <p className="text-sm text-stone-400 italic">Nessuna recensione.</p> : reviews.slice(0, visibleReviews).map(review => (
+              <div key={review.id} className="p-4 bg-stone-50 rounded-xl border border-stone-100">
+                <div className="flex justify-between items-start mb-2">
+                  <span className="text-xs font-bold text-stone-800">{review.reviewer?.first_name || 'Utente Re-love'}</span>
+                  <span className="text-orange-400 text-sm">{'★'.repeat(review.rating)}{'☆'.repeat(5 - review.rating)}</span>
+                </div>
+                <p className="text-sm text-stone-600">{review.comment}</p>
+              </div>
+          ))}
+          {reviews.length > visibleReviews && <button onClick={() => setVisibleReviews(prev => prev + 3)} className="w-full text-[10px] font-bold uppercase text-stone-500">↓ Carica altre</button>}
+        </div>
+      </div>
+
+      {showCoffeeModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-stone-900/60 backdrop-blur-sm">
+          <div className="bg-white max-w-sm rounded-3xl p-8 shadow-2xl text-center">
+            <h2 className="text-xl font-black uppercase italic text-stone-900 mb-4">Supportaci ☕</h2>
+            <p className="text-xs text-stone-600 mb-8">Offrici un caffè (2.50€) per aiutarci!</p>
+            <div className="space-y-3">
+               <button onClick={handleBuyCoffee} className="w-full bg-rose-500 text-white p-4 rounded-xl font-black uppercase text-[10px]">Offri un caffè</button>
+               <button onClick={() => router.push(`/chat`)} className="w-full bg-stone-100 text-stone-600 p-4 rounded-xl font-black uppercase text-[10px]">No, grazie</button>
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  )
+}
+
+export default function AnnouncementClientWrapper() {
+  return (
+    <Suspense fallback={<div className="min-h-screen bg-stone-50 flex items-center justify-center font-bold uppercase tracking-widest text-stone-400 text-xs">Caricamento...</div>}>
+      <AnnouncementContent />
+    </Suspense>
+  )
+}
