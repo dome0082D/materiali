@@ -5,7 +5,7 @@ import { supabase } from '@/lib/supabase';
 
 // Assicurati di avere STRIPE_SECRET_KEY nel tuo file .env.local
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY as string, {
-  apiVersion: "2024-04-10" as any, // Usa la versione stabile recente
+  apiVersion: "2024-04-10" as any, 
 });
 
 export async function POST(req: Request) {
@@ -19,11 +19,14 @@ export async function POST(req: Request) {
     // 2. Salva l'ID su Supabase
     await supabase.from('profiles').update({ stripe_account_id: account.id }).eq('id', userId);
 
-    // 3. Genera il link per far inserire l'IBAN al venditore
+    // 3. Genera il link sicuro in HTTPS
+    // Usiamo direttamente il tuo dominio Vercel per garantire a Stripe la massima sicurezza
+    const siteUrl = 'https://re-love-rouge.vercel.app';
+
     const accountLink = await stripe.accountLinks.create({
       account: account.id,
-      refresh_url: `${req.headers.get('origin')}/profile`,
-      return_url: `${req.headers.get('origin')}/profile?success=true`,
+      refresh_url: `${siteUrl}/profile`,
+      return_url: `${siteUrl}/profile?success=true`,
       type: 'account_onboarding',
     });
 
