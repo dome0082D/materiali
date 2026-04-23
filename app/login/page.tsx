@@ -28,7 +28,7 @@ export default function LoginPage() {
   return (
     <div className="min-h-screen bg-stone-50 flex items-center justify-center p-4 font-sans">
       <div className="bg-white w-full max-w-md rounded-3xl p-8 border border-stone-200 shadow-sm text-center">
-        <h2 className="text-2xl font-black uppercase italic mb-6">Materiali Auth</h2>
+        <h2 className="text-2xl font-black uppercase italic mb-6">Re-love</h2>
         <form onSubmit={handleAuth} className="space-y-4">
           <input required type="email" placeholder="Email" className="w-full p-4 bg-stone-50 border border-stone-100 rounded-xl text-sm outline-none" onChange={e => setEmail(e.target.value)} />
           <input required type="password" placeholder="Password" className="w-full p-4 bg-stone-50 border border-stone-100 rounded-xl text-sm outline-none" onChange={e => setPassword(e.target.value)} />
