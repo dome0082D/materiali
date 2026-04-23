@@ -10,6 +10,9 @@ export default function ChatPage() {
   const [profilesMap, setProfilesMap] = useState<Record<string, any>>({})
   const [activeChatPair, setActiveChatPair] = useState<string | null>(null)
   const [newMessage, setNewMessage] = useState('')
+  const [loading, setLoading] = useState(true)
+  const [errorMsg, setErrorMsg] = useState<string | null>(null)
+  
   const scrollRef = useRef<HTMLDivElement>(null)
   const router = useRouter()
   
@@ -19,42 +22,59 @@ export default function ChatPage() {
     loadInitialData() 
   }, [])
 
-  // SOTTOSCRIZIONE REALTIME: Ascolta nuovi messaggi in diretta
+  // SOTTOSCRIZIONE REALTIME
   useEffect(() => {
-    const channel = supabase
-      .channel('schema-db-changes')
-      .on('postgres_changes', 
-        { event: 'INSERT', table: 'messages', schema: 'public' }, 
-        (payload) => {
-          setMessages((current) => [...current, payload.new])
-        }
-      )
-      .subscribe()
+    try {
+      const channel = supabase
+        .channel('schema-db-changes')
+        .on('postgres_changes', 
+          { event: 'INSERT', table: 'messages', schema: 'public' }, 
+          (payload) => {
+            setMessages((current) => [...current, payload.new])
+          }
+        )
+        .subscribe()
 
-    return () => { supabase.removeChannel(channel) }
+      return () => { supabase.removeChannel(channel) }
+    } catch (err) {
+      console.warn("Realtime non avviato:", err)
+    }
   }, [])
 
-  // Auto-scroll all'ultimo messaggio
   useEffect(() => {
     scrollRef.current?.scrollIntoView({ behavior: 'smooth' })
   }, [messages, activeChatPair])
 
   async function loadInitialData() {
-    const { data: { user: currentUser } } = await supabase.auth.getUser()
-    if (!currentUser) { router.push('/login'); return }
-    setUser(currentUser)
+    try {
+      setLoading(true)
+      const { data: { user: currentUser } } = await supabase.auth.getUser()
+      if (!currentUser) { router.push('/login'); return }
+      setUser(currentUser)
 
-    const { data: profs } = await supabase.from('profiles').select('id, first_name, user_serial_id')
-    const pMap: Record<string, any> = {}
-    if (profs) profs.forEach(p => pMap[p.id] = p)
-    setProfilesMap(pMap)
+      // Caricamento Profili protetto
+      const { data: profs, error: profsError } = await supabase.from('profiles').select('id, first_name, user_serial_id')
+      const pMap: Record<string, any> = {}
+      if (profs) profs.forEach(p => pMap[p.id] = p)
+      setProfilesMap(pMap)
 
-    let query = supabase.from('messages').select('*').order('created_at', { ascending: true })
-    if (currentUser.email !== 'dome0082@gmail.com') {
-       query = query.or(`sender_id.eq.${currentUser.id},receiver_id.eq.${currentUser.id}`)
+      // Caricamento Messaggi protetto
+      let query = supabase.from('messages').select('*').order('created_at', { ascending: true })
+      if (currentUser.email !== 'dome0082@gmail.com') {
+         query = query.or(`sender_id.eq.${currentUser.id},receiver_id.eq.${currentUser.id}`)
+      }
+      
+      const { data: msgs, error: msgsError } = await query
+      
+      if (msgsError) throw msgsError
+      if (msgs) setMessages(msgs)
+
+    } catch (error: any) {
+      console.error("Errore caricamento chat:", error)
+      setErrorMsg(error.message)
+    } finally {
+      setLoading(false)
     }
-    const { data: msgs } = await query
-    if (msgs) setMessages(msgs)
   }
 
   async function sendMessage() {
@@ -62,12 +82,16 @@ export default function ChatPage() {
     const usersInChat = activeChatPair.split('_')
     const receiverId = usersInChat.find(u => u !== user.id) || usersInChat[0]
 
-    await supabase.from('messages').insert([{ 
-        content: newMessage, 
-        sender_id: user.id, 
-        receiver_id: receiverId 
-    }])
-    setNewMessage('')
+    try {
+      await supabase.from('messages').insert([{ 
+          content: newMessage, 
+          sender_id: user.id, 
+          receiver_id: receiverId 
+      }])
+      setNewMessage('')
+    } catch (e) {
+      console.error("Errore invio:", e)
+    }
   }
 
   const conversations: Record<string, any[]> = {}
@@ -79,22 +103,37 @@ export default function ChatPage() {
   })
 
   return (
-    <div className="min-h-screen bg-stone-50 flex flex-col font-sans">
-      <div className="bg-white p-6 border-b border-stone-200 flex justify-between items-center shadow-sm z-10">
-        <h1 className="text-xl font-black uppercase italic text-stone-900">
-           {activeChatPair ? 'Conversazione' : 'Tutte le Chat'}
+    <div className="min-h-screen bg-stone-50 flex flex-col font-sans pb-24">
+      <div className="bg-white p-6 border-b border-stone-200 flex justify-between items-center shadow-sm z-10 sticky top-0">
+        <h1 className="text-xl md:text-2xl font-black uppercase italic text-transparent bg-clip-text bg-gradient-to-r from-rose-500 to-orange-400">
+           {activeChatPair ? 'Conversazione' : 'I Tuoi Messaggi'}
         </h1>
         <div className="flex gap-4 items-center">
           {activeChatPair ? (
-             <button onClick={() => setActiveChatPair(null)} className="text-[10px] font-black uppercase text-stone-400">← Indietro</button>
+             <button onClick={() => setActiveChatPair(null)} className="text-[10px] font-black uppercase text-stone-400 hover:text-rose-500 transition-colors">← Indietro</button>
           ) : (
-             <Link href="/" className="text-[10px] font-black uppercase text-stone-400">← Home</Link>
+             <Link href="/" className="text-[10px] font-black uppercase text-stone-400 hover:text-rose-500 transition-colors">← Home</Link>
           )}
         </div>
       </div>
 
-      <div className="flex-grow p-4 overflow-y-auto max-w-3xl mx-auto w-full">
-        {!activeChatPair && (
+      <div className="flex-grow p-4 md:p-8 overflow-y-auto max-w-3xl mx-auto w-full">
+        {loading ? (
+          <div className="text-center py-20 text-stone-400 text-xs font-bold uppercase tracking-widest animate-pulse">
+            Caricamento messaggi...
+          </div>
+        ) : errorMsg ? (
+          <div className="bg-red-50 p-6 rounded-3xl border border-red-200 text-center">
+            <p className="text-red-500 font-bold uppercase text-[10px] tracking-widest mb-2">Impossibile caricare i messaggi</p>
+            <p className="text-xs text-red-400">{errorMsg}</p>
+          </div>
+        ) : !activeChatPair && Object.keys(conversations).length === 0 ? (
+          <div className="text-center py-24 bg-white rounded-3xl border border-stone-100 shadow-sm">
+            <span className="text-6xl block mb-4">📭</span>
+            <p className="text-[11px] font-bold uppercase tracking-[0.2em] text-stone-400">Nessuna Chat Attiva</p>
+            <p className="text-xs text-stone-400 mt-2">I tuoi messaggi appariranno qui.</p>
+          </div>
+        ) : !activeChatPair && (
           <div className="space-y-3">
              {Object.entries(conversations).map(([pairKey, msgs]) => {
                 const u1 = pairKey.split('_')[0]; const u2 = pairKey.split('_')[1];
@@ -103,12 +142,14 @@ export default function ChatPage() {
                 const lastMsg = msgs[msgs.length - 1];
 
                 return (
-                  <div key={pairKey} onClick={() => setActiveChatPair(pairKey)} className="bg-white p-5 rounded-2xl border border-stone-200 shadow-sm hover:border-stone-400 transition-all cursor-pointer flex justify-between items-center">
+                  <div key={pairKey} onClick={() => setActiveChatPair(pairKey)} className="group bg-white p-5 rounded-2xl border border-stone-100 shadow-sm hover:border-rose-300 hover:shadow-md transition-all cursor-pointer flex justify-between items-center">
                      <div>
                         <h3 className="text-sm font-bold text-stone-800 uppercase">{otherName}</h3>
-                        <p className="text-xs text-stone-500 truncate italic">"{lastMsg.content}"</p>
+                        <p className="text-xs text-stone-500 truncate italic mt-1 group-hover:text-rose-600 transition-colors">"{lastMsg.content}"</p>
                      </div>
-                     <span className="text-[18px]">💬</span>
+                     <div className="w-10 h-10 bg-rose-50 rounded-full flex items-center justify-center text-rose-500 group-hover:scale-110 transition-transform">
+                       💬
+                     </div>
                   </div>
                 )
              })}
@@ -116,12 +157,12 @@ export default function ChatPage() {
         )}
 
         {activeChatPair && (
-          <div className="space-y-4 pb-24">
+          <div className="space-y-4">
             {conversations[activeChatPair]?.map(m => {
               const isMe = m.sender_id === user?.id
               return (
                 <div key={m.id} className={`flex flex-col ${isMe ? 'items-end' : 'items-start'}`}>
-                  <div className={`max-w-[80%] p-4 rounded-2xl text-xs font-bold shadow-sm ${isMe ? 'bg-stone-900 text-white' : 'bg-white border border-stone-200 text-stone-800'}`}>
+                  <div className={`max-w-[80%] p-4 rounded-2xl text-xs font-bold shadow-sm ${isMe ? 'bg-gradient-to-r from-rose-500 to-orange-400 text-white rounded-tr-none' : 'bg-white border border-stone-200 text-stone-800 rounded-tl-none'}`}>
                     {m.content}
                   </div>
                 </div>
@@ -133,10 +174,10 @@ export default function ChatPage() {
       </div>
 
       {activeChatPair && (
-        <div className="p-4 bg-white border-t border-stone-200 fixed bottom-0 w-full left-0">
+        <div className="p-4 bg-white border-t border-stone-200 fixed bottom-0 w-full left-0 z-20 shadow-[0_-4px_20px_rgba(0,0,0,0.05)]">
           <div className="max-w-3xl mx-auto flex gap-3">
-            <input value={newMessage} onKeyDown={(e) => e.key === 'Enter' && sendMessage()} onChange={e => setNewMessage(e.target.value)} type="text" placeholder="Scrivi un messaggio..." className="flex-grow p-4 bg-stone-50 border border-stone-100 rounded-2xl text-xs outline-none focus:border-stone-400" />
-            <button onClick={sendMessage} className="bg-stone-900 text-white px-8 rounded-2xl font-black uppercase text-[10px]">Invia</button>
+            <input value={newMessage} onKeyDown={(e) => e.key === 'Enter' && sendMessage()} onChange={e => setNewMessage(e.target.value)} type="text" placeholder="Scrivi un messaggio..." className="flex-grow p-4 bg-stone-50 border border-stone-200 rounded-2xl text-xs font-medium outline-none focus:border-rose-400 focus:ring-2 focus:ring-rose-100 transition-all" />
+            <button onClick={sendMessage} className="bg-gradient-to-r from-rose-500 to-orange-400 text-white px-8 rounded-2xl font-black uppercase text-[10px] tracking-widest shadow-md hover:scale-105 transition-all">Invia</button>
           </div>
         </div>
       )}

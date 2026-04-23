@@ -12,76 +12,108 @@ export default function ChatDetailPage() {
   const [messages, setMessages] = useState<any[]>([])
   const [newMsg, setNewMsg] = useState('')
   const [myId, setMyId] = useState('')
+  const [loading, setLoading] = useState(true)
   const scrollRef = useRef<HTMLDivElement>(null)
 
   useEffect(() => { 
     setup()
-    // Autoscroll alla fine dei messaggi
+  }, [])
+
+  useEffect(() => {
     scrollRef.current?.scrollIntoView({ behavior: 'smooth' })
   }, [messages])
 
   async function setup() {
-    const { data: { user } } = await supabase.auth.getUser()
-    if (!user) return
-    setMyId(user.id)
+    try {
+      setLoading(true)
+      const { data: { user } } = await supabase.auth.getUser()
+      if (!user) return
+      setMyId(user.id)
 
-    const { data } = await supabase.from('messages')
-      .select('*')
-      .or(`and(sender_id.eq.${user.id},receiver_id.eq.${receiver_id}),and(sender_id.eq.${receiver_id},receiver_id.eq.${user.id})`)
-      .order('created_at', { ascending: true })
-    
-    if (data) setMessages(data)
+      const { data, error } = await supabase.from('messages')
+        .select('*')
+        .or(`and(sender_id.eq.${user.id},receiver_id.eq.${receiver_id}),and(sender_id.eq.${receiver_id},receiver_id.eq.${user.id})`)
+        .order('created_at', { ascending: true })
+      
+      if (error) throw error
+      if (data) setMessages(data)
+
+    } catch (err) {
+      console.error("Errore setup chat:", err)
+    } finally {
+      setLoading(false)
+    }
   }
 
   async function sendMessage() {
     if (!newMsg.trim()) return
-    const { data, error } = await supabase.from('messages').insert([{
-      sender_id: myId, 
-      receiver_id: receiver_id,
-      announcement_id: ann_id, 
-      content: newMsg
-    }]).select()
+    try {
+      const { data, error } = await supabase.from('messages').insert([{
+        sender_id: myId, 
+        receiver_id: receiver_id,
+        announcement_id: ann_id, 
+        content: newMsg
+      }]).select()
 
-    if (!error && data) {
-      setMessages([...messages, data[0]])
-      setNewMsg('')
+      if (!error && data) {
+        setMessages([...messages, data[0]])
+        setNewMsg('')
+      }
+    } catch (err) {
+      console.error("Errore invio messaggio:", err)
     }
   }
 
   return (
-    <div className="min-h-screen bg-stone-200 p-4 md:p-10 font-sans flex flex-col items-center">
-      <div className="bg-white w-full max-w-2xl rounded-3xl shadow-2xl flex flex-col h-[85vh] overflow-hidden border">
+    <div className="min-h-screen bg-stone-50 p-4 md:p-10 font-sans flex flex-col items-center">
+      <div className="bg-white w-full max-w-2xl rounded-3xl shadow-xl flex flex-col h-[85vh] overflow-hidden border border-stone-200">
         
-        {/* HEADER CHAT */}
-        <div className="p-6 border-b bg-stone-900 text-white flex justify-between items-center">
-          <Link href="/chat" className="text-[10px] font-black uppercase text-stone-400 hover:text-white transition-colors">← Indietro</Link>
-          <span className="font-black uppercase text-xs tracking-widest italic text-emerald-400">Canale Sicuro</span>
-          <div className="w-2 h-2 bg-emerald-500 rounded-full animate-pulse"></div>
+        {/* HEADER CHAT TEMA RE-LOVE */}
+        <div className="p-6 border-b border-rose-100 bg-white flex justify-between items-center z-10 shadow-sm">
+          <Link href="/chat" className="text-[10px] font-black uppercase text-stone-400 hover:text-rose-500 transition-colors">← Indietro</Link>
+          <span className="font-black uppercase text-xs tracking-widest italic text-transparent bg-clip-text bg-gradient-to-r from-rose-500 to-orange-400">Canale Sicuro Re-love</span>
+          <div className="flex items-center gap-2">
+            <span className="text-[8px] uppercase font-bold text-rose-500 hidden md:block">Online</span>
+            <div className="w-2 h-2 bg-rose-500 rounded-full animate-pulse shadow-[0_0_8px_rgba(244,63,94,0.6)]"></div>
+          </div>
         </div>
         
         {/* AREA MESSAGGI */}
         <div className="flex-grow p-6 overflow-y-auto space-y-4 bg-stone-50">
-          {messages.map((m, i) => (
-            <div key={i} className={`flex ${m.sender_id === myId ? 'justify-end' : 'justify-start'}`}>
-              <div className={`max-w-[80%] p-4 rounded-2xl text-sm font-bold shadow-sm ${m.sender_id === myId ? 'bg-emerald-600 text-white rounded-tr-none' : 'bg-white text-stone-800 rounded-tl-none border'}`}>
-                {m.content}
-                <span className="block text-[8px] mt-2 opacity-50 text-right uppercase font-black">{new Date(m.created_at).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}</span>
+          {loading ? (
+             <div className="text-center py-10 text-stone-400 text-[10px] font-bold uppercase tracking-widest animate-pulse">
+               Caricamento conversazione...
+             </div>
+          ) : messages.length === 0 ? (
+             <div className="text-center py-10 opacity-50">
+               <span className="text-4xl block mb-2">👋</span>
+               <p className="text-[10px] font-bold uppercase tracking-widest text-stone-500">Rompi il ghiaccio!</p>
+             </div>
+          ) : (
+            messages.map((m, i) => (
+              <div key={i} className={`flex ${m.sender_id === myId ? 'justify-end' : 'justify-start'}`}>
+                <div className={`max-w-[80%] p-4 rounded-2xl text-sm font-bold shadow-sm ${m.sender_id === myId ? 'bg-gradient-to-r from-rose-500 to-orange-400 text-white rounded-tr-none' : 'bg-white text-stone-800 rounded-tl-none border border-stone-200'}`}>
+                  {m.content}
+                  <span className={`block text-[8px] mt-2 text-right uppercase font-black ${m.sender_id === myId ? 'text-white/70' : 'text-stone-400'}`}>
+                    {new Date(m.created_at).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}
+                  </span>
+                </div>
               </div>
-            </div>
-          ))}
+            ))
+          )}
           <div ref={scrollRef} />
         </div>
 
         {/* INPUT INVIO */}
-        <div className="p-6 border-t bg-white flex gap-3">
+        <div className="p-4 md:p-6 border-t border-stone-100 bg-white flex gap-3">
           <input 
-            className="flex-grow p-4 bg-stone-100 rounded-xl outline-none text-sm font-bold focus:ring-2 focus:ring-emerald-500 transition-all" 
+            className="flex-grow p-4 bg-stone-50 border border-stone-200 rounded-xl outline-none text-sm font-medium focus:border-rose-400 focus:ring-2 focus:ring-rose-100 transition-all text-stone-800" 
             placeholder="Scrivi un messaggio..." 
             value={newMsg}
             onChange={(e) => setNewMsg(e.target.value)}
             onKeyPress={(e) => e.key === 'Enter' && sendMessage()}
           />
-          <button onClick={sendMessage} className="bg-stone-900 text-white px-8 rounded-xl font-black uppercase text-[10px] tracking-widest hover:bg-emerald-600 transition-all">Invia</button>
+          <button onClick={sendMessage} className="bg-stone-900 text-white px-6 md:px-8 rounded-xl font-black uppercase text-[10px] tracking-widest hover:scale-105 transition-transform shadow-md">Invia</button>
         </div>
       </div>
     </div>
