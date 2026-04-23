@@ -12,8 +12,12 @@ function AddPageContent() {
   
   const [loading, setLoading] = useState(false)
   const [files, setFiles] = useState<File[]>([]) 
+  
+  // STATI AGGIUNTI PER SPEDIZIONE E MAPPA
+  const [shippingCost, setShippingCost] = useState('0')
+  const [allowLocalPickup, setAllowLocalPickup] = useState(false)
+  const [originAddress, setOriginAddress] = useState('')
 
-  // LE CATEGORIE ORA SONO FISSE NEL CODICE (Anti-Crash e Anti-Vuoto)
   const categorieFisse = [
     { id: '1', name: '👕 Abbigliamento e Accessori' },
     { id: '2', name: '💻 Elettronica e Informatica' },
@@ -39,8 +43,6 @@ function AddPageContent() {
     const condition = mode === 'new' ? 'Nuovo' : mode === 'used' ? 'Usato' : 'Regalo'
     const price = mode === 'gift' ? 0 : parseFloat(formData.get('price') as string)
     const quantity = parseInt(formData.get('quantity') as string) || 1
-    
-    // Recuperiamo l'ID della categoria dal form (come stringa)
     const categoryId = formData.get('category_id') as string
 
     let uploadedUrls: string[] = []
@@ -60,16 +62,21 @@ function AddPageContent() {
       }
     }
 
+    // INSERIMENTO CON NUOVI CAMPI SPEDIZIONE E INDIRIZZO
     const { error } = await supabase.from('announcements').insert([{
       user_id: user.id,
       title: formData.get('title'),
       description: formData.get('description'),
       price: price,
       quantity: quantity,
-      category_id: categoryId, // Ora passiamo la stringa dell'ID categoria
+      category_id: categoryId,
       condition: condition,
       image_urls: uploadedUrls,
-      image_url: uploadedUrls.length > 0 ? uploadedUrls[0] : '/usato.png'
+      image_url: uploadedUrls.length > 0 ? uploadedUrls[0] : '/usato.png',
+      // NUOVI CAMPI PER RE-LOVE
+      shipping_cost: parseFloat(shippingCost),
+      allow_local_pickup: allowLocalPickup,
+      origin_address: originAddress
     }])
 
     if (!error) {
@@ -84,7 +91,7 @@ function AddPageContent() {
   if (!mode) {
     return (
       <div className="min-h-screen bg-stone-50 p-6 md:p-10 flex flex-col items-center pt-10">
-        <h1 className="text-3xl md:text-5xl font-medium uppercase italic mb-2 tracking-tight text-transparent bg-clip-text bg-gradient-to-r from-rose-500 to-orange-400 text-center" style={{ fontFamily: "'Brush Script MT', cursive" }}>Cosa pubblichi?</h1>
+        <h1 className="text-3xl md:text-5xl font-medium uppercase italic mb-2 tracking-tight text-transparent bg-clip-text bg-gradient-to-r from-rose-500 to-orange-400 text-center">Cosa pubblichi?</h1>
         <p className="text-stone-400 font-bold uppercase text-[11px] tracking-widest mb-10 text-center">Seleziona la modalità</p>
         
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4 w-full max-w-4xl">
@@ -130,61 +137,85 @@ function AddPageContent() {
             <div>
               <label className="text-[10px] font-bold uppercase tracking-widest text-stone-400">Categoria</label>
               <select name="category_id" required className="w-full p-3 mt-1 bg-stone-50 rounded-xl border border-stone-100 outline-none focus:border-rose-400 text-sm font-medium text-stone-800">
-                {/* ORA LA TENDINA PESCA DALL'ARRAY FISSO: */}
                 {categorieFisse.map(cat => <option key={cat.id} value={cat.id}>{cat.name}</option>)}
               </select>
             </div>
             <div>
               <label className="text-[10px] font-bold uppercase tracking-widest text-stone-400">Quantità</label>
-              <input name="quantity" required type="number" min="1" defaultValue="1" className="w-full p-3 mt-1 bg-stone-50 rounded-xl border border-stone-100 outline-none focus:border-rose-400 text-sm font-medium text-stone-800" placeholder="1" />
+              <input name="quantity" required type="number" min="1" defaultValue="1" className="w-full p-3 mt-1 bg-stone-50 rounded-xl border border-stone-100 outline-none focus:border-rose-400 text-sm font-medium text-stone-800" />
             </div>
           </div>
 
-          {mode !== 'gift' && (
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            {mode !== 'gift' && (
+              <div>
+                <label className="text-[10px] font-bold uppercase tracking-widest text-stone-400">Prezzo (€)</label>
+                <input name="price" required type="number" step="0.01" className="w-full p-3 mt-1 bg-stone-50 rounded-xl border border-stone-100 outline-none focus:border-rose-400 text-sm font-medium text-stone-800" placeholder="0.00" />
+              </div>
+            )}
+            {/* SPESE DI SPEDIZIONE PER TUTTI I MODI */}
             <div>
-              <label className="text-[10px] font-bold uppercase tracking-widest text-stone-400">Prezzo (€)</label>
-              <input name="price" required type="number" step="0.01" className="w-full p-3 mt-1 bg-stone-50 rounded-xl border border-stone-100 outline-none focus:border-rose-400 text-sm font-medium text-stone-800" placeholder="0.00" />
+              <label className="text-[10px] font-bold uppercase tracking-widest text-rose-500">Spese Spedizione (€)</label>
+              <input 
+                type="number" 
+                step="0.01" 
+                value={shippingCost} 
+                onChange={(e) => setShippingCost(e.target.value)} 
+                className="w-full p-3 mt-1 bg-rose-50/50 rounded-xl border border-rose-100 outline-none focus:border-rose-400 text-sm font-bold text-stone-800" 
+                placeholder="0.00" 
+              />
             </div>
-          )}
+          </div>
+
+          <div className="p-4 bg-stone-50 rounded-xl border border-stone-100 space-y-4">
+            <div>
+              <label className="text-[10px] font-bold uppercase tracking-widest text-stone-400">Indirizzo di Provenienza (Mappa)</label>
+              <input 
+                required 
+                type="text" 
+                value={originAddress} 
+                onChange={(e) => setOriginAddress(e.target.value)}
+                className="w-full p-3 mt-1 bg-white rounded-xl border border-stone-200 outline-none focus:border-rose-400 text-sm font-medium text-stone-800" 
+                placeholder="Città, Via, Civico" 
+              />
+            </div>
+            <label className="flex items-center gap-3 cursor-pointer group">
+              <input 
+                type="checkbox" 
+                checked={allowLocalPickup} 
+                onChange={(e) => setAllowLocalPickup(e.target.checked)}
+                className="w-5 h-5 rounded accent-rose-500" 
+              />
+              <span className="text-[10px] font-black uppercase tracking-widest text-stone-600 group-hover:text-rose-500 transition-colors">Permetti Consegna a Mano</span>
+            </label>
+          </div>
 
           <div>
             <label className="text-[10px] font-bold uppercase tracking-widest text-stone-400">Descrizione</label>
             <textarea name="description" required rows={4} className="w-full p-3 mt-1 bg-stone-50 rounded-xl border border-stone-100 outline-none focus:border-rose-400 text-sm font-medium text-stone-800" placeholder="Descrivi il prodotto..."></textarea>
           </div>
 
-          {/* IL NUOVO TASTINO ALLEGATO */}
           <div className="bg-stone-50 p-5 rounded-xl border border-stone-200">
              <span className="text-[10px] font-bold uppercase tracking-widest text-stone-400 mb-3 block">Immagini del prodotto</span>
-             
              <label className="flex items-center justify-center gap-2 bg-white text-stone-700 px-6 py-4 rounded-xl text-[11px] font-bold uppercase tracking-widest hover:bg-rose-50 hover:text-rose-700 hover:border-rose-400 cursor-pointer transition-all border-2 border-stone-200 border-dashed w-full shadow-sm">
                 <span className="text-lg">📎</span> + AGGIUNGI ALLEGATO
-                <input 
-                  type="file" 
-                  multiple 
-                  accept="image/*"
-                  className="hidden"
-                  onChange={(e) => {
-                    if (e.target.files) setFiles(Array.from(e.target.files))
-                  }}
-                />
+                <input type="file" multiple accept="image/*" className="hidden" onChange={(e) => { if (e.target.files) setFiles(Array.from(e.target.files)) }} />
              </label>
 
              {files.length > 0 && (
                <div className="mt-4 bg-rose-50 p-3 rounded-lg border border-rose-100">
-                 <p className="text-[10px] font-bold text-rose-700 mb-2">✓ {files.length} file allegati pronti:</p>
+                 <p className="text-[10px] font-bold text-rose-700 mb-2">✓ {files.length} file allegati:</p>
                  <div className="flex flex-col gap-1">
                    {files.map((f, i) => (
-                     <span key={i} className="text-[9px] font-medium text-rose-600 truncate bg-white px-2 py-1 rounded border border-rose-100">
-                       {f.name}
-                     </span>
+                     <span key={i} className="text-[9px] font-medium text-rose-600 truncate bg-white px-2 py-1 rounded border border-rose-100">{f.name}</span>
                    ))}
                  </div>
                </div>
              )}
           </div>
 
-          <button disabled={loading} type="submit" className="w-full bg-stone-900 text-white font-bold uppercase text-[11px] tracking-widest p-4 rounded-xl hover:bg-rose-500 transition-all shadow-md disabled:opacity-50 mt-4">
-            {loading ? 'Caricamento file e pubblicazione...' : 'Conferma e Pubblica'}
+          <button disabled={loading} type="submit" className="w-full bg-stone-900 text-white font-black uppercase text-[11px] tracking-[0.2em] py-5 rounded-2xl hover:bg-rose-500 transition-all shadow-xl disabled:opacity-50 mt-4">
+            {loading ? 'Caricamento e pubblicazione...' : 'Conferma e Pubblica su Re-love'}
           </button>
         </form>
       </div>
@@ -194,7 +225,7 @@ function AddPageContent() {
 
 export default function AddPage() {
   return (
-    <Suspense fallback={<div className="min-h-screen bg-stone-50 flex items-center justify-center font-bold uppercase tracking-widest text-stone-400 text-xs">Caricamento modulo...</div>}>
+    <Suspense fallback={<div className="min-h-screen bg-stone-50 flex items-center justify-center font-bold uppercase tracking-widest text-stone-400 text-xs animate-pulse">Caricamento...</div>}>
       <AddPageContent />
     </Suspense>
   )
