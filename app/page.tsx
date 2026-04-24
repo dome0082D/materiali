@@ -187,8 +187,8 @@ function HomePageContent() {
             </Link>
 
             <Link href="/add?mode=barter" className="group flex flex-col rounded-3xl border border-stone-200 overflow-hidden bg-white hover:border-blue-400 transition-all shadow-sm text-center hover:-translate-y-1">
-               <div className="relative h-56 w-full overflow-hidden bg-stone-50 flex items-center justify-center text-8xl group-hover:scale-105 transition-all duration-[0.5s]">
-                 🤝
+               <div className="relative h-56 w-full overflow-hidden bg-stone-50">
+                 <img src="/baratto.png" className="w-full h-full object-contain p-4 group-hover:scale-105 transition-all duration-[0.5s]" alt="Baratto" />
                </div>
                <div className="p-6 bg-white flex-1 flex flex-col justify-center border-t border-stone-100">
                  <h3 className="text-2xl font-bold uppercase italic text-stone-900 leading-tight">Proponi Baratto</h3>
