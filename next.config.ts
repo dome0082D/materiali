@@ -1,13 +1,13 @@
 import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
-  // QUESTA È LA FORMULA MAGICA:
+  // Ignora gli errori di TypeScript durante la pubblicazione su Vercel
   typescript: {
     ignoreBuildErrors: true,
   },
-  eslint: {
-    ignoreDuringBuilds: true,
-  },
+  
+  // Nelle nuove versioni di Next.js, la configurazione di ESLint 
+  // non va più inserita in questo file, per questo è stata rimossa.
 };
 
 export default nextConfig;
