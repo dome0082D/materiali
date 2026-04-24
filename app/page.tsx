@@ -100,9 +100,18 @@ function HomePageContent() {
         </Link>
       )}
 
-      {/* HERO SECTION MODIFICATA CON RE-LOVE */}
-      <div className="relative h-[400px] flex flex-col items-center justify-center p-6 text-center overflow-hidden border-b border-rose-100 bg-white">
-          <div className="absolute inset-0 w-full h-full bg-gradient-to-br from-rose-50 to-orange-50 opacity-80 pointer-events-none"></div>
+      {/* HERO SECTION MODIFICATA CON RE-LOVE E IMMAGINE DI SFONDO */}
+      <div 
+        className="relative h-[400px] flex flex-col items-center justify-center p-6 text-center overflow-hidden border-b border-rose-100 bg-stone-100"
+        style={{
+          backgroundImage: "url('/hero-bg.jpg')",
+          backgroundSize: 'cover',
+          backgroundPosition: 'center',
+        }}
+      >
+          {/* Overlay semitrasparente e sfocato per far leggere bene le scritte */}
+          <div className="absolute inset-0 w-full h-full bg-white/40 backdrop-blur-[2px] pointer-events-none"></div>
+          
           <div className="relative z-10 w-full max-w-4xl px-4 flex flex-col items-center">
             
             <h1 
@@ -111,12 +120,12 @@ function HomePageContent() {
             >
               Re-love
             </h1>
-            <p className="text-[10px] md:text-[12px] font-bold uppercase tracking-[0.6em] text-stone-400 mb-10 ml-2">
+            <p className="text-[10px] md:text-[12px] font-bold uppercase tracking-[0.6em] text-stone-600 mb-10 ml-2">
               Vendi • Compra • Regala
             </p>
             
             <div className="relative group w-full max-w-2xl">
-              <input type="text" placeholder="Cerca vestiti, elettronica, arredamento..." className="w-full p-5 pl-14 rounded-3xl bg-white border border-stone-200 outline-none text-sm font-medium focus:border-rose-400 focus:shadow-lg focus:shadow-rose-100 transition-all" onChange={(e) => setMainSearch(e.target.value)} />
+              <input type="text" placeholder="Cerca vestiti, elettronica, arredamento..." className="w-full p-5 pl-14 rounded-3xl bg-white/90 backdrop-blur-sm border border-stone-200 outline-none text-sm font-medium focus:border-rose-400 focus:bg-white focus:shadow-lg focus:shadow-rose-100 transition-all" onChange={(e) => setMainSearch(e.target.value)} />
               <span className="absolute left-5 top-5 opacity-40 text-xl">🔍</span>
             </div>
           </div>
