@@ -1,6 +1,6 @@
 'use client'
 
-import { Suspense, useState, useEffect } from 'react'
+import { Suspense, useState } from 'react'
 import { useSearchParams, useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { supabase } from '@/lib/supabase'
@@ -14,9 +14,9 @@ function AddPageContent() {
   const [files, setFiles] = useState<File[]>([]) 
   
   // STATI AGGIUNTI PER SPEDIZIONE E MAPPA
-  const [shippingCost, setShippingCost] = useState('0')
-  const [allowLocalPickup, setAllowLocalPickup] = useState(false)
-  const [originAddress, setOriginAddress] = useState('')
+  const [shippingCost, setShippingCost] = useState<string>('0')
+  const [allowLocalPickup, setAllowLocalPickup] = useState<boolean>(false)
+  const [originAddress, setOriginAddress] = useState<string>('')
 
   const categorieFisse = [
     { id: '1', name: '👕 Abbigliamento e Accessori' },
@@ -35,15 +35,27 @@ function AddPageContent() {
     setLoading(true)
     
     const { data: { user } } = await supabase.auth.getUser()
-    if (!user) { alert('Devi accedere per pubblicare!'); setLoading(false); return; }
+    if (!user) { 
+      alert('Devi accedere per pubblicare!')
+      setLoading(false)
+      return 
+    }
 
-    const form = e.target as HTMLFormElement
+    const form = e.currentTarget
     const formData = new FormData(form)
     
     const condition = mode === 'new' ? 'Nuovo' : mode === 'used' ? 'Usato' : mode === 'barter' ? 'Baratto' : 'Regalo'
-    const price = (mode === 'gift' || mode === 'barter') ? 0 : parseFloat(formData.get('price') as string)
-    const quantity = parseInt(formData.get('quantity') as string) || 1
-    const categoryId = formData.get('category_id') as string
+    
+    // Controlli sicuri per TypeScript
+    const priceString = formData.get('price')?.toString() || '0'
+    const price = (mode === 'gift' || mode === 'barter') ? 0 : parseFloat(priceString)
+    
+    const quantityString = formData.get('quantity')?.toString() || '1'
+    const quantity = parseInt(quantityString, 10) || 1
+    
+    const categoryId = formData.get('category_id')?.toString() || ''
+    const title = formData.get('title')?.toString() || ''
+    const description = formData.get('description')?.toString() || ''
 
     let uploadedUrls: string[] = []
 
@@ -62,22 +74,21 @@ function AddPageContent() {
       }
     }
 
-    // INSERIMENTO CON NUOVI CAMPI SPEDIZIONE E INDIRIZZO
+    // @ts-ignore: Ignoriamo l'errore TypeScript della cache di Supabase per i nuovi campi
     const { error } = await supabase.from('announcements').insert([{
       user_id: user.id,
-      title: formData.get('title'),
-      description: formData.get('description'),
+      title: title,
+      description: description,
       price: price,
       quantity: quantity,
       category_id: categoryId,
       condition: condition,
       image_urls: uploadedUrls,
       image_url: uploadedUrls.length > 0 ? uploadedUrls[0] : '/usato.png',
-      // NUOVI CAMPI PER RE-LOVE
-      shipping_cost: parseFloat(shippingCost),
+      shipping_cost: parseFloat(shippingCost) || 0,
       allow_local_pickup: allowLocalPickup,
       origin_address: originAddress
-    }])
+    }]) 
 
     if (!error) {
       alert("Annuncio pubblicato con successo!")
