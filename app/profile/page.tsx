@@ -5,20 +5,53 @@ import { supabase } from '@/lib/supabase'
 import { useRouter, useSearchParams } from 'next/navigation'
 import Link from 'next/link'
 
+// 1. DEFINIAMO I TIPI PER EVITARE L'ERRORE "ANY"
+interface SupabaseUser {
+  id: string;
+  email?: string;
+  [key: string]: unknown;
+}
+
+interface ProfileData {
+  first_name?: string;
+  last_name?: string;
+  city?: string;
+  full_address?: string;
+  stripe_account_id?: string;
+  [key: string]: unknown;
+}
+
+interface EditForm {
+  first_name: string;
+  last_name: string;
+  city: string;
+  full_address: string;
+}
+
+interface AdItem {
+  id: string;
+  title: string;
+  price: number;
+  image_url: string;
+  quantity?: number;
+  [key: string]: unknown;
+}
+
 function ProfileContent() {
-  const [user, setUser] = useState<any>(null)
-  const [profile, setProfile] = useState<any>(null)
+  // 2. SOSTITUITI I "ANY" CON I TIPI CORRETTI
+  const [user, setUser] = useState<SupabaseUser | null>(null)
+  const [profile, setProfile] = useState<ProfileData | null>(null)
   const [loading, setLoading] = useState(true)
   const [stripeLoading, setStripeLoading] = useState(false)
   
   const [isEditing, setIsEditing] = useState(false)
-  const [editForm, setEditForm] = useState<any>({ first_name: '', last_name: '', city: '', full_address: '' })
+  const [editForm, setEditForm] = useState<EditForm>({ first_name: '', last_name: '', city: '', full_address: '' })
   const [saving, setSaving] = useState(false)
 
   // LE TUE VETRINE ORIGINALI
-  const [myAds, setMyAds] = useState<any[]>([])
-  const [soldAds, setSoldAds] = useState<any[]>([])
-  const [boughtAds, setBoughtAds] = useState<any[]>([])
+  const [myAds, setMyAds] = useState<AdItem[]>([])
+  const [soldAds, setSoldAds] = useState<AdItem[]>([])
+  const [boughtAds, setBoughtAds] = useState<AdItem[]>([])
   
   const router = useRouter()
   const searchParams = useSearchParams()
@@ -34,7 +67,7 @@ function ProfileContent() {
       router.push('/login')
       return
     }
-    setUser(currentUser)
+    setUser(currentUser as SupabaseUser)
 
     const { data } = await supabase.from('profiles').select('*').eq('id', currentUser.id).single()
     setProfile(data)
@@ -93,13 +126,13 @@ function ProfileContent() {
           city: editForm.city,
           full_address: editForm.full_address
         })
-        .eq('id', user.id)
+        .eq('id', user?.id)
 
       if (error) throw error
       setProfile({ ...profile, ...editForm })
       setIsEditing(false)
-    } catch (error: any) {
-      alert("Errore salvataggio: " + error.message)
+    } catch (error: unknown) { // Sostituito any con unknown
+      alert("Errore salvataggio: " + (error as Error).message)
     } finally {
       setSaving(false)
     }
@@ -111,7 +144,7 @@ function ProfileContent() {
       const res = await fetch('/api/stripe/onboarding', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ userId: user.id, email: user.email })
+        body: JSON.stringify({ userId: user?.id, email: user?.email })
       })
       const data = await res.json()
       if (data.url) {
@@ -126,7 +159,8 @@ function ProfileContent() {
     }
   }
 
-  async function handleDelete(e: any, id: string) {
+  // Sostituito "e: any" con "e: React.MouseEvent"
+  async function handleDelete(e: React.MouseEvent, id: string) {
     e.preventDefault(); e.stopPropagation();
     if (!window.confirm("Vuoi davvero eliminare questo annuncio?")) return;
     const { error } = await supabase.from('announcements').delete().eq('id', id);
@@ -136,8 +170,8 @@ function ProfileContent() {
     }
   }
 
-  // IL TUO RENDERGRID ORIGINALE CON STILE RE-LOVE
-  const renderGrid = (items: any[], emptyMessage: string, isOwner: boolean = false) => {
+  // IL TUO RENDERGRID ORIGINALE CON STILE RE-LOVE - Sostituito items: any[]
+  const renderGrid = (items: AdItem[], emptyMessage: string, isOwner: boolean = false) => {
     if (items.length === 0) return <p className="text-[10px] font-bold text-stone-400 italic py-4">{emptyMessage}</p>
     return (
       <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
