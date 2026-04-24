@@ -4,8 +4,18 @@ import { supabase } from '@/lib/supabase'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 
+// Aggiungiamo l'interfaccia per eliminare gli errori "any" di TypeScript
+interface Profile {
+  id: string;
+  first_name: string | null;
+  last_name: string | null;
+  user_serial_id?: string | null;
+  city: string | null;
+  nation?: string | null;
+}
+
 export default function StaffUsersPage() {
-  const [profiles, setProfiles] = useState<any[]>([])
+  const [profiles, setProfiles] = useState<Profile[]>([])
   const [loading, setLoading] = useState(true)
   const router = useRouter()
 
@@ -16,8 +26,9 @@ export default function StaffUsersPage() {
     // Controllo sicurezza Staff
     if (user?.email !== 'dome0082@gmail.com') { router.push('/'); return; }
     
-    const { data } = await supabase.from('profiles').select('*').order('created_at', { ascending: false })
-    if (data) setProfiles(data)
+    // Modificato da created_at a id per evitare il crash del database
+    const { data } = await supabase.from('profiles').select('*').order('id', { ascending: false })
+    if (data) setProfiles(data as Profile[])
     setLoading(false)
   }
 
@@ -28,7 +39,7 @@ export default function StaffUsersPage() {
     }
   }
 
-  async function editProfile(p: any) {
+  async function editProfile(p: Profile) {
     const newName = prompt(`Modifica il nome per ${p.first_name || 'Utente'}:`, p.first_name || '');
     if (newName !== null) {
         await supabase.from('profiles').update({ first_name: newName }).eq('id', p.id);
