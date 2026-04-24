@@ -34,71 +34,79 @@ function AddPageContent() {
     e.preventDefault()
     setLoading(true)
     
-    const { data: { user } } = await supabase.auth.getUser()
-    if (!user) { 
-      alert('Devi accedere per pubblicare!')
-      setLoading(false)
-      return 
-    }
+    try {
+      const { data: { user } } = await supabase.auth.getUser()
+      if (!user) { 
+        alert('Devi accedere per pubblicare!')
+        setLoading(false)
+        return 
+      }
 
-    const form = e.currentTarget
-    const formData = new FormData(form)
-    
-    const condition = mode === 'new' ? 'Nuovo' : mode === 'used' ? 'Usato' : mode === 'barter' ? 'Baratto' : 'Regalo'
-    
-    // Controlli ultra-sicuri per TypeScript per evitare valori NaN (Not a Number)
-    const priceString = formData.get('price')?.toString() || '0'
-    const price = (mode === 'gift' || mode === 'barter') ? 0 : (parseFloat(priceString) || 0)
-    
-    const quantityString = formData.get('quantity')?.toString() || '1'
-    const quantity = parseInt(quantityString, 10) || 1
-    
-    const categoryId = formData.get('category_id')?.toString() || ''
-    const title = formData.get('title')?.toString() || ''
-    const description = formData.get('description')?.toString() || ''
+      const form = e.currentTarget
+      const formData = new FormData(form)
+      
+      const condition = mode === 'new' ? 'Nuovo' : mode === 'used' ? 'Usato' : mode === 'barter' ? 'Baratto' : 'Regalo'
+      
+      const priceString = formData.get('price')?.toString() || '0'
+      const price = (mode === 'gift' || mode === 'barter') ? 0 : (parseFloat(priceString) || 0)
+      
+      const quantityString = formData.get('quantity')?.toString() || '1'
+      const quantity = parseInt(quantityString, 10) || 1
+      
+      const categoryId = formData.get('category_id')?.toString() || ''
+      const title = formData.get('title')?.toString() || ''
+      const description = formData.get('description')?.toString() || ''
 
-    let uploadedUrls: string[] = []
+      let uploadedUrls: string[] = []
 
-    if (files.length > 0) {
-      for (const file of files) {
-        const fileExt = file.name.split('.').pop()
-        const fileName = `${Math.random()}.${fileExt}`
-        const filePath = `${user.id}/${fileName}`
-        
-        const { error: uploadError } = await supabase.storage.from('images').upload(filePath, file)
-        
-        if (!uploadError) {
-          const { data } = supabase.storage.from('images').getPublicUrl(filePath)
-          uploadedUrls.push(data.publicUrl)
+      if (files.length > 0) {
+        for (const file of files) {
+          const fileExt = file.name.split('.').pop()
+          const fileName = `${Math.random()}.${fileExt}`
+          const filePath = `${user.id}/${fileName}`
+          
+          const { error: uploadError } = await supabase.storage.from('images').upload(filePath, file)
+          
+          if (!uploadError) {
+            const { data } = supabase.storage.from('images').getPublicUrl(filePath)
+            uploadedUrls.push(data.publicUrl)
+          } else {
+            console.error("Errore upload immagine:", uploadError.message)
+            alert("Errore durante il caricamento dell'immagine: " + uploadError.message)
+            setLoading(false)
+            return
+          }
         }
       }
+
+      const announcementData = {
+        user_id: user.id,
+        title: title,
+        description: description,
+        price: price,
+        quantity: quantity,
+        category_id: categoryId,
+        condition: condition,
+        image_urls: uploadedUrls,
+        image_url: uploadedUrls.length > 0 ? uploadedUrls[0] : '/usato.png',
+        shipping_cost: parseFloat(shippingCost) || 0,
+        allow_local_pickup: allowLocalPickup,
+        origin_address: originAddress
+      };
+
+      const { error } = await supabase.from('announcements').insert([announcementData as any]) 
+
+      if (!error) {
+        alert("Annuncio pubblicato con successo!")
+        router.push('/')
+      } else {
+        alert("Errore durante la pubblicazione: " + error.message)
+      }
+    } catch (err: any) {
+      alert("Si è verificato un errore imprevisto: " + err.message)
+    } finally {
+      setLoading(false)
     }
-
-    // Salvataggio nel database blindato con i tipi corretti
-    const announcementData = {
-      user_id: user.id,
-      title: title,
-      description: description,
-      price: price,
-      quantity: quantity,
-      category_id: categoryId,
-      condition: condition,
-      image_urls: uploadedUrls,
-      image_url: uploadedUrls.length > 0 ? uploadedUrls[0] : '/usato.png',
-      shipping_cost: parseFloat(shippingCost) || 0,
-      allow_local_pickup: allowLocalPickup,
-      origin_address: originAddress
-    };
-
-    const { error } = await supabase.from('announcements').insert([announcementData as any]) 
-
-    if (!error) {
-      alert("Annuncio pubblicato con successo!")
-      router.push('/')
-    } else {
-      alert("Errore durante la pubblicazione: " + error.message)
-    }
-    setLoading(false)
   }
 
   if (!mode) {
