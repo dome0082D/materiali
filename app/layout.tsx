@@ -3,16 +3,16 @@ import './globals.css'
 import Navbar from '@/components/Navbar'
 import Script from 'next/script'
 
-// METADATI PER SEO E PWA
+// METADATI AGGIORNATI PER RE-LOVE
 export const metadata: Metadata = {
-  title: 'Re-love - LIBERO SCAMBIO',
-  description: 'Il marketplace professionale dedicato ai materiali edili. Trova il nuovo, l\'usato o oggetti in regalo vicino a te.',
+  title: 'Re-love - Dai nuova vita all\'usato',
+  description: 'Il marketplace sostenibile per vendere e comprare vestiti, oggetti e tanto altro. Unisciti alla rivoluzione circular.',
   manifest: '/manifest.json',
 }
 
-// COLORE DELLA BARRA DI STATO SU ANDROID
+// COLORE DELLA BARRA (f43f5e è il rosa/rosso del brand)
 export const viewport: Viewport = {
-  themeColor: '#059669',
+  themeColor: '#f43f5e',
 }
 
 export default function RootLayout({
@@ -23,15 +23,15 @@ export default function RootLayout({
   return (
     <html lang="it">
       <head>
-        {/* Script per registrare il Service Worker e attivare la PWA */}
+        {/* Registrazione Service Worker per PWA */}
         <Script id="register-sw" strategy="afterInteractive">
           {`
             if ('serviceWorker' in navigator) {
               window.addEventListener('load', function() {
                 navigator.serviceWorker.register('/sw.js').then(function(registration) {
-                  console.log('Re-love: Service Worker registrato con successo');
+                  console.log('Re-love: Service Worker registrato');
                 }, function(err) {
-                  console.log('Re-love: Registrazione Service Worker fallita: ', err);
+                  console.log('Re-love: Errore Service Worker', err);
                 });
               });
             }

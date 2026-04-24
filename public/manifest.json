@@ -1,15 +1,15 @@
 {
   "id": "com.relove.app",
-  "name": "Re-love - Materiali Edili",
+  "name": "Re-love - Dai vita all'usato",
   "short_name": "Re-love",
-  "description": "Recupera, regala e vendi materiali edili. Il marketplace professionale per dare nuova vita ai materiali.",
+  "description": "Il marketplace sostenibile per vendere e comprare vestiti, oggetti e tanto altro.",
   "start_url": "/",
   "display": "standalone",
   "orientation": "portrait",
   "background_color": "#fafaf9",
-  "theme_color": "#059669",
+  "theme_color": "#f43f5e",
   "lang": "it-IT",
-  "categories": ["shopping", "business"],
+  "categories": ["shopping", "lifestyle"],
   "icons": [
     {
       "src": "icon-192.png",
@@ -36,21 +36,21 @@
       "sizes": "1080x1920",
       "type": "image/png",
       "form_factor": "narrow",
-      "label": "Home di Re-love"
+      "label": "Scopri Re-love"
     },
     {
       "src": "screen2.png",
       "sizes": "1080x1920",
       "type": "image/png",
       "form_factor": "narrow",
-      "label": "Dettaglio Annuncio"
+      "label": "Dettaglio Articolo"
     },
     {
       "src": "screen3.png",
       "sizes": "1080x1920",
       "type": "image/png",
       "form_factor": "narrow",
-      "label": "Pubblica Materiale"
+      "label": "Vendi il tuo usato"
     }
   ]
 }
