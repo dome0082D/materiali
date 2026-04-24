@@ -1,14 +1,29 @@
-create table baratti (
-  id uuid default uuid_generate_v4() primary key,
-  created_at timestamp with time zone default timezone('utc'::text, now()) not null,
-  item_id uuid references announcements(id),
-  user_a_id uuid references auth.users(id),
-  user_b_id uuid references auth.users(id),
-  stripe_pi_user_a text, -- Qui salviamo l'ID del pagamento congelato dell'Utente A
-  status text default 'pending_user_b' -- Stato iniziale
-);
+import { NextResponse } from 'next/server';
+import Stripe from 'stripe';
 
--- Abilita l'accesso alla tabella
-alter table baratti enable row level security;
-create policy "Tutti possono vedere i baratti" on baratti for select using (true);
-create policy "Utenti possono inserire baratti" on baratti for insert with check (auth.uid() = user_a_id);
+export const dynamic = 'force-dynamic';
+
+export async function POST(req: Request) {
+  try {
+    const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!, { 
+      apiVersion: '2025-03-25.dahlia' 
+    });
+
+    const { baratto_id, user_b_id } = await req.json();
+
+    // Crea un pagamento NORMALE per l'Utente B
+    const paymentIntent = await stripe.paymentIntents.create({
+      amount: 250,
+      currency: 'eur',
+      metadata: { 
+        type: 'baratto_accept',
+        baratto_id: baratto_id, // Fondamentale per il Webhook
+        user_b: user_b_id 
+      },
+    });
+
+    return NextResponse.json({ clientSecret: paymentIntent.client_secret });
+  } catch (error: any) {
+    return NextResponse.json({ error: error.message }, { status: 500 });
+  }
+}
