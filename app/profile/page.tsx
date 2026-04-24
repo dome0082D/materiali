@@ -4,21 +4,15 @@ import { useEffect, useState, Suspense } from 'react'
 import { supabase } from '@/lib/supabase'
 import { useRouter, useSearchParams } from 'next/navigation'
 import Link from 'next/link'
+import { User } from '@supabase/supabase-js'
 
-// 1. DEFINIAMO I TIPI PER EVITARE L'ERRORE "ANY"
-interface SupabaseUser {
-  id: string;
-  email?: string;
-  [key: string]: unknown;
-}
-
+// 1. DEFINIAMO I TIPI CORRETTAMENTE E IN MODO COMPLETO
 interface ProfileData {
   first_name?: string;
   last_name?: string;
   city?: string;
   full_address?: string;
   stripe_account_id?: string;
-  [key: string]: unknown;
 }
 
 interface EditForm {
@@ -34,12 +28,11 @@ interface AdItem {
   price: number;
   image_url: string;
   quantity?: number;
-  [key: string]: unknown;
+  user_id?: string;
 }
 
 function ProfileContent() {
-  // 2. SOSTITUITI I "ANY" CON I TIPI CORRETTI
-  const [user, setUser] = useState<SupabaseUser | null>(null)
+  const [user, setUser] = useState<User | null>(null)
   const [profile, setProfile] = useState<ProfileData | null>(null)
   const [loading, setLoading] = useState(true)
   const [stripeLoading, setStripeLoading] = useState(false)
@@ -59,6 +52,7 @@ function ProfileContent() {
 
   useEffect(() => {
     loadProfile()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
   async function loadProfile() {
@@ -67,12 +61,12 @@ function ProfileContent() {
       router.push('/login')
       return
     }
-    setUser(currentUser as SupabaseUser)
+    setUser(currentUser)
 
     const { data } = await supabase.from('profiles').select('*').eq('id', currentUser.id).single()
-    setProfile(data)
     
     if (data) {
+      setProfile(data as ProfileData)
       setEditForm({
         first_name: data.first_name || '',
         last_name: data.last_name || '',
@@ -89,8 +83,9 @@ function ProfileContent() {
       .order('created_at', { ascending: false })
 
     if (ads) {
-      setMyAds(ads.filter(a => (a.quantity !== undefined ? a.quantity : 1) > 0))
-      setSoldAds(ads.filter(a => (a.quantity !== undefined ? a.quantity : 1) <= 0))
+      const typedAds = ads as AdItem[]
+      setMyAds(typedAds.filter(a => (a.quantity !== undefined ? a.quantity : 1) > 0))
+      setSoldAds(typedAds.filter(a => (a.quantity !== undefined ? a.quantity : 1) <= 0))
     }
 
     const { data: txs } = await supabase
@@ -104,7 +99,9 @@ function ProfileContent() {
         .from('announcements')
         .select('*')
         .in('id', annIds)
-      if (bought) setBoughtAds(bought)
+      if (bought) {
+        setBoughtAds(bought as AdItem[])
+      }
     }
 
     setLoading(false)
@@ -131,8 +128,9 @@ function ProfileContent() {
       if (error) throw error
       setProfile({ ...profile, ...editForm })
       setIsEditing(false)
-    } catch (error: unknown) { // Sostituito any con unknown
-      alert("Errore salvataggio: " + (error as Error).message)
+    } catch (error: unknown) { 
+      const err = error as Error
+      alert("Errore salvataggio: " + err.message)
     } finally {
       setSaving(false)
     }
@@ -153,29 +151,33 @@ function ProfileContent() {
         alert("Errore Stripe: " + data.error)
       }
     } catch (err) {
+      console.error(err)
       alert("Errore collegamento Stripe.")
     } finally {
       setStripeLoading(false)
     }
   }
 
-  // Sostituito "e: any" con "e: React.MouseEvent"
   async function handleDelete(e: React.MouseEvent, id: string) {
-    e.preventDefault(); e.stopPropagation();
+    e.preventDefault(); 
+    e.stopPropagation();
+    
     if (!window.confirm("Vuoi davvero eliminare questo annuncio?")) return;
     const { error } = await supabase.from('announcements').delete().eq('id', id);
     if (!error) {
       setMyAds(myAds.filter(a => a.id !== id));
       setSoldAds(soldAds.filter(a => a.id !== id));
+    } else {
+      alert("Errore durante l'eliminazione.");
     }
   }
 
-  // IL TUO RENDERGRID ORIGINALE CON STILE RE-LOVE - Sostituito items: any[]
+  // IL TUO RENDERGRID ORIGINALE CON STILE RE-LOVE
   const renderGrid = (items: AdItem[], emptyMessage: string, isOwner: boolean = false) => {
     if (items.length === 0) return <p className="text-[10px] font-bold text-stone-400 italic py-4">{emptyMessage}</p>
     return (
       <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
-        {items.map(ann => (
+        {items.map((ann) => (
           <div key={ann.id} className="bg-white rounded-2xl overflow-hidden border border-stone-100 shadow-sm flex flex-col hover:border-rose-300 transition-all">
             <Link href={`/announcement/${ann.id}`} className="aspect-square bg-stone-50 relative block overflow-hidden">
               <img src={ann.image_url || "/usato.png"} className="w-full h-full object-cover hover:scale-105 transition-transform duration-500" alt={ann.title} />

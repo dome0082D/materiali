@@ -4,17 +4,37 @@ import { useEffect, useState, Suspense } from 'react'
 import { supabase } from '@/lib/supabase'
 import Link from 'next/link'
 import { useRouter, useSearchParams } from 'next/navigation'
+import { User } from '@supabase/supabase-js'
+
+// 1. Definiamo l'interfaccia per gli annunci per rimuovere gli "any"
+interface Announcement {
+  id: string;
+  title: string;
+  description: string;
+  price: number;
+  quantity: number;
+  category_id?: string;
+  category?: string;
+  condition: string;
+  type?: string;
+  image_url: string;
+  image_urls?: string[];
+  user_id: string;
+  created_at: string;
+  is_sponsored?: boolean;
+}
 
 function HomePageContent() {
-  const [user, setUser] = useState<any>(null)
-  const [announcements, setAnnouncements] = useState<any[]>([])
+  const [user, setUser] = useState<User | null>(null)
+  const [announcements, setAnnouncements] = useState<Announcement[]>([])
   const [favorites, setFavorites] = useState<string[]>([])
   const [loading, setLoading] = useState(true)
+  
+  // STATI PER LA RICERCA
   const [mainSearch, setMainSearch] = useState('') 
   const [searchCategory, setSearchCategory] = useState('all')
   const [condition, setSearchCondition] = useState('all')
   const [distance, setDistance] = useState(0) 
-  const [isStaffOpen, setIsStaffOpen] = useState(false)
   
   // STATO AGGIUNTO PER LA PAGINAZIONE
   const [visibleCount, setVisibleCount] = useState(12)
@@ -25,15 +45,24 @@ function HomePageContent() {
   const typeFilter = searchParams.get('type')
   const IS_STAFF = user?.email === 'dome0082@gmail.com';
 
-  useEffect(() => { fetchInitialData() }, [])
+  useEffect(() => { 
+    fetchInitialData() 
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
 
   async function fetchInitialData() {
     setLoading(true)
     const { data: { user: u } } = await supabase.auth.getUser()
     setUser(u)
     
-    const { data: ads, error } = await supabase.from('announcements').select('*').order('created_at', { ascending: false })
-    if (!error && ads) setAnnouncements(ads)
+    const { data: ads, error } = await supabase
+      .from('announcements')
+      .select('*')
+      .order('created_at', { ascending: false })
+
+    if (!error && ads) {
+      setAnnouncements(ads as Announcement[])
+    }
     
     if (u) {
       const { data: favs } = await supabase.from('favorites').select('announcement_id').eq('user_id', u.id)
@@ -50,14 +79,18 @@ function HomePageContent() {
       navigator.geolocation.getCurrentPosition(async (pos) => {
         setDistance(20) 
         const { data, error } = await supabase.rpc('get_nearby_announcements', {
-          user_lat: pos.coords.latitude, user_lon: pos.coords.longitude, radius_meters: 20000
+          user_lat: pos.coords.latitude, 
+          user_lon: pos.coords.longitude, 
+          radius_meters: 20000
         })
-        if (!error && data) setAnnouncements(data)
+        if (!error && data) {
+          setAnnouncements(data as Announcement[])
+        }
       })
     }
   }
 
-  async function handleToggleFavorite(e: any, announcementId: string) {
+  async function handleToggleFavorite(e: React.MouseEvent, announcementId: string) {
     e.preventDefault()
     e.stopPropagation()
     if (!user) { alert("Devi accedere per salvare i tuoi preferiti ❤️"); return; }
@@ -90,6 +123,11 @@ function HomePageContent() {
   const topItems = sortedData.filter(i => i.condition === 'Nuovo').slice(0, 5)
   const regularItems = sortedData.filter(i => !topItems.find(t => t.id === i.id))
 
+  // Renderizzo solo se non sto caricando, per evitare flash di contenuti vuoti
+  if (loading) {
+    return <div className="min-h-screen bg-stone-50 flex items-center justify-center font-bold uppercase tracking-widest text-stone-400 text-xs">Caricamento Vetrina...</div>
+  }
+
   return (
     <div className="min-h-screen bg-stone-50 font-sans text-stone-900 pb-20">
       
@@ -104,9 +142,9 @@ function HomePageContent() {
         className="relative w-full h-[400px] md:h-[650px] flex flex-col items-center overflow-hidden border-b border-rose-100 bg-[#f6f5f2]"
         style={{
           backgroundImage: "url('/hero-bg.jpg')",
-          backgroundSize: 'contain', /* Questo fa in modo che l'immagine non venga tagliata */
+          backgroundSize: 'contain', 
           backgroundPosition: 'center',
-          backgroundRepeat: 'no-repeat', /* Impedisce all'immagine di sdoppiarsi */
+          backgroundRepeat: 'no-repeat', 
         }}
       >
           {/* Contenitore interno che spinge la barra di ricerca verso il basso per non coprire l'immagine */}
@@ -229,7 +267,7 @@ function HomePageContent() {
                 <button onClick={(e) => handleToggleFavorite(e, item.id)} className="absolute top-6 right-6 z-30 bg-white/90 w-8 h-8 flex items-center justify-center rounded-full shadow-sm text-lg hover:scale-110 transition-all">{favorites.includes(item.id) ? '❤️' : '🤍'}</button>
                 <Link href={`/announcement/${item.id}`}>
                   <div className="aspect-square rounded-2xl overflow-hidden bg-stone-50 mb-4 relative border-2 border-white shadow-inner">
-                    <img src={item.image_url || "/nuovo.png"} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-[0.8s]" />
+                    <img src={item.image_url || "/nuovo.png"} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-[0.8s]" alt={item.title} />
                   </div>
                   <h4 className="text-[12px] font-medium uppercase truncate text-stone-900 mb-1 px-1">{item.title}</h4>
                   <div className="flex justify-between items-center px-1 mb-3">
@@ -261,7 +299,7 @@ function HomePageContent() {
                 
                 <Link href={`/announcement/${item.id}`} className="aspect-square bg-stone-50 relative block overflow-hidden">
                   <button onClick={(e) => handleToggleFavorite(e, item.id)} className="absolute top-2 right-2 z-30 bg-white/80 w-6 h-6 flex items-center justify-center rounded-full shadow-sm text-xs hover:scale-110 transition-all">{favorites.includes(item.id) ? '❤️' : '🤍'}</button>
-                  <img src={item.image_url || "/usato.png"} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-[0.8s]" />
+                  <img src={item.image_url || "/usato.png"} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-[0.8s]" alt={item.title} />
                   <div className="absolute bottom-2 left-2 bg-white/90 backdrop-blur-sm px-2 py-0.5 rounded text-[8px] font-bold uppercase tracking-widest text-stone-600 shadow-sm">{item.condition}</div>
                 </Link>
                 <div className="p-3 flex flex-col justify-between flex-grow">
