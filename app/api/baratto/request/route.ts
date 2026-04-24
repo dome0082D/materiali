@@ -4,7 +4,7 @@ import { createClient } from '@supabase/supabase-js';
 
 // Inizializza Stripe con la tua chiave segreta
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!, { 
-  apiVersion: '2023-10-16' 
+  apiVersion: '2025-03-25.dahlia' 
 });
 
 // Inizializza Supabase (Usa la Service Role Key per fare query sicure lato server)
