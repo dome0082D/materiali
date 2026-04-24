@@ -144,6 +144,7 @@ function HomePageContent() {
               <option value="Nuovo">✨ Nuovo</option>
               <option value="Usato">♻️ Usato</option>
               <option value="Regalo">🎁 In Regalo</option>
+              <option value="Baratto">🤝 Baratto</option>
             </select>
           </div>
           <div className="flex flex-col gap-2 pt-5">
@@ -154,7 +155,7 @@ function HomePageContent() {
         </section>
 
         {!catFilter && !typeFilter && (
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-16">
+          <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-16">
             <Link href="/add?mode=new" className="group flex flex-col rounded-3xl border border-stone-200 overflow-hidden bg-white hover:border-rose-400 transition-all shadow-sm text-center hover:-translate-y-1">
                <div className="relative h-56 w-full overflow-hidden bg-stone-50">
                  <img src="/nuovo.png" className="w-full h-full object-contain p-4 group-hover:scale-105 transition-all duration-[0.5s]" alt="Nuovo" />
@@ -182,6 +183,16 @@ function HomePageContent() {
                <div className="p-6 bg-white flex-1 flex flex-col justify-center border-t border-stone-100">
                  <h3 className="text-2xl font-bold uppercase italic text-stone-900 leading-tight">Regalo Solidale</h3>
                  <p className="text-[10px] font-medium uppercase mt-2 text-red-500 tracking-widest">Dona a chi ha bisogno</p>
+               </div>
+            </Link>
+
+            <Link href="/add?mode=barter" className="group flex flex-col rounded-3xl border border-stone-200 overflow-hidden bg-white hover:border-blue-400 transition-all shadow-sm text-center hover:-translate-y-1">
+               <div className="relative h-56 w-full overflow-hidden bg-stone-50 flex items-center justify-center text-8xl group-hover:scale-105 transition-all duration-[0.5s]">
+                 🤝
+               </div>
+               <div className="p-6 bg-white flex-1 flex flex-col justify-center border-t border-stone-100">
+                 <h3 className="text-2xl font-bold uppercase italic text-stone-900 leading-tight">Proponi Baratto</h3>
+                 <p className="text-[10px] font-medium uppercase mt-2 text-blue-500 tracking-widest">Scambia senza denaro</p>
                </div>
             </Link>
           </div>
