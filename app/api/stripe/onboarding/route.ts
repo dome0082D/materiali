@@ -3,22 +3,23 @@ import { NextResponse } from 'next/server';
 import Stripe from 'stripe';
 import { createClient } from '@supabase/supabase-js';
 
-const stripe = new Stripe(process.env.STRIPE_SECRET_KEY as string, {
-  apiVersion: "2024-04-10" as any,
-});
-
-// IL TRUCCO: Creiamo un client Admin (con la chiave di servizio) per bypassare il blocco di sicurezza (RLS)
-const supabaseAdmin = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL as string,
-  process.env.SUPABASE_SERVICE_ROLE_KEY as string
-);
-
 export async function POST(req: Request) {
   try {
+    // 1. SPOSTATO QUI DENTRO: Inizializziamo Stripe e Supabase solo quando serve.
+    // Così evitiamo che Vercel vada in crash durante la fase di Build!
+    const stripe = new Stripe(process.env.STRIPE_SECRET_KEY as string, {
+      apiVersion: "2024-04-10" as any,
+    });
+
+    const supabaseAdmin = createClient(
+      process.env.NEXT_PUBLIC_SUPABASE_URL as string,
+      process.env.SUPABASE_SERVICE_ROLE_KEY as string
+    );
+
     const { userId } = await req.json();
     if (!userId) return NextResponse.json({ error: "User ID mancante" }, { status: 400 });
 
-    // 1. Crea account Express
+    // 2. Crea account Express
     const account = await stripe.accounts.create({ 
       type: 'express',
       capabilities: {
@@ -27,7 +28,7 @@ export async function POST(req: Request) {
       },
     });
 
-    // 2. Salva l'ID su Supabase forzando la scrittura con supabaseAdmin
+    // 3. Salva l'ID su Supabase forzando la scrittura con supabaseAdmin
     const { error: dbError } = await supabaseAdmin
       .from('profiles')
       .update({ stripe_account_id: account.id })
@@ -35,7 +36,7 @@ export async function POST(req: Request) {
 
     if (dbError) throw new Error("Errore salvataggio database: " + dbError.message);
 
-    // 3. Genera link (SCRIVIAMO L'URL DIRETTO PER EVITARE ERRORI HTTPS)
+    // 4. Genera link (SCRIVIAMO L'URL DIRETTO PER EVITARE ERRORI HTTPS)
     const siteUrl = 'https://re-love-rouge.vercel.app';
 
     const accountLink = await stripe.accountLinks.create({
