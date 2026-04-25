@@ -4,27 +4,31 @@ import { supabase } from '@/lib/supabase'
 import { useParams, useSearchParams, useRouter } from 'next/navigation'
 import Link from 'next/link'
 
+// 1. FIX: DEFINIAMO IL TIPO PER ELIMINARE L'ERRORE "Unexpected any"
+interface ChatMessage {
+  id?: string;
+  sender_id: string;
+  receiver_id: string;
+  announcement_id: string | null;
+  content: string;
+  created_at: string;
+}
+
 export default function ChatDetailPage() {
   const { id: receiver_id } = useParams()
   const searchParams = useSearchParams()
   const ann_id = searchParams.get('ann')
   const router = useRouter()
   
-  const [messages, setMessages] = useState<any[]>([])
+  // Applichiamo l'interfaccia qui
+  const [messages, setMessages] = useState<ChatMessage[]>([])
   const [newMsg, setNewMsg] = useState('')
   const [myId, setMyId] = useState('')
   const [loading, setLoading] = useState(true)
   const [isConfirmed, setIsConfirmed] = useState(false) // Stato per sbloccare i contatti
   const scrollRef = useRef<HTMLDivElement>(null)
 
-  useEffect(() => { 
-    setup()
-  }, [])
-
-  useEffect(() => {
-    scrollRef.current?.scrollIntoView({ behavior: 'smooth' })
-  }, [messages])
-
+  // 2. FIX: SPOSTIAMO LA FUNZIONE QUI SOPRA PER ELIMINARE L'ERRORE "Cannot access variable before it is declared"
   async function setup() {
     try {
       setLoading(true)
@@ -78,7 +82,7 @@ export default function ChatDetailPage() {
         .order('created_at', { ascending: true })
       
       if (error) throw error
-      if (data) setMessages(data)
+      if (data) setMessages(data as ChatMessage[]) // Applichiamo il tipo qui
 
     } catch (err) {
       console.error("Errore setup chat:", err)
@@ -86,6 +90,16 @@ export default function ChatDetailPage() {
       setLoading(false)
     }
   }
+
+  // ORA L'USE_EFFECT PUÒ CHIAMARE LA FUNZIONE SENZA ERRORI
+  useEffect(() => { 
+    setup()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
+
+  useEffect(() => {
+    scrollRef.current?.scrollIntoView({ behavior: 'smooth' })
+  }, [messages])
 
   async function sendMessage() {
     if (!newMsg.trim()) return
@@ -108,13 +122,13 @@ export default function ChatDetailPage() {
     try {
       const { data, error } = await supabase.from('messages').insert([{
         sender_id: myId, 
-        receiver_id: receiver_id,
+        receiver_id: receiver_id as string, // Assicuriamo che sia una stringa
         announcement_id: ann_id, 
         content: contentToSend
       }]).select()
 
       if (!error && data) {
-        setMessages([...messages, data[0]])
+        setMessages([...messages, data[0] as ChatMessage]) // Applichiamo il tipo qui
         setNewMsg('')
       }
     } catch (err) {
