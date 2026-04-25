@@ -4,7 +4,6 @@ import { supabase } from '@/lib/supabase'
 import { useParams, useSearchParams, useRouter } from 'next/navigation'
 import Link from 'next/link'
 
-// 1. FIX: DEFINIAMO IL TIPO PER ELIMINARE L'ERRORE "Unexpected any"
 interface ChatMessage {
   id?: string;
   sender_id: string;
@@ -20,7 +19,6 @@ export default function ChatDetailPage() {
   const ann_id = searchParams.get('ann')
   const router = useRouter()
   
-  // Applichiamo l'interfaccia qui
   const [messages, setMessages] = useState<ChatMessage[]>([])
   const [newMsg, setNewMsg] = useState('')
   const [myId, setMyId] = useState('')
@@ -28,7 +26,6 @@ export default function ChatDetailPage() {
   const [isConfirmed, setIsConfirmed] = useState(false) // Stato per sbloccare i contatti
   const scrollRef = useRef<HTMLDivElement>(null)
 
-  // 2. FIX: SPOSTIAMO LA FUNZIONE QUI SOPRA PER ELIMINARE L'ERRORE "Cannot access variable before it is declared"
   async function setup() {
     try {
       setLoading(true)
@@ -63,7 +60,6 @@ export default function ChatDetailPage() {
           }
 
           // 2. CONTROLLO CONFERMA (PER SBLOCCO NUMERI/LINK)
-          // Controlliamo se esiste una transazione 'Conclusa' o 'Ricevuta'
           const { data: checkConf } = await supabase.from('transactions')
             .select('status')
             .eq('announcement_id', ann_id)
@@ -82,7 +78,7 @@ export default function ChatDetailPage() {
         .order('created_at', { ascending: true })
       
       if (error) throw error
-      if (data) setMessages(data as ChatMessage[]) // Applichiamo il tipo qui
+      if (data) setMessages(data as ChatMessage[])
 
     } catch (err) {
       console.error("Errore setup chat:", err)
@@ -91,7 +87,6 @@ export default function ChatDetailPage() {
     }
   }
 
-  // ORA L'USE_EFFECT PUÒ CHIAMARE LA FUNZIONE SENZA ERRORI
   useEffect(() => { 
     setup()
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -122,13 +117,13 @@ export default function ChatDetailPage() {
     try {
       const { data, error } = await supabase.from('messages').insert([{
         sender_id: myId, 
-        receiver_id: receiver_id as string, // Assicuriamo che sia una stringa
+        receiver_id: receiver_id as string,
         announcement_id: ann_id, 
         content: contentToSend
       }]).select()
 
       if (!error && data) {
-        setMessages([...messages, data[0] as ChatMessage]) // Applichiamo il tipo qui
+        setMessages([...messages, data[0] as ChatMessage])
         setNewMsg('')
       }
     } catch (err) {
@@ -189,7 +184,7 @@ export default function ChatDetailPage() {
         </div>
       </div>
       
-      {/* NOTA LEGALE RESPONSABILITÀ */}
+      {/* NOTA LEGALE RESPONSABILITÀ (QUI C'ERA L'ERRORE DELL'APOSTROFO!) */}
       <p className="mt-4 text-[9px] font-bold text-stone-400 uppercase tracking-tight text-center max-w-2xl px-4">
         Re-love mette solo in contatto gli utenti. Il sito non ha responsabilità sulla qualità degli oggetti o sull&apos;esito dello scambio.
       </p>
