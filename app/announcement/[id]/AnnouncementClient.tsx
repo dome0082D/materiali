@@ -60,16 +60,34 @@ function AnnouncementContent() {
     if (data && data.length > 0) setHasPurchased(true)
   }
 
+  // LOGICA BLINDATA: IL TASTO CONTATTA OBBLIGA A PAGARE
   const handleContact = () => {
-    if (ann.type === 'offered' || ann.condition === 'Regalo') setShowCoffeeModal(true)
-    else router.push(`/chat/${ann.user_id}?ann=${ann.id}`)
+    if (!user) { alert("Devi accedere per continuare!"); return; }
+    if (user.id === ann.user_id) { alert("Questo è il tuo annuncio."); return; }
+
+    if (ann.condition === 'Nuovo' || ann.condition === 'Usato') {
+      alert("Per sbloccare la chat e parlare col venditore, devi prima completare l'acquisto dell'oggetto.");
+      handleSecureBuy();
+    } else {
+      // Per Regalo e Baratto forziamo l'apertura del modale di pagamento da 2.50€
+      setShowCoffeeModal(true);
+    }
   }
 
+  // AGGIUNTO L'INVIO DEI DATI A STRIPE PER IL WEBHOOK!
   const handleBuyCoffee = async () => {
     setActionLoading(true)
-    const res = await fetch('/api/stripe/coffee', { method: 'POST' })
+    const res = await fetch('/api/stripe/coffee', { 
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        announcementId: ann.id,
+        buyerId: user.id
+      })
+    })
     const data = await res.json()
     if (data.url) window.location.href = data.url
+    else alert("Errore durante l'avvio del pagamento.")
     setActionLoading(false)
   }
 
@@ -86,10 +104,6 @@ function AnnouncementContent() {
       return;
     }
 
-    // Calcolo totale incluso eventuale spedizione
-    const basePrice = ann.price * selectedQuantity;
-    const shipping = usePickup ? 0 : (ann.shipping_cost || 0);
-
     const res = await fetch('/api/stripe/checkout', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -102,7 +116,7 @@ function AnnouncementContent() {
             image_url: ann.image_url
         }],
         buyerId: user.id,
-        usePickup: usePickup // Passiamo la scelta della consegna a mano
+        usePickup: usePickup
       })
     })
     const data = await res.json()
@@ -140,14 +154,13 @@ function AnnouncementContent() {
     ? (reviews.reduce((acc, cur) => acc + cur.rating, 0) / reviews.length).toFixed(1) 
     : 'Nuovo'
 
-  // URL GOOGLE MAPS
   const mapUrl = `https://maps.google.com/maps?q=${encodeURIComponent(ann.origin_address || ann.city || 'Italia')}&t=&z=13&ie=UTF8&iwloc=&output=embed`;
 
   return (
     <div className="min-h-screen bg-stone-50 p-4 md:p-10 font-sans pb-32">
       <div className="max-w-6xl mx-auto grid grid-cols-1 lg:grid-cols-12 gap-8">
         
-        {/* COLONNA SINISTRA: MEDIA E MAPPA */}
+        {/* COLONNA SINISTRA */}
         <div className="lg:col-span-7 space-y-6">
           <div className="bg-white p-3 rounded-[2.5rem] shadow-sm border border-stone-200">
              <div className="rounded-[2rem] overflow-hidden bg-stone-100">
@@ -162,7 +175,6 @@ function AnnouncementContent() {
              )}
           </div>
 
-          {/* MAPPA DI PROVENIENZA */}
           <div className="bg-white p-8 rounded-[2.5rem] border border-stone-200 shadow-sm overflow-hidden">
             <h3 className="text-[10px] font-black uppercase text-stone-400 tracking-widest mb-4 flex items-center gap-2">
               <span className="w-2 h-2 bg-rose-500 rounded-full animate-pulse"></span> Luogo di partenza
@@ -174,7 +186,7 @@ function AnnouncementContent() {
           </div>
         </div>
 
-        {/* COLONNA DESTRA: INFO E AZIONI */}
+        {/* COLONNA DESTRA */}
         <div className="lg:col-span-5 space-y-6">
           <div className="bg-white p-8 rounded-[3rem] shadow-xl border border-stone-200 relative overflow-hidden">
             <div className="flex justify-between items-start mb-6">
@@ -200,63 +212,76 @@ function AnnouncementContent() {
             </Link>
 
             <div className="mb-8">
-               <p className="text-4xl font-black text-transparent bg-clip-text bg-gradient-to-r from-rose-500 to-orange-400 italic">
-                  {ann.type === 'offered' || ann.condition === 'Regalo' ? 'GRATIS' : `€ ${(ann.price * selectedQuantity).toFixed(2)}`}
-               </p>
-               {!usePickup && ann.shipping_cost > 0 && (
-                 <p className="text-[10px] font-black text-stone-400 uppercase mt-1">+ Spese Spedizione € {ann.shipping_cost}</p>
+               {/* MOSTRA BARATTO ALTRIMENTI PREZZO/REGALO */}
+               {ann.condition === 'Baratto' ? (
+                 <div className="bg-blue-50 border border-blue-100 p-4 rounded-2xl">
+                    <p className="text-[10px] font-black text-blue-500 uppercase tracking-widest">Modalità Baratto</p>
+                    <p className="text-xl font-black text-stone-900 uppercase italic mt-1">
+                      🔄 Cerca: {ann.exchange_item || 'Oggetto da concordare'}
+                    </p>
+                 </div>
+               ) : (
+                 <>
+                   <p className="text-4xl font-black text-transparent bg-clip-text bg-gradient-to-r from-rose-500 to-orange-400 italic">
+                      {ann.type === 'offered' || ann.condition === 'Regalo' ? 'GRATIS' : `€ ${(ann.price * selectedQuantity).toFixed(2)}`}
+                   </p>
+                   {!usePickup && ann.shipping_cost > 0 && (
+                     <p className="text-[10px] font-black text-stone-400 uppercase mt-1">+ Spese Spedizione € {ann.shipping_cost}</p>
+                   )}
+                 </>
                )}
             </div>
 
-            <div className="space-y-6 mb-10">
-               {/* QUANTITA' */}
-               <div className="space-y-2">
-                  <p className="text-[9px] font-black uppercase text-stone-400 tracking-[0.2em]">Quantità (Max: {maxQty})</p>
-                  <div className="flex items-center gap-4">
-                    <input type="range" min="1" max={maxQty} value={selectedQuantity} onChange={(e) => setSelectedQuantity(Number(e.target.value))} className="flex-grow accent-rose-500" />
-                    <span className="w-10 h-10 flex items-center justify-center bg-stone-900 text-white rounded-xl font-black text-xs">{selectedQuantity}</span>
-                  </div>
-               </div>
-
-               {/* OPZIONI CONSEGNA */}
-               <div className="space-y-3">
-                  <p className="text-[9px] font-black uppercase text-stone-400 tracking-[0.2em]">Metodo di ricezione</p>
-                  
-                  <button onClick={() => setUsePickup(false)} className={`w-full p-4 rounded-2xl border flex justify-between items-center transition-all ${!usePickup ? 'border-rose-500 bg-rose-50/50' : 'border-stone-100 bg-stone-50'}`}>
-                    <div className="text-left">
-                       <p className="text-[10px] font-black uppercase text-stone-800">Spedizione Standard</p>
-                       <p className="text-[9px] font-bold text-stone-400 italic">Tracciata Re-love</p>
+            {ann.condition !== 'Baratto' && ann.condition !== 'Regalo' && (
+              <div className="space-y-6 mb-10">
+                 <div className="space-y-2">
+                    <p className="text-[9px] font-black uppercase text-stone-400 tracking-[0.2em]">Quantità (Max: {maxQty})</p>
+                    <div className="flex items-center gap-4">
+                      <input type="range" min="1" max={maxQty} value={selectedQuantity} onChange={(e) => setSelectedQuantity(Number(e.target.value))} className="flex-grow accent-rose-500" />
+                      <span className="w-10 h-10 flex items-center justify-center bg-stone-900 text-white rounded-xl font-black text-xs">{selectedQuantity}</span>
                     </div>
-                    <span className="font-black text-xs">€ {ann.shipping_cost || '0.00'}</span>
-                  </button>
+                 </div>
 
-                  {ann.allow_local_pickup && (
-                    <button onClick={() => setUsePickup(true)} className={`w-full p-4 rounded-2xl border flex justify-between items-center transition-all ${usePickup ? 'border-emerald-500 bg-emerald-50' : 'border-stone-100 bg-stone-50'}`}>
+                 <div className="space-y-3">
+                    <p className="text-[9px] font-black uppercase text-stone-400 tracking-[0.2em]">Metodo di ricezione</p>
+                    <button onClick={() => setUsePickup(false)} className={`w-full p-4 rounded-2xl border flex justify-between items-center transition-all ${!usePickup ? 'border-rose-500 bg-rose-50/50' : 'border-stone-100 bg-stone-50'}`}>
                       <div className="text-left">
-                         <p className="text-[10px] font-black uppercase text-emerald-800">Consegna a mano</p>
-                         <p className="text-[9px] font-bold text-emerald-600 italic">Presso {ann.city || 'località del venditore'}</p>
+                         <p className="text-[10px] font-black uppercase text-stone-800">Spedizione Standard</p>
+                         <p className="text-[9px] font-bold text-stone-400 italic">Tracciata Re-love</p>
                       </div>
-                      <span className="font-black text-[10px] uppercase text-emerald-600">Gratis</span>
+                      <span className="font-black text-xs">€ {ann.shipping_cost || '0.00'}</span>
                     </button>
-                  )}
-               </div>
-            </div>
+
+                    {ann.allow_local_pickup && (
+                      <button onClick={() => setUsePickup(true)} className={`w-full p-4 rounded-2xl border flex justify-between items-center transition-all ${usePickup ? 'border-emerald-500 bg-emerald-50' : 'border-stone-100 bg-stone-50'}`}>
+                        <div className="text-left">
+                           <p className="text-[10px] font-black uppercase text-emerald-800">Consegna a mano</p>
+                           <p className="text-[9px] font-bold text-emerald-600 italic">Presso {ann.city || 'località del venditore'}</p>
+                        </div>
+                        <span className="font-black text-[10px] uppercase text-emerald-600">Gratis</span>
+                      </button>
+                    )}
+                 </div>
+              </div>
+            )}
 
             <div className="space-y-3 pt-6 border-t border-stone-100">
-               {ann.type !== 'offered' && ann.condition !== 'Regalo' ? (
+               {/* BOTTONI MODIFICATI: PORTANO TUTTI AL CHECKOUT */}
+               {ann.condition === 'Nuovo' || ann.condition === 'Usato' ? (
                  <button onClick={handleSecureBuy} disabled={actionLoading || user?.id === ann.user_id || maxQty <= 0} className="w-full bg-stone-900 text-white p-5 rounded-2xl font-black uppercase text-[11px] tracking-[0.2em] shadow-xl hover:bg-rose-500 transition-all disabled:opacity-30">
-                    {actionLoading ? 'In corso...' : 'Acquista ora'}
+                    {actionLoading ? 'In corso...' : 'Acquista e Sblocca Chat'}
                  </button>
                ) : (
-                 <button onClick={handleContact} className="w-full bg-rose-500 text-white p-5 rounded-2xl font-black uppercase text-[11px] tracking-[0.2em] shadow-xl hover:bg-stone-900 transition-all">
-                    Prendi Regalo
+                 <button onClick={handleContact} disabled={actionLoading || user?.id === ann.user_id} className="w-full bg-rose-500 text-white p-5 rounded-2xl font-black uppercase text-[11px] tracking-[0.2em] shadow-xl hover:bg-stone-900 transition-all disabled:opacity-30">
+                    {ann.condition === 'Regalo' ? 'Prendi Regalo e Sblocca Chat' : 'Inizia Baratto e Sblocca Chat'}
                  </button>
                )}
-               <button onClick={handleContact} className="w-full border-2 border-stone-900 text-stone-900 p-4 rounded-2xl font-black uppercase text-[10px] tracking-widest hover:bg-stone-900 hover:text-white transition-all">Contatta</button>
+               <button onClick={handleContact} disabled={actionLoading || user?.id === ann.user_id} className="w-full border-2 border-stone-900 text-stone-900 p-4 rounded-2xl font-black uppercase text-[10px] tracking-widest hover:bg-stone-900 hover:text-white transition-all disabled:opacity-30">
+                 Contatta il venditore
+               </button>
             </div>
           </div>
 
-          {/* TRACCIAMENTO PACCO */}
           <div className="bg-stone-900 p-8 rounded-[3rem] text-white shadow-2xl relative overflow-hidden">
              <div className="absolute top-0 right-0 p-6 opacity-20 text-4xl">🚚</div>
              <h3 className="text-[10px] font-black uppercase text-rose-400 tracking-[0.3em] mb-6">Stato Spedizione</h3>
@@ -308,15 +333,23 @@ function AnnouncementContent() {
         </div>
       </div>
 
+      {/* IL MODALE DIVENTA IL CASELLO DI PAGAMENTO OBBLIGATORIO PER REGALI E BARATTI */}
       {showCoffeeModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-stone-900/80 backdrop-blur-md">
           <div className="bg-white max-w-sm w-full rounded-[3rem] p-10 shadow-2xl text-center border-t-8 border-rose-500">
-            <span className="text-5xl mb-6 block animate-bounce">☕</span>
-            <h2 className="text-2xl font-black uppercase italic text-stone-900 mb-2">Supporta Re-love</h2>
-            <p className="text-xs font-medium text-stone-500 mb-10 leading-relaxed italic">Visto che l'oggetto è in regalo, offriresti un caffè simbolico (2.50€) alla nostra community?</p>
+            <span className="text-5xl mb-6 block animate-bounce">🔒</span>
+            <h2 className="text-2xl font-black uppercase italic text-stone-900 mb-2">Sblocca la Chat</h2>
+            <p className="text-xs font-medium text-stone-500 mb-10 leading-relaxed italic">
+              Per sbloccare la conversazione in modalità {ann.condition} è richiesta una commissione simbolica di €2.50.
+            </p>
             <div className="space-y-3">
-               <button onClick={handleBuyCoffee} className="w-full bg-stone-900 text-white py-5 rounded-2xl font-black uppercase text-[10px] tracking-widest shadow-xl hover:bg-rose-500 transition-all">Sì, offro un caffè!</button>
-               <button onClick={() => router.push(`/chat/${ann.user_id}`)} className="w-full bg-stone-50 text-stone-400 py-4 rounded-2xl font-black uppercase text-[9px] tracking-widest">No, prosegui alla chat</button>
+               <button onClick={handleBuyCoffee} disabled={actionLoading} className="w-full bg-stone-900 text-white py-5 rounded-2xl font-black uppercase text-[10px] tracking-widest shadow-xl hover:bg-rose-500 transition-all disabled:opacity-30">
+                 {actionLoading ? 'Elaborazione...' : 'Paga €2.50 e Sblocca'}
+               </button>
+               {/* TOLTO IL TASTO "PROSEGUI SENZA PAGARE", ORA C'È SOLO ANNULLA */}
+               <button onClick={() => setShowCoffeeModal(false)} className="w-full bg-stone-50 text-stone-400 py-4 rounded-2xl font-black uppercase text-[9px] tracking-widest hover:bg-stone-200">
+                 Annulla
+               </button>
             </div>
           </div>
         </div>
@@ -325,7 +358,7 @@ function AnnouncementContent() {
   )
 }
 
-export default function AnnouncementClientWrapper() {
+export default function AnnouncementClientWrapper({ announcementId }: { announcementId?: string }) {
   return (
     <Suspense fallback={<div className="min-h-screen bg-stone-50 flex items-center justify-center font-black uppercase tracking-widest text-stone-400 text-[10px]">In caricamento...</div>}>
       <AnnouncementContent />

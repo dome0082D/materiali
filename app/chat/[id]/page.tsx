@@ -1,13 +1,14 @@
 'use client'
 import { useEffect, useState, useRef } from 'react'
 import { supabase } from '@/lib/supabase'
-import { useParams, useSearchParams } from 'next/navigation'
+import { useParams, useSearchParams, useRouter } from 'next/navigation'
 import Link from 'next/link'
 
 export default function ChatDetailPage() {
   const { id: receiver_id } = useParams()
   const searchParams = useSearchParams()
   const ann_id = searchParams.get('ann')
+  const router = useRouter() // AGGIUNTO PER RIMBALZARE I FURBETTI
   
   const [messages, setMessages] = useState<any[]>([])
   const [newMsg, setNewMsg] = useState('')
@@ -30,6 +31,45 @@ export default function ChatDetailPage() {
       if (!user) return
       setMyId(user.id)
 
+      // ==========================================
+      // 🔒 INIZIO LUCCHETTO DI SICUREZZA
+      // ==========================================
+      if (ann_id) {
+        // 1. Capiamo di che annuncio stiamo parlando
+        const { data: ann } = await supabase.from('announcements').select('condition, user_id').eq('id', ann_id).single();
+        
+        if (ann) {
+          const sellerId = ann.user_id;
+          // Se io sono il venditore, il compratore è l'altro. Altrimenti, il compratore sono io.
+          const buyerId = user.id === sellerId ? receiver_id : user.id;
+
+          if (ann.condition === 'Baratto') {
+            // CONTROLLO BARATTO: Entrambi devono aver pagato 2.50€
+            const { data: txs } = await supabase.from('transactions').select('buyer_id').eq('announcement_id', ann_id).eq('status', 'Pagato');
+            const paidUsers = txs?.map(t => t.buyer_id) || [];
+            
+            if (!paidUsers.includes(user.id) || !paidUsers.includes(receiver_id as string)) {
+              alert("🔒 Chat bloccata: Il baratto si sblocca solo quando ENTRAMBI gli utenti pagano la commissione di €2.50.");
+              router.push(`/announcement/${ann_id}`);
+              return; // Blocca tutto
+            }
+          } else {
+            // CONTROLLO NUOVO, USATO, REGALO: Il compratore deve aver pagato
+            const { data: tx } = await supabase.from('transactions').select('id').eq('announcement_id', ann_id).eq('buyer_id', buyerId).eq('status', 'Pagato').limit(1);
+            
+            if (!tx || tx.length === 0) {
+              alert("🔒 Chat bloccata: Il pagamento deve essere completato per poter messaggiare.");
+              router.push(`/announcement/${ann_id}`);
+              return; // Blocca tutto
+            }
+          }
+        }
+      }
+      // ==========================================
+      // 🔓 FINE LUCCHETTO DI SICUREZZA
+      // ==========================================
+
+      // SE ARRIVA QUI, IL PAGAMENTO È CONFERMATO -> CARICA I MESSAGGI
       const { data, error } = await supabase.from('messages')
         .select('*')
         .or(`and(sender_id.eq.${user.id},receiver_id.eq.${receiver_id}),and(sender_id.eq.${receiver_id},receiver_id.eq.${user.id})`)
