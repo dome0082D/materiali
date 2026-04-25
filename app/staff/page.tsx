@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react'
 import { supabase } from '@/lib/supabase'
 import { useRouter } from 'next/navigation'
 
+// --- INTERFACCE DATI ---
 interface Transaction {
   id: string;
   created_at: string;
@@ -11,8 +12,6 @@ interface Transaction {
   buyer_id: string;
   seller_id: string;
   stripe_payment_intent_id: string;
-  barter_confirmed_buyer: boolean;
-  barter_confirmed_seller: boolean;
   announcements: {
     id: string;
     title: string;
@@ -27,15 +26,31 @@ interface Transaction {
 interface Profile {
   id: string;
   email: string;
-  [key: string]: any; 
+  first_name?: string;
+  last_name?: string;
+  city?: string;
+  address?: string;
+  full_address?: string;
+  created_at: string;
+  stripe_account_id?: string;
+  role?: string;
+}
+
+interface Review {
+  id: string;
+  rating: number;
+  comment: string;
+  reviewer: { email: string };
+  reviewed: { email: string };
 }
 
 export default function AdminDashboard() {
   const [transactions, setTransactions] = useState<Transaction[]>([])
   const [profiles, setProfiles] = useState<Profile[]>([])
+  const [reviews, setReviews] = useState<Review[]>([])
   const [loading, setLoading] = useState(true)
   
-  // Stati per la modale di ispezione utente
+  // Stati per la modale di ispezione
   const [selectedUser, setSelectedUser] = useState<Profile | null>(null)
   const [userMessages, setUserMessages] = useState<any[]>([])
   const [isModalOpen, setIsModalOpen] = useState(false)
@@ -51,212 +66,160 @@ export default function AdminDashboard() {
     setLoading(true)
     const { data: { user } } = await supabase.auth.getUser()
     
-    // Controllo di sicurezza: se non sei tu, ti sbatte fuori
     if (!user || user.email !== ADMIN_EMAIL) {
       router.push('/')
       return
     }
 
-    // 1. Recuperiamo tutte le transazioni
+    // 1. Recupero Transazioni con Annunci
     const { data: txs } = await supabase
       .from('transactions')
-      .select('*, announcements(id, title, price, condition, image_url)')
+      .select('*, announcements(*)')
       .order('created_at', { ascending: false })
 
-    // 2. Recuperiamo tutti gli utenti
-    const { data: profs } = await supabase
-      .from('profiles')
-      .select('*')
+    // 2. Recupero Profili (per le email)
+    const { data: profs } = await supabase.from('profiles').select('*')
 
-    if (profs) {
-      setProfiles(profs as Profile[])
-    }
+    // 3. Recupero Recensioni con Join sui profili
+    const { data: revs } = await supabase
+      .from('reviews')
+      .select('*, reviewer:reviewer_id(email), reviewed:reviewed_id(email)')
 
-    if (txs) {
-      const enrichedTxs = await Promise.all(txs.map(async (tx) => {
-        const { data: buyerData } = await supabase.from('profiles').select('email').eq('id', tx.buyer_id).single()
-        const { data: sellerData } = await supabase.from('profiles').select('email').eq('id', tx.seller_id).single()
-        return { ...tx, buyer: buyerData, seller: sellerData }
+    if (profs) setProfiles(profs as Profile[])
+    if (revs) setReviews(revs as unknown as Review[])
+    
+    if (txs && profs) {
+      const enrichedTxs = txs.map(tx => ({
+        ...tx,
+        buyer: { email: profs.find(p => p.id === tx.buyer_id)?.email || 'N/D' },
+        seller: { email: profs.find(p => p.id === tx.seller_id)?.email || 'N/D' }
       }))
       setTransactions(enrichedTxs as unknown as Transaction[])
     }
+    
     setLoading(false)
   }
 
-  // --- FUNZIONI TRANSAZIONI ---
+  // --- LOGICA AZIONI ADMIN ---
+
   const forceStatus = async (txId: string, newStatus: string) => {
-    if (!window.confirm(`Sei sicuro di forzare lo stato a: ${newStatus}?`)) return;
-    
-    setLoading(true)
-    const { error } = await supabase.from('transactions').update({ status: newStatus }).eq('id', txId)
-    
-    if (!error) {
-      alert(`Status aggiornato a ${newStatus}!`)
-      checkAdminAndFetchData()
-    } else {
-      alert("Errore aggiornamento: " + error.message)
-      setLoading(false)
-    }
+    if (!confirm(`Vuoi forzare lo stato a: ${newStatus}?`)) return
+    await supabase.from('transactions').update({ status: newStatus }).eq('id', txId)
+    checkAdminAndFetchData()
   }
 
-  // --- FUNZIONI SICUREZZA E ISPEZIONE ---
+  const deleteReview = async (id: string) => {
+    if (!confirm("Eliminare definitivamente questa recensione?")) return
+    await supabase.from('reviews').delete().eq('id', id)
+    checkAdminAndFetchData()
+  }
+
   const viewUserDetails = async (profile: Profile) => {
     setSelectedUser(profile)
     setIsModalOpen(true)
-    
-    // Recupera tutta la chat dell'utente
     const { data } = await supabase
       .from('messages')
       .select('*')
       .or(`sender_id.eq.${profile.id},receiver_id.eq.${profile.id}`)
       .order('created_at', { ascending: false })
-    
-    if (data) {
-      setUserMessages(data)
-    }
+    setUserMessages(data || [])
   }
 
   const deleteChats = async (userId: string) => {
-    if (!window.confirm("Sei sicuro di voler ELIMINARE TUTTE LE CHAT di questo utente?")) return;
-    setLoading(true)
-    const { error } = await supabase.from('messages').delete().or(`sender_id.eq.${userId},receiver_id.eq.${userId}`)
-    if (!error) {
-      alert("Chat eliminate.")
-      if (selectedUser?.id === userId) setIsModalOpen(false)
-      checkAdminAndFetchData()
-    } else {
-      alert("Errore: " + error.message)
-      setLoading(false)
-    }
+    if (!confirm("ELIMINARE TUTTE le chat di questo utente?")) return
+    await supabase.from('messages').delete().or(`sender_id.eq.${userId},receiver_id.eq.${userId}`)
+    alert("Chat pulite.")
+    if (selectedUser?.id === userId) setIsModalOpen(false)
+    checkAdminAndFetchData()
   }
 
   const deleteProfile = async (userId: string) => {
-    if (!window.confirm("VUOI DAVVERO ELIMINARE questo profilo e tutti i suoi dati?")) return;
-    setLoading(true)
+    if (!confirm("AZIONE NUCLEARE: Eliminare profilo, annunci e messaggi?")) return
     await supabase.from('messages').delete().or(`sender_id.eq.${userId},receiver_id.eq.${userId}`)
     await supabase.from('announcements').delete().eq('user_id', userId)
-    const { error } = await supabase.from('profiles').delete().eq('id', userId)
-    if (!error) {
-      alert("Utente eliminato.")
-      if (selectedUser?.id === userId) setIsModalOpen(false)
-      checkAdminAndFetchData()
-    } else {
-      alert("Errore: " + error.message)
-      setLoading(false)
-    }
+    await supabase.from('profiles').delete().eq('id', userId)
+    alert("Utente rimosso dal mondo Re-love.")
+    setIsModalOpen(false)
+    checkAdminAndFetchData()
   }
 
-  if (loading && transactions.length === 0) return <div className="min-h-screen bg-stone-900 flex justify-center items-center font-black uppercase tracking-widest text-rose-500 text-xs">Caricamento Pannello Staff...</div>
+  // --- CALCOLI DASHBOARD ---
+  const earnings = transactions
+    .filter(t => t.status === 'Ricevuto' || t.status === 'Concluso')
+    .reduce((acc, t) => acc + (t.announcements.price * 0.1), 0)
+
+  if (loading && transactions.length === 0) return <div className="min-h-screen bg-stone-900 flex items-center justify-center font-black uppercase text-rose-500 tracking-widest animate-pulse">Caricamento Hub Re-love Staff...</div>
 
   return (
-    <div className="min-h-screen bg-stone-900 p-6 md:p-10 font-sans relative">
+    <div className="min-h-screen bg-stone-900 p-6 md:p-12 font-sans text-stone-200">
       <div className="max-w-7xl mx-auto">
         
-        {/* HEADER ADMIN */}
-        <div className="flex justify-between items-center mb-10 border-b border-stone-800 pb-6">
+        {/* HEADER */}
+        <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-12 gap-6 border-b border-stone-800 pb-8">
           <div>
-            <span className="bg-rose-500 text-white px-3 py-1 rounded-md text-[10px] font-black uppercase tracking-widest mb-2 inline-block">Admin Mode</span>
-            <h1 className="text-3xl font-black uppercase italic text-white">Stanza dei Bottoni</h1>
+            <span className="bg-rose-500 text-white px-4 py-1 rounded-full text-[10px] font-black uppercase tracking-[0.2em] mb-4 inline-block shadow-lg shadow-rose-500/20">Staff Only</span>
+            <h1 className="text-4xl font-black uppercase italic text-white tracking-tighter">Stanza dei Bottoni 👑</h1>
           </div>
-          <button onClick={() => router.push('/')} className="text-[10px] font-bold text-stone-400 uppercase hover:text-white transition-colors">
-            ← Torna al Sito
-          </button>
+          <button onClick={() => router.push('/')} className="bg-stone-800 hover:bg-stone-700 text-stone-400 hover:text-white px-6 py-3 rounded-2xl text-[10px] font-black uppercase tracking-widest transition-all border border-stone-700">← Torna al Sito</button>
         </div>
 
-        {/* STATISTICHE */}
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-10">
-          <div className="bg-stone-800 p-6 rounded-3xl border border-stone-700">
-            <h3 className="text-[10px] font-black uppercase text-stone-400 tracking-widest mb-1">Totale Transazioni</h3>
-            <p className="text-3xl font-black text-white">{transactions.length}</p>
+        {/* DASHBOARD FINANZIARIA */}
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-8 mb-12">
+          <div className="bg-gradient-to-br from-emerald-500/10 to-emerald-500/5 p-8 rounded-[2.5rem] border border-emerald-500/20">
+            <h3 className="text-[10px] font-black uppercase text-emerald-400 tracking-widest mb-2">💰 Commissioni Reali (10%)</h3>
+            <p className="text-5xl font-black text-white italic">€ {earnings.toFixed(2)}</p>
           </div>
-          <div className="bg-stone-800 p-6 rounded-3xl border border-stone-700">
-            <h3 className="text-[10px] font-black uppercase text-stone-400 tracking-widest mb-1">Dispute / Rimborsi</h3>
-            <p className="text-3xl font-black text-rose-500">{transactions.filter(t => t.status === 'Rimborsato' || t.status === 'In_Contestazione').length}</p>
+          <div className="bg-stone-800/50 p-8 rounded-[2.5rem] border border-stone-700">
+            <h3 className="text-[10px] font-black uppercase text-stone-500 tracking-widest mb-2">📦 Ordini Gestiti</h3>
+            <p className="text-5xl font-black text-white italic">{transactions.length}</p>
           </div>
-          <div className="bg-stone-800 p-6 rounded-3xl border border-stone-700">
-            <h3 className="text-[10px] font-black uppercase text-stone-400 tracking-widest mb-1">Fondi Congelati</h3>
-            <p className="text-3xl font-black text-orange-400">{transactions.filter(t => t.status === 'Pagato').length}</p>
-          </div>
-          <div className="bg-stone-800 p-6 rounded-3xl border border-stone-700">
-            <h3 className="text-[10px] font-black uppercase text-stone-400 tracking-widest mb-1">Conclusi con successo</h3>
-            <p className="text-3xl font-black text-emerald-400">{transactions.filter(t => t.status === 'Concluso' || t.status === 'Ricevuto').length}</p>
+          <div className="bg-stone-800/50 p-8 rounded-[2.5rem] border border-stone-700">
+            <h3 className="text-[10px] font-black uppercase text-stone-500 tracking-widest mb-2">👤 Utenti Registrati</h3>
+            <p className="text-5xl font-black text-white italic">{profiles.length}</p>
           </div>
         </div>
 
         {/* TABELLA TRANSAZIONI */}
-        <div className="bg-stone-800 rounded-[2rem] border border-stone-700 overflow-hidden shadow-2xl mb-10">
-          <div className="p-6 border-b border-stone-700 bg-stone-900/50">
-            <h2 className="text-lg font-black uppercase italic text-white">💰 Gestione Transazioni</h2>
+        <div className="bg-stone-800/40 rounded-[2.5rem] border border-stone-800 overflow-hidden mb-12 backdrop-blur-sm shadow-2xl">
+          <div className="p-8 bg-stone-900/40 border-b border-stone-800 flex justify-between items-center">
+            <h2 className="text-lg font-black uppercase italic text-white">Gestione Flussi Cassa</h2>
           </div>
           <div className="overflow-x-auto">
-            <table className="w-full text-left text-sm text-stone-300">
-              <thead className="text-[10px] font-black text-stone-400 uppercase tracking-widest bg-stone-900/50">
+            <table className="w-full text-left">
+              <thead className="bg-stone-900/60 text-[10px] font-black uppercase text-stone-500 tracking-widest">
                 <tr>
-                  <th className="px-6 py-4">Annuncio</th>
-                  <th className="px-6 py-4">Modalità</th>
-                  <th className="px-6 py-4">Compratore</th>
-                  <th className="px-6 py-4">Venditore</th>
-                  <th className="px-6 py-4">Status DB</th>
-                  <th className="px-6 py-4 text-right">Azioni Admin</th>
+                  <th className="px-8 py-5">Annuncio</th>
+                  <th className="px-8 py-5">Compratore</th>
+                  <th className="px-8 py-5">Venditore</th>
+                  <th className="px-8 py-5">Stato</th>
+                  <th className="px-8 py-5 text-right">Intervento</th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-stone-700/50">
+              <tbody className="divide-y divide-stone-800/50">
                 {transactions.map(tx => (
-                  <tr key={tx.id} className="hover:bg-stone-700/20 transition-colors">
-                    <td className="px-6 py-4 flex items-center gap-3">
-                      <img src={tx.announcements.image_url} className="w-10 h-10 rounded-lg object-cover" alt="item" />
-                      <span className="font-bold text-white truncate max-w-[150px]">{tx.announcements.title}</span>
+                  <tr key={tx.id} className="hover:bg-white/[0.02] transition-colors group">
+                    <td className="px-8 py-6">
+                      <div className="flex items-center gap-4">
+                        <img src={tx.announcements?.image_url} className="w-12 h-12 rounded-xl object-cover border border-stone-700" alt="img" />
+                        <div>
+                          <p className="font-black text-white uppercase text-sm italic">{tx.announcements?.title}</p>
+                          <p className="text-[10px] text-stone-500 font-bold">€ {tx.announcements?.price}</p>
+                        </div>
+                      </div>
                     </td>
-                    <td className="px-6 py-4">
-                      <span className={`px-2 py-1 rounded text-[9px] font-black uppercase tracking-widest ${tx.announcements.condition === 'Baratto' ? 'bg-blue-500/20 text-blue-400' : 'bg-orange-500/20 text-orange-400'}`}>
-                        {tx.announcements.condition}
-                      </span>
+                    <td className="px-8 py-6 text-xs font-bold text-stone-400">{tx.buyer?.email}</td>
+                    <td className="px-8 py-6 text-xs font-bold text-stone-400">{tx.seller?.email}</td>
+                    <td className="px-8 py-6">
+                      <span className={`text-[9px] font-black uppercase px-3 py-1 rounded-md ${
+                        tx.status === 'Pagato' ? 'bg-orange-500/20 text-orange-400' : 
+                        tx.status === 'Ricevuto' ? 'bg-emerald-500/20 text-emerald-400' : 'bg-rose-500/20 text-rose-400'
+                      }`}>{tx.status}</span>
                     </td>
-                    <td className="px-6 py-4 text-[11px]">{tx.buyer?.email || tx.buyer_id.substring(0,8)}</td>
-                    <td className="px-6 py-4 text-[11px]">{tx.seller?.email || tx.seller_id.substring(0,8)}</td>
-                    <td className="px-6 py-4">
-                      <span className={`px-2 py-1 rounded text-[9px] font-black uppercase tracking-widest ${
-                        tx.status === 'Pagato' ? 'bg-orange-500/20 text-orange-400' :
-                        tx.status === 'Ricevuto' || tx.status === 'Concluso' ? 'bg-emerald-500/20 text-emerald-400' :
-                        'bg-rose-500/20 text-rose-400'
-                      }`}>
-                        {tx.status}
-                      </span>
-                    </td>
-                    <td className="px-6 py-4 text-right flex justify-end gap-2">
-                      <button onClick={() => forceStatus(tx.id, 'Rimborsato')} className="bg-rose-500 hover:bg-rose-600 text-white px-3 py-2 rounded-lg text-[9px] font-black uppercase tracking-widest transition-colors">Forza Rimborso</button>
-                      <button onClick={() => forceStatus(tx.id, 'Ricevuto')} className="bg-emerald-500 hover:bg-emerald-600 text-white px-3 py-2 rounded-lg text-[9px] font-black uppercase tracking-widest transition-colors">Sblocca Fondi</button>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        </div>
-
-        {/* TABELLA UTENTI E SICUREZZA */}
-        <div className="bg-stone-800 rounded-[2rem] border border-rose-900/50 overflow-hidden shadow-2xl mb-10">
-          <div className="p-6 border-b border-stone-700 bg-stone-900/50">
-            <h2 className="text-lg font-black uppercase italic text-rose-500">🛡️ Gestione Utenti e Sicurezza</h2>
-          </div>
-          <div className="overflow-x-auto">
-            <table className="w-full text-left text-sm text-stone-300">
-              <thead className="text-[10px] font-black text-stone-400 uppercase tracking-widest bg-stone-900/50">
-                <tr>
-                  <th className="px-6 py-4">ID Utente</th>
-                  <th className="px-6 py-4">Email</th>
-                  <th className="px-6 py-4 text-right">Azioni Sicurezza</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-stone-700/50">
-                {profiles.map(p => (
-                  <tr key={p.id} className="hover:bg-stone-700/20 transition-colors">
-                    <td className="px-6 py-4 text-[10px] font-mono text-stone-500">{p.id}</td>
-                    <td className="px-6 py-4 font-bold text-white">{p.email}</td>
-                    <td className="px-6 py-4 text-right flex justify-end gap-2">
-                      <button onClick={() => viewUserDetails(p)} className="bg-blue-500/10 border border-blue-500/50 hover:bg-blue-500 text-blue-400 hover:text-white px-3 py-2 rounded-lg text-[9px] font-black uppercase tracking-widest transition-all">Vis. Dati & Chat</button>
-                      <button onClick={() => deleteChats(p.id)} className="bg-orange-500/10 border border-orange-500/50 hover:bg-orange-500 text-orange-400 hover:text-white px-3 py-2 rounded-lg text-[9px] font-black uppercase tracking-widest transition-all">Svuota Chat</button>
-                      <button onClick={() => deleteProfile(p.id)} className="bg-rose-500/10 border border-rose-500/50 hover:bg-rose-600 text-rose-500 hover:text-white px-3 py-2 rounded-lg text-[9px] font-black uppercase tracking-widest transition-all">Elimina</button>
+                    <td className="px-8 py-6 text-right">
+                      <div className="flex justify-end gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                        <button onClick={() => forceStatus(tx.id, 'Ricevuto')} className="bg-emerald-500 text-white px-3 py-2 rounded-lg text-[9px] font-black uppercase">Sblocca</button>
+                        <button onClick={() => forceStatus(tx.id, 'Rimborsato')} className="bg-rose-500 text-white px-3 py-2 rounded-lg text-[9px] font-black uppercase">Refund</button>
+                      </div>
                     </td>
                   </tr>
                 ))}
@@ -265,75 +228,119 @@ export default function AdminDashboard() {
           </div>
         </div>
 
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+          {/* GESTIONE UTENTI */}
+          <div className="bg-stone-800/40 rounded-[2.5rem] border border-stone-800 overflow-hidden">
+            <div className="p-8 bg-stone-900/40 border-b border-stone-800"><h2 className="text-lg font-black uppercase italic text-white">Anagrafica & Sicurezza</h2></div>
+            <div className="max-h-[600px] overflow-y-auto">
+              {profiles.map(p => (
+                <div key={p.id} className="p-6 border-b border-stone-800/50 flex justify-between items-center hover:bg-white/[0.02] transition-colors">
+                  <div>
+                    <p className="font-black text-white text-sm">{p.email}</p>
+                    <p className="text-[10px] text-stone-500 font-bold uppercase tracking-widest">{p.city || 'Città non impostata'}</p>
+                  </div>
+                  <button onClick={() => viewUserDetails(p)} className="bg-blue-500/10 border border-blue-500/40 text-blue-400 hover:bg-blue-500 hover:text-white px-4 py-2 rounded-xl text-[9px] font-black uppercase transition-all">Ispeziona</button>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          {/* GESTIONE RECENSIONI */}
+          <div className="bg-stone-800/40 rounded-[2.5rem] border border-stone-800 overflow-hidden">
+            <div className="p-8 bg-stone-900/40 border-b border-stone-800"><h2 className="text-lg font-black uppercase italic text-white">Feedback Community</h2></div>
+            <div className="max-h-[600px] overflow-y-auto p-6 space-y-4">
+              {reviews.map(r => (
+                <div key={r.id} className="bg-stone-900/50 p-5 rounded-3xl border border-stone-700/50 relative group">
+                  <button onClick={() => deleteReview(r.id)} className="absolute top-4 right-4 text-stone-600 hover:text-rose-500 text-xl transition-colors">&times;</button>
+                  <p className="text-[9px] font-black uppercase text-stone-500 mb-2">Da: {r.reviewer?.email} → Per: {r.reviewed?.email}</p>
+                  <div className="flex gap-1 mb-2">
+                    {[...Array(5)].map((_, i) => (
+                      <span key={i} className={i < r.rating ? 'text-yellow-500' : 'text-stone-700'}>★</span>
+                    ))}
+                  </div>
+                  <p className="text-xs text-stone-300 italic font-medium leading-relaxed">"{r.comment}"</p>
+                </div>
+              ))}
+              {reviews.length === 0 && <p className="text-center text-stone-600 text-xs py-10 uppercase font-black">Nessuna recensione da moderare.</p>}
+            </div>
+          </div>
+        </div>
       </div>
 
-      {/* MODALE ISPEZIONE UTENTE E CHAT - VERSIONE LEGGIBILE IN ITALIANO */}
+      {/* MODALE DI ISPEZIONE TOTALE (IL CUORE DELLO STAFF) */}
       {isModalOpen && selectedUser && (
-        <div className="fixed inset-0 z-50 bg-black/80 flex items-center justify-center p-4 backdrop-blur-sm">
-          <div className="bg-stone-900 border border-stone-700 rounded-[2rem] w-full max-w-4xl max-h-[85vh] flex flex-col shadow-2xl overflow-hidden">
+        <div className="fixed inset-0 z-[100] bg-black/95 backdrop-blur-md flex items-center justify-center p-4">
+          <div className="bg-stone-900 border border-stone-700 rounded-[3rem] w-full max-w-5xl max-h-[90vh] flex flex-col shadow-2xl overflow-hidden animate-in fade-in zoom-in duration-300">
             
-            <div className="p-6 border-b border-stone-800 flex justify-between items-center bg-stone-900">
+            <div className="p-10 border-b border-stone-800 flex justify-between items-center bg-stone-900">
               <div>
-                <h2 className="text-xl font-black uppercase italic text-white">Ispezione Utente</h2>
-                <p className="text-[10px] text-stone-400 tracking-widest font-bold uppercase mt-1">{selectedUser.email}</p>
+                <h2 className="text-3xl font-black uppercase italic text-white">Profilo Sotto Lente</h2>
+                <p className="text-rose-500 text-xs font-bold uppercase tracking-[0.3em] mt-1">{selectedUser.email}</p>
               </div>
-              <button onClick={() => setIsModalOpen(false)} className="text-stone-400 hover:text-rose-500 transition-colors text-3xl leading-none">&times;</button>
+              <button onClick={() => setIsModalOpen(false)} className="text-stone-500 hover:text-white text-5xl transition-colors leading-none">&times;</button>
             </div>
 
-            <div className="flex-1 overflow-y-auto p-6 space-y-6">
+            <div className="flex-1 overflow-y-auto p-10 space-y-10">
               
-              {/* Sezione Dati Profilo Leggibili */}
-              <div className="bg-stone-800 rounded-2xl p-5 border border-stone-700">
-                <h3 className="text-[10px] font-black uppercase tracking-widest text-blue-400 mb-4">Dettagli Profilo (Dati Utente)</h3>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  {[
-                    { label: '🆔 ID Utente', value: selectedUser.id },
-                    { label: '📧 Email', value: selectedUser.email },
-                    { label: '🎭 Ruolo', value: selectedUser.role === 'user' ? '👤 Utente' : '👑 Admin' },
-                    { label: '📅 Data Iscrizione', value: new Date(selectedUser.created_at).toLocaleString('it-IT') },
-                    { label: '💳 Account Stripe', value: selectedUser.stripe_account_id || 'Non collegato' },
-                    { label: '🏙️ Città', value: selectedUser.city || 'Non inserita' },
-                    { label: '🏠 Indirizzo', value: selectedUser.address || 'Non inserito' },
-                    { label: '👤 Nome', value: selectedUser.first_name || 'Non inserito' },
-                    { label: '👥 Cognome', value: selectedUser.last_name || 'Non inserito' },
-                    { label: '📍 Indirizzo Completo', value: selectedUser.full_address || 'Non inserito' },
-                  ].map((item, idx) => (
-                    <div key={idx} className="bg-stone-900 p-3 rounded-xl border border-stone-800">
-                      <p className="text-[9px] font-black uppercase tracking-widest text-stone-500 mb-1">{item.label}</p>
-                      <p className="text-sm font-bold text-white truncate">{item.value}</p>
-                    </div>
-                  ))}
+              {/* Griglia Dati in Italiano */}
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                {[
+                  { l: '📧 Indirizzo Email', v: selectedUser.email },
+                  { l: '👤 Nome', v: selectedUser.first_name || 'Non inserito' },
+                  { l: '👥 Cognome', v: selectedUser.last_name || 'Non inserito' },
+                  { l: '🏙️ Città', v: selectedUser.city || 'Non inserito' },
+                  { l: '📍 Indirizzo', v: selectedUser.address || 'Non inserito' },
+                  { l: '📅 Data Iscrizione', v: new Date(selectedUser.created_at).toLocaleString('it-IT') },
+                  { l: '🛡️ Ruolo Sistema', v: selectedUser.role || 'user' },
+                  { l: '🆔 ID Database', v: selectedUser.id },
+                  { l: '💳 Stripe Connect', v: selectedUser.stripe_account_id || 'Account non collegato' },
+                ].map((item, idx) => (
+                  <div key={idx} className="bg-stone-800 p-5 rounded-2xl border border-stone-700/50">
+                    <p className="text-[9px] font-black uppercase text-stone-500 tracking-widest mb-2">{item.l}</p>
+                    <p className="text-sm font-bold text-white truncate">{item.v}</p>
+                  </div>
+                ))}
+              </div>
+
+              {/* Sezione Spy Chat */}
+              <div>
+                <h3 className="text-[11px] font-black uppercase text-blue-400 tracking-[0.3em] mb-6 flex items-center gap-3">
+                  <span className="w-10 h-[1px] bg-blue-500/30"></span> 
+                  Cronologia Chat (Sola Lettura)
+                </h3>
+                <div className="space-y-4">
+                  {userMessages.length === 0 ? (
+                    <p className="text-stone-600 text-xs italic text-center py-10 bg-stone-800/30 rounded-3xl border border-dashed border-stone-700">L'utente non ha ancora scambiato messaggi sulla piattaforma.</p>
+                  ) : (
+                    userMessages.map(msg => (
+                      <div key={msg.id} className={`p-5 rounded-[2rem] text-sm border flex flex-col ${msg.sender_id === selectedUser.id ? 'bg-stone-800 border-stone-700 ml-12' : 'bg-stone-900 border-stone-800 mr-12'}`}>
+                        <div className="flex justify-between items-center mb-3">
+                          <span className={`text-[8px] font-black uppercase px-2 py-1 rounded-md ${msg.sender_id === selectedUser.id ? 'bg-blue-500/20 text-blue-400' : 'bg-orange-500/20 text-orange-400'}`}>
+                            {msg.sender_id === selectedUser.id ? 'Messaggio Inviato' : 'Messaggio Ricevuto'}
+                          </span>
+                          <span className="text-[9px] font-bold text-stone-600 uppercase">{new Date(msg.created_at).toLocaleString('it-IT')}</span>
+                        </div>
+                        <p className="text-stone-200 font-medium leading-relaxed italic">"{msg.content}"</p>
+                      </div>
+                    ))
+                  )}
                 </div>
               </div>
 
-              {/* Sezione Chat Spia */}
-              <div className="bg-stone-800 rounded-2xl p-5 border border-stone-700">
-                <h3 className="text-[10px] font-black uppercase tracking-widest text-emerald-400 mb-4">Cronologia Messaggi (Spia)</h3>
-                <div className="space-y-3">
-                  {userMessages.length === 0 ? (
-                    <p className="text-stone-500 text-xs italic">Nessun messaggio trovato.</p>
-                  ) : (
-                    userMessages.map(msg => {
-                      const isSender = msg.sender_id === selectedUser.id;
-                      return (
-                        <div key={msg.id} className={`p-4 rounded-2xl text-sm border flex flex-col ${isSender ? 'bg-stone-700/50 border-stone-600 ml-8 md:ml-16' : 'bg-stone-900 border-stone-800 mr-8 md:mr-16'}`}>
-                          <div className="flex justify-between items-center mb-2">
-                            <span className={`text-[9px] font-black uppercase tracking-widest px-2 py-1 rounded-md ${isSender ? 'bg-blue-500/20 text-blue-400' : 'bg-orange-500/20 text-orange-400'}`}>{isSender ? 'Inviato' : 'Ricevuto'}</span>
-                            <span className="text-[9px] font-bold text-stone-500">{new Date(msg.created_at).toLocaleString('it-IT')}</span>
-                          </div>
-                          <span className="text-white font-medium">{msg.content}</span>
-                        </div>
-                      )
-                    })
-                  )}
-                </div>
+              {/* Zona Pericolosa */}
+              <div className="pt-10 border-t border-stone-800 flex flex-wrap gap-4">
+                <button onClick={() => deleteChats(selectedUser.id)} className="bg-orange-500/10 border border-orange-500/40 text-orange-500 hover:bg-orange-500 hover:text-white px-8 py-4 rounded-2xl text-[10px] font-black uppercase tracking-widest transition-all">
+                  🔥 Svuota Chat
+                </button>
+                <button onClick={() => deleteProfile(selectedUser.id)} className="bg-rose-500 text-white hover:bg-rose-600 px-8 py-4 rounded-2xl text-[10px] font-black uppercase tracking-widest transition-all shadow-xl shadow-rose-500/20">
+                  ⚠️ Elimina Utente a Cascata
+                </button>
               </div>
 
             </div>
           </div>
         </div>
       )}
-
     </div>
   )
 }
