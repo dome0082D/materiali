@@ -139,6 +139,57 @@ function AddPageContent() {
     }
   }
 
+  // --- COMPONENTE GUIDA DINAMICA ---
+  const renderGuideBox = () => {
+    const guides = {
+      new: {
+        title: "Vendi il Nuovo",
+        color: "border-rose-400",
+        steps: "Inserisci il prezzo reale e la quantità disponibile. Ricorda di specificare bene se offri la consegna a mano.",
+        logic: "💰 Il compratore paga il prezzo pieno. La chat si sblocca solo dopo il pagamento avvenuto su Stripe."
+      },
+      used: {
+        title: "Vendi l'Usato",
+        color: "border-orange-400",
+        steps: "Descrivi con onestà lo stato d'usura. Carica foto dettagliate dei particolari o di eventuali difetti.",
+        logic: "💰 Come per il nuovo, la chat è protetta: si sblocca solo quando il compratore paga l'oggetto."
+      },
+      gift: {
+        title: "Regala un Oggetto",
+        color: "border-rose-500",
+        steps: "Stai donando questo oggetto. Il prezzo è impostato a €0. L'utente paga solo l'eventuale spedizione.",
+        logic: "🔒 Per evitare perditempo, chi richiede il regalo deve pagare €2.50 di commissione al sito per sbloccare la chat."
+      },
+      barter: {
+        title: "Gestisci il Baratto",
+        color: "border-blue-400",
+        steps: "Specifica chiaramente cosa desideri ricevere in cambio. Sii preciso per attirare lo scambio giusto.",
+        logic: "🔒 Sicurezza Baratto: la chat si sblocca SOLO dopo che ENTRAMBI gli utenti hanno pagato €2.50 di commissione."
+      }
+    }
+
+    const g = guides[mode as keyof typeof guides]
+    if (!g) return null
+
+    return (
+      <div className={`mt-10 p-8 bg-stone-900 text-white rounded-[2.5rem] shadow-2xl border-t-8 ${g.color} relative overflow-hidden`}>
+        <div className="absolute -top-4 -right-4 opacity-10 text-6xl">💡</div>
+        <h3 className="text-xl font-black uppercase italic italic mb-4 tracking-tight">Guida {g.title}</h3>
+        <div className="space-y-4">
+          <div className="bg-stone-800/50 p-4 rounded-2xl">
+            <p className="text-[10px] font-black uppercase text-stone-400 tracking-widest mb-1">Come compilare</p>
+            <p className="text-xs font-medium text-stone-200 leading-relaxed">{g.steps}</p>
+          </div>
+          <div className="bg-rose-500/10 p-4 rounded-2xl border border-rose-500/20">
+            <p className="text-[10px] font-black uppercase text-rose-400 tracking-widest mb-1">Logica Pagamento e Chat</p>
+            <p className="text-xs font-black italic text-white leading-relaxed">{g.logic}</p>
+          </div>
+          <p className="text-[9px] font-bold text-stone-500 uppercase tracking-tighter text-center">Re-love protegge i tuoi scambi. La chat sicura garantisce transazioni verificate.</p>
+        </div>
+      </div>
+    )
+  }
+
   if (!mode) {
     return (
       <div className="min-h-screen bg-stone-50 p-6 md:p-10 flex flex-col items-center pt-10">
@@ -173,122 +224,127 @@ function AddPageContent() {
 
   return (
     <div className="min-h-screen bg-stone-50 p-4 md:p-8 flex flex-col items-center">
-      <div className="w-full max-w-2xl bg-white p-6 md:p-8 rounded-[2rem] shadow-md border border-stone-200">
-        <div className="mb-6 border-b border-stone-100 pb-4 text-center">
-          <span className="bg-stone-100 text-stone-700 px-4 py-1 rounded-full text-[10px] font-black uppercase tracking-widest mb-3 inline-block">
-            {mode === 'new' ? 'Nuovo' : mode === 'used' ? 'Usato' : mode === 'barter' ? 'Baratto' : 'Regalo'}
-          </span>
-          <h2 className="text-2xl font-black uppercase italic text-stone-900">Compila l&apos;Annuncio</h2>
+      <div className="w-full max-w-2xl">
+        <div className="bg-white p-6 md:p-8 rounded-[2rem] shadow-md border border-stone-200">
+          <div className="mb-6 border-b border-stone-100 pb-4 text-center">
+            <span className="bg-stone-100 text-stone-700 px-4 py-1 rounded-full text-[10px] font-black uppercase tracking-widest mb-3 inline-block">
+              {mode === 'new' ? 'Nuovo' : mode === 'used' ? 'Usato' : mode === 'barter' ? 'Baratto' : 'Regalo'}
+            </span>
+            <h2 className="text-2xl font-black uppercase italic text-stone-900">Compila l&apos;Annuncio</h2>
+          </div>
+          
+          <form ref={formRef} onSubmit={handleSubmit} className="space-y-6">
+            <div>
+              <label htmlFor="title" className="text-[10px] font-black uppercase tracking-widest text-stone-400 ml-1">Titolo Annuncio</label>
+              <input id="title" name="title" required type="text" className="w-full p-4 mt-1 bg-stone-50 rounded-2xl border border-stone-100 outline-none focus:border-rose-400 text-sm font-bold text-stone-800" placeholder="Cosa vendi?" />
+            </div>
+
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <label htmlFor="category_id" className="text-[10px] font-black uppercase tracking-widest text-stone-400 ml-1">Categoria</label>
+                <select id="category_id" name="category_id" required className="w-full p-4 mt-1 bg-stone-50 rounded-2xl border border-stone-100 outline-none focus:border-rose-400 text-sm font-bold text-stone-800">
+                  {categorieFisse.map(cat => <option key={cat.id} value={cat.id}>{cat.name}</option>)}
+                </select>
+              </div>
+              <div>
+                <label htmlFor="quantity" className="text-[10px] font-black uppercase tracking-widest text-stone-400 ml-1">Quantità</label>
+                <input id="quantity" name="quantity" required type="number" min="1" defaultValue="1" className="w-full p-4 mt-1 bg-stone-50 rounded-2xl border border-stone-100 outline-none focus:border-rose-400 text-sm font-bold text-stone-800" />
+              </div>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              {/* LOGICA BARATTO VS PREZZO */}
+              {mode === 'barter' ? (
+                <div className="col-span-1 md:col-span-2">
+                  <label htmlFor="exchange_item" className="text-[10px] font-black uppercase tracking-widest text-blue-500 ml-1">Cosa cerchi in cambio?</label>
+                  <input id="exchange_item" name="exchange_item" required type="text" className="w-full p-4 mt-1 bg-blue-50/30 rounded-2xl border border-blue-100 outline-none focus:border-blue-400 text-sm font-bold text-stone-800" placeholder="Es: Scambio con cellulare o tablet" />
+                </div>
+              ) : mode !== 'gift' && (
+                <div>
+                  <label htmlFor="price" className="text-[10px] font-black uppercase tracking-widest text-stone-400 ml-1">Prezzo (€)</label>
+                  <input id="price" name="price" required type="number" step="0.01" className="w-full p-4 mt-1 bg-stone-50 rounded-2xl border border-stone-100 outline-none focus:border-rose-400 text-sm font-bold text-stone-800" placeholder="0.00" />
+                </div>
+              )}
+              
+              {mode !== 'barter' && mode !== 'gift' && (
+                <div>
+                  <label htmlFor="shipping" className="text-[10px] font-black uppercase tracking-widest text-rose-500 ml-1">Spese Spedizione (€)</label>
+                  <input id="shipping" type="number" step="0.01" value={shippingCost} onChange={(e) => setShippingCost(e.target.value)} className="w-full p-4 mt-1 bg-rose-50/30 rounded-2xl border border-rose-100 outline-none focus:border-rose-400 text-sm font-black text-stone-800" />
+                </div>
+              )}
+            </div>
+
+            {/* SEZIONE INDIRIZZO DETTAGLIATA */}
+            <div className="p-6 bg-stone-50 rounded-[2rem] border-2 border-stone-100 space-y-4">
+              <p className="text-[10px] font-black uppercase tracking-[0.2em] text-rose-500 text-center mb-4">📍 Località dell&apos;oggetto</p>
+              
+              <div className="grid grid-cols-2 gap-3">
+                 <div>
+                   <label htmlFor="nation" className="text-[9px] font-bold text-stone-400 uppercase ml-1">Nazione</label>
+                   <input id="nation" required type="text" value={nation} onChange={(e) => setNation(e.target.value)} className="w-full p-3 mt-1 bg-white rounded-xl border border-stone-200 text-sm font-bold text-stone-800" />
+                 </div>
+                 <div>
+                   <label htmlFor="region" className="text-[9px] font-bold text-stone-400 uppercase ml-1">Regione</label>
+                   <input id="region" required type="text" placeholder="Es: Sicilia" value={region} onChange={(e) => setRegion(e.target.value)} className="w-full p-3 mt-1 bg-white rounded-xl border border-stone-200 text-sm font-bold text-stone-800" />
+                 </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                 <div>
+                   <label htmlFor="city" className="text-[9px] font-bold text-stone-400 uppercase ml-1">Città</label>
+                   <input id="city" required type="text" placeholder="Es: Palermo" value={city} onChange={(e) => setCity(e.target.value)} className="w-full p-3 mt-1 bg-white rounded-xl border border-stone-200 text-sm font-bold text-stone-800" />
+                 </div>
+                 <div>
+                   <label htmlFor="postcode" className="text-[9px] font-bold text-stone-400 uppercase ml-1">CAP</label>
+                   <input id="postcode" required type="text" placeholder="90100" value={postcode} onChange={(e) => setPostcode(e.target.value)} className="w-full p-3 mt-1 bg-white rounded-xl border border-stone-200 text-sm font-bold text-stone-800" />
+                 </div>
+              </div>
+
+              <div className="grid grid-cols-3 gap-3">
+                 <div className="col-span-2">
+                   <label htmlFor="street" className="text-[9px] font-bold text-stone-400 uppercase ml-1">Via / Piazza</label>
+                   <input id="street" required type="text" placeholder="Es: Via Libertà" value={street} onChange={(e) => setStreet(e.target.value)} className="w-full p-3 mt-1 bg-white rounded-xl border border-stone-200 text-sm font-bold text-stone-800" />
+                 </div>
+                 <div>
+                   <label htmlFor="houseNumber" className="text-[9px] font-bold text-stone-400 uppercase ml-1">Civico</label>
+                   <input id="houseNumber" required type="text" placeholder="10" value={houseNumber} onChange={(e) => setHouseNumber(e.target.value)} className="w-full p-3 mt-1 bg-white rounded-xl border border-stone-200 text-sm font-bold text-stone-800" />
+                 </div>
+              </div>
+
+              <label className="flex items-center gap-3 cursor-pointer group pt-2 justify-center">
+                <input type="checkbox" checked={allowLocalPickup} onChange={(e) => setAllowLocalPickup(e.target.checked)} className="w-6 h-6 rounded-lg accent-rose-500 border-stone-200" />
+                <span className="text-[10px] font-black uppercase text-stone-600 group-hover:text-rose-500 transition-colors">Permetti Consegna a Mano</span>
+              </label>
+            </div>
+
+            <div>
+              <label htmlFor="description" className="text-[10px] font-black uppercase tracking-widest text-stone-400 ml-1">Descrizione</label>
+              <textarea id="description" name="description" required rows={4} className="w-full p-4 mt-1 bg-stone-50 rounded-2xl border border-stone-100 outline-none focus:border-rose-400 text-sm font-medium text-stone-800" placeholder="Descrivi il tuo articolo..."></textarea>
+            </div>
+
+            <div className="bg-stone-50 p-6 rounded-2xl border border-stone-100">
+               <span className="text-[10px] font-black uppercase tracking-widest text-stone-400 mb-4 block ml-1 text-center">Foto dell&apos;articolo</span>
+               <label htmlFor="file-upload" className="flex items-center justify-center gap-3 bg-white text-stone-700 px-6 py-5 rounded-2xl text-[11px] font-black uppercase tracking-widest hover:bg-rose-50 hover:text-rose-600 hover:border-rose-200 cursor-pointer transition-all border-2 border-stone-200 border-dashed w-full shadow-sm">
+                  <span className="text-xl">📸</span> AGGIUNGI FOTO
+                  <input id="file-upload" type="file" multiple accept="image/*" className="hidden" onChange={(e) => { if (e.target.files) setFiles(Array.from(e.target.files)) }} />
+               </label>
+
+               {files.length > 0 && (
+                 <div className="mt-4 bg-rose-50 p-4 rounded-xl border border-rose-100 flex items-center gap-3">
+                   <span className="text-rose-600 text-lg">✓</span>
+                   <p className="text-[10px] font-black text-rose-700 uppercase tracking-tight">{files.length} Immagini pronte</p>
+                 </div>
+               )}
+            </div>
+
+            <button disabled={loading} type="submit" className="w-full bg-stone-900 text-white font-black uppercase text-xs tracking-[0.2em] py-6 rounded-[2rem] hover:bg-rose-500 transition-all shadow-xl disabled:opacity-50 mt-6 active:scale-95">
+              {loading ? 'CARICAMENTO IN CORSO...' : 'PUBBLICA ORA SU RE-LOVE'}
+            </button>
+          </form>
         </div>
-        
-        <form ref={formRef} onSubmit={handleSubmit} className="space-y-6">
-          <div>
-            <label htmlFor="title" className="text-[10px] font-black uppercase tracking-widest text-stone-400 ml-1">Titolo Annuncio</label>
-            <input id="title" name="title" required type="text" className="w-full p-4 mt-1 bg-stone-50 rounded-2xl border border-stone-100 outline-none focus:border-rose-400 text-sm font-bold text-stone-800" placeholder="Cosa vendi?" />
-          </div>
 
-          <div className="grid grid-cols-2 gap-4">
-            <div>
-              <label htmlFor="category_id" className="text-[10px] font-black uppercase tracking-widest text-stone-400 ml-1">Categoria</label>
-              <select id="category_id" name="category_id" required className="w-full p-4 mt-1 bg-stone-50 rounded-2xl border border-stone-100 outline-none focus:border-rose-400 text-sm font-bold text-stone-800">
-                {categorieFisse.map(cat => <option key={cat.id} value={cat.id}>{cat.name}</option>)}
-              </select>
-            </div>
-            <div>
-              <label htmlFor="quantity" className="text-[10px] font-black uppercase tracking-widest text-stone-400 ml-1">Quantità</label>
-              <input id="quantity" name="quantity" required type="number" min="1" defaultValue="1" className="w-full p-4 mt-1 bg-stone-50 rounded-2xl border border-stone-100 outline-none focus:border-rose-400 text-sm font-bold text-stone-800" />
-            </div>
-          </div>
-
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            {/* LOGICA BARATTO VS PREZZO */}
-            {mode === 'barter' ? (
-              <div className="col-span-1 md:col-span-2">
-                <label htmlFor="exchange_item" className="text-[10px] font-black uppercase tracking-widest text-blue-500 ml-1">Cosa cerchi in cambio?</label>
-                <input id="exchange_item" name="exchange_item" required type="text" className="w-full p-4 mt-1 bg-blue-50/30 rounded-2xl border border-blue-100 outline-none focus:border-blue-400 text-sm font-bold text-stone-800" placeholder="Es: Scambio con cellulare o tablet" />
-              </div>
-            ) : mode !== 'gift' && (
-              <div>
-                <label htmlFor="price" className="text-[10px] font-black uppercase tracking-widest text-stone-400 ml-1">Prezzo (€)</label>
-                <input id="price" name="price" required type="number" step="0.01" className="w-full p-4 mt-1 bg-stone-50 rounded-2xl border border-stone-100 outline-none focus:border-rose-400 text-sm font-bold text-stone-800" placeholder="0.00" />
-              </div>
-            )}
-            
-            {mode !== 'barter' && mode !== 'gift' && (
-              <div>
-                <label htmlFor="shipping" className="text-[10px] font-black uppercase tracking-widest text-rose-500 ml-1">Spese Spedizione (€)</label>
-                <input id="shipping" type="number" step="0.01" value={shippingCost} onChange={(e) => setShippingCost(e.target.value)} className="w-full p-4 mt-1 bg-rose-50/30 rounded-2xl border border-rose-100 outline-none focus:border-rose-400 text-sm font-black text-stone-800" />
-              </div>
-            )}
-          </div>
-
-          {/* SEZIONE INDIRIZZO DETTAGLIATA */}
-          <div className="p-6 bg-stone-50 rounded-[2rem] border-2 border-stone-100 space-y-4">
-            <p className="text-[10px] font-black uppercase tracking-[0.2em] text-rose-500 text-center mb-4">📍 Località dell&apos;oggetto</p>
-            
-            <div className="grid grid-cols-2 gap-3">
-               <div>
-                 <label htmlFor="nation" className="text-[9px] font-bold text-stone-400 uppercase ml-1">Nazione</label>
-                 <input id="nation" required type="text" value={nation} onChange={(e) => setNation(e.target.value)} className="w-full p-3 mt-1 bg-white rounded-xl border border-stone-200 text-sm font-bold text-stone-800" />
-               </div>
-               <div>
-                 <label htmlFor="region" className="text-[9px] font-bold text-stone-400 uppercase ml-1">Regione</label>
-                 <input id="region" required type="text" placeholder="Es: Sicilia" value={region} onChange={(e) => setRegion(e.target.value)} className="w-full p-3 mt-1 bg-white rounded-xl border border-stone-200 text-sm font-bold text-stone-800" />
-               </div>
-            </div>
-
-            <div className="grid grid-cols-2 gap-3">
-               <div>
-                 <label htmlFor="city" className="text-[9px] font-bold text-stone-400 uppercase ml-1">Città</label>
-                 <input id="city" required type="text" placeholder="Es: Palermo" value={city} onChange={(e) => setCity(e.target.value)} className="w-full p-3 mt-1 bg-white rounded-xl border border-stone-200 text-sm font-bold text-stone-800" />
-               </div>
-               <div>
-                 <label htmlFor="postcode" className="text-[9px] font-bold text-stone-400 uppercase ml-1">CAP</label>
-                 <input id="postcode" required type="text" placeholder="90100" value={postcode} onChange={(e) => setPostcode(e.target.value)} className="w-full p-3 mt-1 bg-white rounded-xl border border-stone-200 text-sm font-bold text-stone-800" />
-               </div>
-            </div>
-
-            <div className="grid grid-cols-3 gap-3">
-               <div className="col-span-2">
-                 <label htmlFor="street" className="text-[9px] font-bold text-stone-400 uppercase ml-1">Via / Piazza</label>
-                 <input id="street" required type="text" placeholder="Es: Via Libertà" value={street} onChange={(e) => setStreet(e.target.value)} className="w-full p-3 mt-1 bg-white rounded-xl border border-stone-200 text-sm font-bold text-stone-800" />
-               </div>
-               <div>
-                 <label htmlFor="houseNumber" className="text-[9px] font-bold text-stone-400 uppercase ml-1">Civico</label>
-                 <input id="houseNumber" required type="text" placeholder="10" value={houseNumber} onChange={(e) => setHouseNumber(e.target.value)} className="w-full p-3 mt-1 bg-white rounded-xl border border-stone-200 text-sm font-bold text-stone-800" />
-               </div>
-            </div>
-
-            <label className="flex items-center gap-3 cursor-pointer group pt-2 justify-center">
-              <input type="checkbox" checked={allowLocalPickup} onChange={(e) => setAllowLocalPickup(e.target.checked)} className="w-6 h-6 rounded-lg accent-rose-500 border-stone-200" />
-              <span className="text-[10px] font-black uppercase text-stone-600 group-hover:text-rose-500 transition-colors">Permetti Consegna a Mano</span>
-            </label>
-          </div>
-
-          <div>
-            <label htmlFor="description" className="text-[10px] font-black uppercase tracking-widest text-stone-400 ml-1">Descrizione</label>
-            <textarea id="description" name="description" required rows={4} className="w-full p-4 mt-1 bg-stone-50 rounded-2xl border border-stone-100 outline-none focus:border-rose-400 text-sm font-medium text-stone-800" placeholder="Descrivi il tuo articolo..."></textarea>
-          </div>
-
-          <div className="bg-stone-50 p-6 rounded-2xl border border-stone-100">
-             <span className="text-[10px] font-black uppercase tracking-widest text-stone-400 mb-4 block ml-1 text-center">Foto dell&apos;articolo</span>
-             <label htmlFor="file-upload" className="flex items-center justify-center gap-3 bg-white text-stone-700 px-6 py-5 rounded-2xl text-[11px] font-black uppercase tracking-widest hover:bg-rose-50 hover:text-rose-600 hover:border-rose-200 cursor-pointer transition-all border-2 border-stone-200 border-dashed w-full shadow-sm">
-                <span className="text-xl">📸</span> AGGIUNGI FOTO
-                <input id="file-upload" type="file" multiple accept="image/*" className="hidden" onChange={(e) => { if (e.target.files) setFiles(Array.from(e.target.files)) }} />
-             </label>
-
-             {files.length > 0 && (
-               <div className="mt-4 bg-rose-50 p-4 rounded-xl border border-rose-100 flex items-center gap-3">
-                 <span className="text-rose-600 text-lg">✓</span>
-                 <p className="text-[10px] font-black text-rose-700 uppercase tracking-tight">{files.length} Immagini pronte</p>
-               </div>
-             )}
-          </div>
-
-          <button disabled={loading} type="submit" className="w-full bg-stone-900 text-white font-black uppercase text-xs tracking-[0.2em] py-6 rounded-[2rem] hover:bg-rose-500 transition-all shadow-xl disabled:opacity-50 mt-6 active:scale-95">
-            {loading ? 'CARICAMENTO IN CORSO...' : 'PUBBLICA ORA SU RE-LOVE'}
-          </button>
-        </form>
+        {/* GUIDA INFORMATIVA SOTTO IL MODULO */}
+        {renderGuideBox()}
       </div>
     </div>
   )
