@@ -9,14 +9,13 @@ function AnnouncementContent() {
   const { id } = useParams()
   const router = useRouter()
   const [ann, setAnn] = useState<any>(null)
-  const [seller, setSeller] = useState<any>(null) // AGGIUNTO: Stato per i dati del venditore
+  const [seller, setSeller] = useState<any>(null)
   const [user, setUser] = useState<any>(null)
   const [loading, setLoading] = useState(true)
   const [showCoffeeModal, setShowCoffeeModal] = useState(false)
   const [actionLoading, setActionLoading] = useState(false)
   const [selectedQuantity, setSelectedQuantity] = useState(1)
   
-  // STATO PER LA SCELTA DELLA CONSEGNA
   const [usePickup, setUsePickup] = useState(false)
   
   const [reviews, setReviews] = useState<any[]>([])
@@ -24,6 +23,12 @@ function AnnouncementContent() {
   const [newReview, setNewReview] = useState({ rating: 5, comment: '' })
   const [submittingReview, setSubmittingReview] = useState(false)
   const [visibleReviews, setVisibleReviews] = useState(3)
+
+  // STATI PER "FAI UNA PROPOSTA"
+  const [showOfferModal, setShowOfferModal] = useState(false)
+  const [offerPrice, setOfferPrice] = useState<string>('')
+  const [submittingOffer, setSubmittingOffer] = useState(false)
+  const [existingOffer, setExistingOffer] = useState<any>(null)
 
   useEffect(() => {
     async function fetchData() {
@@ -34,15 +39,17 @@ function AnnouncementContent() {
       if (data) {
         setAnn(data)
         fetchReviews(data.user_id)
-        fetchSellerProfile(data.user_id) // AGGIUNTO: Recupero profilo reale
-        if (currentUser) checkIfPurchased(currentUser.id, data.id)
+        fetchSellerProfile(data.user_id) 
+        if (currentUser) {
+          checkIfPurchased(currentUser.id, data.id)
+          checkExistingOffer(currentUser.id, data.id) // Controlla le proposte attive
+        }
       }
       setLoading(false)
     }
     if (id) fetchData()
   }, [id])
 
-  // AGGIUNTO: Funzione per caricare i dati del profilo del venditore
   async function fetchSellerProfile(sellerId: string) {
     const { data } = await supabase.from('profiles').select('*').eq('id', sellerId).single()
     if (data) setSeller(data)
@@ -68,7 +75,19 @@ function AnnouncementContent() {
     if (data && data.length > 0) setHasPurchased(true)
   }
 
-  // AGGIUNTO: Funzione per sponsorizzare l'annuncio
+  // AGGIUNTO: Funzione per controllare offerte esistenti
+  async function checkExistingOffer(buyerId: string, annId: string) {
+    const { data } = await supabase
+      .from('offers')
+      .select('*')
+      .eq('buyer_id', buyerId)
+      .eq('announcement_id', annId)
+      .order('created_at', { ascending: false })
+      .limit(1)
+      .single()
+    if (data) setExistingOffer(data)
+  }
+
   const handleSponsor = async () => {
     setActionLoading(true)
     try {
@@ -127,6 +146,11 @@ function AnnouncementContent() {
       return;
     }
 
+    // AGGIUNTA FONDAMENTALE: Se c'è un'offerta accettata, usiamo quel prezzo, altrimenti il prezzo normale!
+    const finalPrice = (existingOffer && existingOffer.status === 'Accettata') 
+      ? existingOffer.offer_price 
+      : ann.price;
+
     const res = await fetch('/api/stripe/checkout', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -134,7 +158,7 @@ function AnnouncementContent() {
         items: [{
             id: ann.id,
             title: ann.title,
-            price: ann.price,
+            price: finalPrice, // QUI USIAMO IL PREZZO CORRETTO
             quantity: selectedQuantity,
             image_url: ann.image_url
         }],
@@ -145,6 +169,34 @@ function AnnouncementContent() {
     const data = await res.json()
     if (data.error) { alert(data.error); setActionLoading(false); return; }
     if (data.url) window.location.href = data.url
+  }
+
+  // AGGIUNTO: Invio della proposta al database
+  const submitOffer = async () => {
+    if (!offerPrice || isNaN(Number(offerPrice)) || Number(offerPrice) <= 0) {
+      alert("Inserisci una cifra valida."); return;
+    }
+    if (Number(offerPrice) >= ann.price) {
+      alert(`L'oggetto costa già €${ann.price}. Puoi acquistarlo direttamente!`); return;
+    }
+
+    setSubmittingOffer(true)
+    const { error } = await supabase.from('offers').insert([{
+      announcement_id: ann.id,
+      buyer_id: user.id,
+      seller_id: ann.user_id,
+      offer_price: Number(offerPrice),
+      status: 'In attesa'
+    }])
+
+    if (!error) {
+      alert("Proposta inviata al venditore! Incrocia le dita 🤞")
+      setShowOfferModal(false)
+      checkExistingOffer(user.id, ann.id)
+    } else {
+      alert("Errore nell'invio della proposta.")
+    }
+    setSubmittingOffer(false)
   }
 
   const submitReview = async (e: React.FormEvent) => {
@@ -177,9 +229,8 @@ function AnnouncementContent() {
     ? (reviews.reduce((acc, cur) => acc + cur.rating, 0) / reviews.length).toFixed(1) 
     : 'Nuovo'
 
-  // FIX: Corretto il dollaro nell'URL della mappa
-  const mapUrl = `https://www.google.com/maps/embed/v1/place?key=IL_TUO_GOOGLE_MAPS_KEY_O_URL_EMBED&q=${encodeURIComponent(ann.origin_address || ann.city || 'Italia')}`;
-  // Nota: Sto usando un formato standard per l'iframe, assicurati di usare il tuo provider preferito
+  // FIX: Formato mappa corretto per renderizzare l'iframe senza bug
+  const mapUrl = `https://maps.google.com/maps?q=${encodeURIComponent(ann.origin_address || ann.city || 'Italia')}&t=&z=13&ie=UTF8&iwloc=&output=embed`;
 
   return (
     <div className="min-h-screen bg-stone-50 p-4 md:p-10 font-sans pb-32">
@@ -229,7 +280,6 @@ function AnnouncementContent() {
                {ann.type === 'offered' && <span className="bg-rose-500 text-white text-[9px] font-black px-3 py-1 rounded-full uppercase shadow-lg shadow-rose-200">Gift</span>}
             </div>
 
-            {/* MODIFICATO: Link al Profilo Pubblico Reale */}
             <Link href={`/profile/${ann.user_id}`} className="flex items-center justify-between bg-stone-50 p-4 rounded-2xl border border-stone-100 hover:border-rose-200 transition-all mb-8 group">
                 <div className="flex items-center gap-3">
                   <div className="w-8 h-8 bg-stone-900 rounded-full flex items-center justify-center font-black text-[10px] text-white uppercase">
@@ -306,15 +356,30 @@ function AnnouncementContent() {
                {user?.id !== ann.user_id ? (
                  <>
                    {ann.condition === 'Nuovo' || ann.condition === 'Usato' ? (
-                     <button onClick={handleSecureBuy} disabled={actionLoading || maxQty <= 0} className="w-full bg-stone-900 text-white p-5 rounded-2xl font-black uppercase text-[11px] tracking-[0.2em] shadow-xl hover:bg-rose-500 transition-all disabled:opacity-30">
-                        {actionLoading ? 'In corso...' : 'Acquista e Sblocca Chat'}
-                     </button>
+                     <div className="space-y-3">
+                       <button onClick={handleSecureBuy} disabled={actionLoading || maxQty <= 0} className="w-full bg-stone-900 text-white p-5 rounded-2xl font-black uppercase text-[11px] tracking-[0.2em] shadow-xl hover:bg-rose-500 transition-all disabled:opacity-30">
+                          {actionLoading ? 'In corso...' : 'Acquista e Sblocca Chat'}
+                       </button>
+
+                       {/* LOGICA FAI PROPOSTA */}
+                       {existingOffer ? (
+                         <div className={`w-full p-4 rounded-2xl text-center border ${existingOffer.status === 'In attesa' ? 'bg-orange-50 border-orange-200' : existingOffer.status === 'Rifiutata' ? 'bg-rose-50 border-rose-200' : 'bg-emerald-50 border-emerald-200'}`}>
+                           <p className="text-[9px] font-black uppercase text-stone-600 tracking-widest">
+                             La tua offerta (€{existingOffer.offer_price}): <span className={existingOffer.status === 'In attesa' ? 'text-orange-500' : existingOffer.status === 'Rifiutata' ? 'text-rose-500' : 'text-emerald-500'}>{existingOffer.status}</span>
+                           </p>
+                         </div>
+                       ) : (
+                         <button onClick={() => { if(!user){ router.push('/login'); return; } setShowOfferModal(true); }} disabled={actionLoading || maxQty <= 0} className="w-full bg-stone-50 border-2 border-stone-900 text-stone-900 p-4 rounded-2xl font-black uppercase text-[10px] tracking-widest hover:bg-stone-900 hover:text-white transition-all disabled:opacity-30">
+                           💡 Fai una Proposta al Venditore
+                         </button>
+                       )}
+                     </div>
                    ) : (
                      <button onClick={handleContact} disabled={actionLoading} className="w-full bg-rose-500 text-white p-5 rounded-2xl font-black uppercase text-[11px] tracking-[0.2em] shadow-xl hover:bg-stone-900 transition-all disabled:opacity-30">
                         {ann.condition === 'Regalo' ? 'Prendi Regalo e Sblocca Chat' : 'Inizia Baratto e Sblocca Chat'}
                      </button>
                    )}
-                   <button onClick={handleContact} disabled={actionLoading} className="w-full border-2 border-stone-900 text-stone-900 p-4 rounded-2xl font-black uppercase text-[10px] tracking-widest hover:bg-stone-900 hover:text-white transition-all disabled:opacity-30">
+                   <button onClick={handleContact} disabled={actionLoading} className="w-full border-2 border-stone-100 text-stone-400 p-4 rounded-2xl font-black uppercase text-[10px] tracking-widest hover:border-stone-900 hover:text-stone-900 transition-all disabled:opacity-30 mt-2">
                      Contatta il venditore
                    </button>
                  </>
@@ -323,7 +388,7 @@ function AnnouncementContent() {
                     <div className="p-4 bg-stone-50 rounded-2xl text-center border border-stone-100">
                       <p className="text-[10px] font-black uppercase text-stone-400">Questo è il tuo annuncio</p>
                     </div>
-                    {/* AGGIUNTO: Tasto Sponsorizzazione per il proprietario */}
+                    {/* TASTO SPONSORIZZAZIONE */}
                     {!ann.is_sponsored && (
                       <button onClick={handleSponsor} disabled={actionLoading} className="w-full bg-gradient-to-r from-orange-400 to-rose-500 text-white p-5 rounded-2xl font-black uppercase text-[11px] tracking-[0.2em] shadow-xl hover:scale-105 transition-transform disabled:opacity-30">
                          {actionLoading ? 'Elaborazione...' : '✨ Metti in Vetrina (2,99€)'}
@@ -383,6 +448,38 @@ function AnnouncementContent() {
           </div>
         </div>
       </div>
+
+      {/* MODALE PER FARE UNA PROPOSTA */}
+      {showOfferModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-stone-900/80 backdrop-blur-md">
+          <div className="bg-white max-w-sm w-full rounded-[3rem] p-10 shadow-2xl text-center border-t-8 border-rose-500 animate-in zoom-in">
+            <h2 className="text-2xl font-black uppercase italic text-stone-900 mb-2">Fai un'offerta</h2>
+            <p className="text-[10px] font-black uppercase text-stone-400 mb-6 tracking-widest">Prezzo originale: €{ann.price}</p>
+            
+            <div className="relative mb-8 flex items-center justify-center">
+              <span className="absolute left-6 text-3xl font-black text-stone-300">€</span>
+              <input 
+                type="number" 
+                min="1" 
+                max={ann.price - 1} 
+                value={offerPrice} 
+                onChange={(e) => setOfferPrice(e.target.value)} 
+                className="w-full text-center text-5xl font-black text-stone-900 p-6 bg-stone-50 rounded-3xl outline-none focus:ring-4 focus:ring-rose-500/20 transition-all" 
+                placeholder="0"
+              />
+            </div>
+            
+            <div className="space-y-3">
+               <button onClick={submitOffer} disabled={submittingOffer} className="w-full bg-stone-900 text-white py-5 rounded-2xl font-black uppercase text-[10px] tracking-widest shadow-xl hover:bg-rose-500 transition-all disabled:opacity-30">
+                 {submittingOffer ? 'Invio in corso...' : 'Invia Proposta'}
+               </button>
+               <button onClick={() => setShowOfferModal(false)} className="w-full text-stone-400 py-4 rounded-2xl font-black uppercase text-[9px] tracking-widest hover:bg-stone-100 transition-all">
+                 Annulla
+               </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {showCoffeeModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-stone-900/80 backdrop-blur-md">

@@ -12,6 +12,9 @@ interface Transaction {
   buyer_id: string;
   seller_id: string;
   stripe_payment_intent_id: string;
+  courier_name?: string;      // AGGIUNTO: Corriere
+  tracking_number?: string;   // AGGIUNTO: Tracking
+  package_id_code?: string;   // AGGIUNTO: Codice interno
   announcements: {
     id: string;
     title: string;
@@ -108,6 +111,28 @@ export default function AdminDashboard() {
     checkAdminAndFetchData()
   }
 
+  // AGGIUNTO: Funzione per salvare i dati di spedizione
+  const updateShipping = async (txId: string, courier: string, track: string, code: string) => {
+    if (!confirm(`Vuoi salvare la spedizione con ${courier} e segnare l'ordine come Spedito?`)) return;
+    
+    const { error } = await supabase
+      .from('transactions')
+      .update({ 
+        courier_name: courier, 
+        tracking_number: track, 
+        package_id_code: code,
+        status: 'Spedito' 
+      })
+      .eq('id', txId);
+      
+    if (!error) {
+      alert("Spedizione aggiornata!");
+      checkAdminAndFetchData();
+    } else {
+      alert("Errore: " + error.message);
+    }
+  };
+
   const deleteReview = async (id: string) => {
     if (!confirm("Eliminare definitivamente questa recensione?")) return
     await supabase.from('reviews').delete().eq('id', id)
@@ -182,7 +207,7 @@ export default function AdminDashboard() {
         {/* TABELLA TRANSAZIONI */}
         <div className="bg-stone-800/40 rounded-[2.5rem] border border-stone-800 overflow-hidden mb-12 backdrop-blur-sm shadow-2xl">
           <div className="p-8 bg-stone-900/40 border-b border-stone-800 flex justify-between items-center">
-            <h2 className="text-lg font-black uppercase italic text-white">Gestione Flussi Cassa</h2>
+            <h2 className="text-lg font-black uppercase italic text-white">Gestione Flussi Cassa & Spedizioni</h2>
           </div>
           <div className="overflow-x-auto">
             <table className="w-full text-left">
@@ -190,8 +215,7 @@ export default function AdminDashboard() {
                 <tr>
                   <th className="px-8 py-5">Annuncio</th>
                   <th className="px-8 py-5">Compratore</th>
-                  <th className="px-8 py-5">Venditore</th>
-                  <th className="px-8 py-5">Stato</th>
+                  <th className="px-8 py-5">Stato & Spedizione</th>
                   <th className="px-8 py-5 text-right">Intervento</th>
                 </tr>
               </thead>
@@ -207,15 +231,38 @@ export default function AdminDashboard() {
                         </div>
                       </div>
                     </td>
-                    <td className="px-8 py-6 text-xs font-bold text-stone-400">{tx.buyer?.email}</td>
-                    <td className="px-8 py-6 text-xs font-bold text-stone-400">{tx.seller?.email}</td>
                     <td className="px-8 py-6">
-                      <span className={`text-[9px] font-black uppercase px-3 py-1 rounded-md ${
-                        tx.status === 'Pagato' ? 'bg-orange-500/20 text-orange-400' : 
-                        tx.status === 'Ricevuto' ? 'bg-emerald-500/20 text-emerald-400' : 'bg-rose-500/20 text-rose-400'
-                      }`}>{tx.status}</span>
+                      <p className="text-xs font-bold text-stone-400">{tx.buyer?.email}</p>
+                      <p className="text-[9px] text-stone-600 mt-1 uppercase">Venditore: {tx.seller?.email}</p>
                     </td>
-                    <td className="px-8 py-6 text-right">
+                    <td className="px-8 py-6">
+                      <div className="flex flex-col gap-3">
+                        <span className={`text-[9px] font-black uppercase px-3 py-1 rounded-md w-fit ${
+                          tx.status === 'Pagato' ? 'bg-orange-500/20 text-orange-400' : 
+                          tx.status === 'Spedito' ? 'bg-blue-500/20 text-blue-400' :
+                          tx.status === 'Ricevuto' ? 'bg-emerald-500/20 text-emerald-400' : 'bg-rose-500/20 text-rose-400'
+                        }`}>{tx.status}</span>
+                        
+                        {/* AGGIUNTO: Modulo Spedizione visibile se pagato o già spedito */}
+                        {(tx.status === 'Pagato' || tx.status === 'Spedito') && (
+                          <div className="flex flex-col gap-2 w-48">
+                            <input id={`cour-${tx.id}`} defaultValue={tx.courier_name} placeholder="Corriere (es. BRT)" className="bg-stone-900 text-[10px] font-bold text-white p-2 rounded-lg border border-stone-700 outline-none focus:border-emerald-500" />
+                            <input id={`track-${tx.id}`} defaultValue={tx.tracking_number} placeholder="N. Spedizione" className="bg-stone-900 text-[10px] font-bold text-white p-2 rounded-lg border border-stone-700 outline-none focus:border-emerald-500" />
+                            <button 
+                              onClick={() => {
+                                const c = (document.getElementById(`cour-${tx.id}`) as HTMLInputElement).value;
+                                const t = (document.getElementById(`track-${tx.id}`) as HTMLInputElement).value;
+                                updateShipping(tx.id, c, t, "REV-" + tx.id.substring(0,8).toUpperCase());
+                              }}
+                              className="bg-stone-800 hover:bg-emerald-600 text-stone-400 hover:text-white text-[9px] font-black uppercase p-2 rounded-lg transition-colors border border-stone-700 hover:border-emerald-500 mt-1"
+                            >
+                              {tx.status === 'Spedito' ? 'Aggiorna Dati' : 'Salva & Segna Spedito'}
+                            </button>
+                          </div>
+                        )}
+                      </div>
+                    </td>
+                    <td className="px-8 py-6 text-right align-top">
                       <div className="flex justify-end gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
                         <button onClick={() => forceStatus(tx.id, 'Ricevuto')} className="bg-emerald-500 text-white px-3 py-2 rounded-lg text-[9px] font-black uppercase">Sblocca</button>
                         <button onClick={() => forceStatus(tx.id, 'Rimborsato')} className="bg-rose-500 text-white px-3 py-2 rounded-lg text-[9px] font-black uppercase">Refund</button>

@@ -24,7 +24,32 @@ export async function POST(req: Request) {
     const announcementId = session.metadata?.announcementId || session.metadata?.productId;
     const buyerId = session.metadata?.buyerId;
     const sellerId = session.metadata?.sellerId;
+    const checkoutType = session.metadata?.type; // AGGIUNTA: Riconosciamo il tipo di pagamento
 
+    // ==========================================
+    // LOGICA 1: SPONSORIZZAZIONE VETRINA
+    // ==========================================
+    if (checkoutType === 'sponsorship' && announcementId) {
+      const days = 7; // Durata sponsorizzazione (7 giorni)
+      const expiryDate = new Date();
+      expiryDate.setDate(expiryDate.getDate() + days);
+
+      // Aggiorniamo l'annuncio nel database: lo mettiamo in vetrina e impostiamo la scadenza
+      await supabase
+        .from('announcements')
+        .update({ 
+          is_sponsored: true, 
+          sponsored_until: expiryDate.toISOString() 
+        })
+        .eq('id', announcementId);
+
+      console.log(`✨ Annuncio ${announcementId} sponsorizzato con successo!`);
+      return NextResponse.json({ received: true, sponsorship: true });
+    }
+
+    // ==========================================
+    // LOGICA 2: VENDITA OGGETTO (Tuo codice invariato)
+    // ==========================================
     if (announcementId && buyerId) {
        // 1. Salva la transazione nel DB (Lo storico per "I miei acquisti/vendite")
        await supabase.from('transactions').insert([{
