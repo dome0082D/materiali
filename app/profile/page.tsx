@@ -6,13 +6,17 @@ import { useRouter, useSearchParams } from 'next/navigation'
 import Link from 'next/link'
 import { User } from '@supabase/supabase-js'
 
-// 1. DEFINIAMO I TIPI CORRETTAMENTE E IN MODO COMPLETO
+// 1. DEFINIAMO I TIPI AGGIUNGENDO I NUOVI CAMPI (Privacy e Profilo)
 interface ProfileData {
   first_name?: string;
   last_name?: string;
   city?: string;
   full_address?: string;
   stripe_account_id?: string;
+  nickname?: string;
+  bio?: string;
+  phone?: string;
+  avatar_url?: string;
 }
 
 interface EditForm {
@@ -20,6 +24,10 @@ interface EditForm {
   last_name: string;
   city: string;
   full_address: string;
+  nickname: string;
+  bio: string;
+  phone: string;
+  avatar_url: string;
 }
 
 interface AdItem {
@@ -38,7 +46,10 @@ function ProfileContent() {
   const [stripeLoading, setStripeLoading] = useState(false)
   
   const [isEditing, setIsEditing] = useState(false)
-  const [editForm, setEditForm] = useState<EditForm>({ first_name: '', last_name: '', city: '', full_address: '' })
+  const [editForm, setEditForm] = useState<EditForm>({ 
+    first_name: '', last_name: '', city: '', full_address: '', 
+    nickname: '', bio: '', phone: '', avatar_url: '' 
+  })
   const [saving, setSaving] = useState(false)
 
   // LE TUE VETRINE ORIGINALI
@@ -71,7 +82,11 @@ function ProfileContent() {
         first_name: data.first_name || '',
         last_name: data.last_name || '',
         city: data.city || '',
-        full_address: data.full_address || ''
+        full_address: data.full_address || '',
+        nickname: data.nickname || '',
+        bio: data.bio || '',
+        phone: data.phone || '',
+        avatar_url: data.avatar_url || ''
       })
     }
 
@@ -107,9 +122,33 @@ function ProfileContent() {
     setLoading(false)
   }
 
+  // AGGIUNTA: Funzione per caricare la foto profilo
+  const uploadAvatar = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0]
+    if (!file) return
+    setSaving(true)
+    
+    const fileExt = file.name.split('.').pop()
+    const fileName = `${Math.random()}.${fileExt}`
+    const filePath = `avatars/${fileName}`
+
+    const { error: uploadError } = await supabase.storage
+      .from('announcements')
+      .upload(filePath, file)
+
+    if (!uploadError) {
+      const { data: { publicUrl } } = supabase.storage.from('announcements').getPublicUrl(filePath)
+      setEditForm({ ...editForm, avatar_url: publicUrl })
+    } else {
+      alert("Errore caricamento foto.")
+    }
+    setSaving(false)
+  }
+
   async function saveProfile() {
-    if (!editForm.first_name?.trim() || !editForm.last_name?.trim() || !editForm.city?.trim() || !editForm.full_address?.trim()) {
-      alert("Tutti i campi sono obbligatori.")
+    // Aggiunto il nickname nei campi obbligatori
+    if (!editForm.nickname?.trim() || !editForm.first_name?.trim() || !editForm.last_name?.trim() || !editForm.city?.trim() || !editForm.full_address?.trim()) {
+      alert("Nickname, Nome, Cognome, Città e Indirizzo sono obbligatori.")
       return
     }
 
@@ -118,6 +157,10 @@ function ProfileContent() {
       const { error } = await supabase
         .from('profiles')
         .update({
+          nickname: editForm.nickname,
+          bio: editForm.bio,
+          phone: editForm.phone,
+          avatar_url: editForm.avatar_url,
           first_name: editForm.first_name,
           last_name: editForm.last_name,
           city: editForm.city,
@@ -216,16 +259,16 @@ function ProfileContent() {
     <div className="min-h-screen bg-stone-50 p-4 md:p-10 font-sans text-stone-900 pb-20">
       <div className="max-w-2xl mx-auto space-y-6">
         
-        {/* DATI PERSONALI (CON TUA FUNZIONE EDITING) */}
+        {/* DATI PERSONALI E PROFILO PUBBLICO */}
         <div className="bg-white rounded-[2.5rem] p-8 border border-stone-200 shadow-sm relative overflow-hidden">
-          <div className="flex justify-between items-center mb-8">
+          <div className="flex justify-between items-center mb-8 border-b border-stone-100 pb-4">
             <h1 className="text-2xl font-black uppercase italic text-transparent bg-clip-text bg-gradient-to-r from-rose-500 to-orange-400">Il mio profilo</h1>
             {!isEditing ? (
-              <button onClick={() => setIsEditing(true)} className="text-[10px] font-black uppercase tracking-widest text-stone-400 hover:text-rose-500 transition-colors">Modifica</button>
+              <button onClick={() => setIsEditing(true)} className="text-[10px] font-black uppercase tracking-widest text-stone-400 hover:text-rose-500 transition-colors bg-stone-50 px-3 py-1.5 rounded-lg border border-stone-100">Modifica Dati</button>
             ) : (
               <div className="flex gap-3">
-                <button onClick={() => setIsEditing(false)} className="text-[10px] font-black uppercase text-stone-400">Annulla</button>
-                <button onClick={saveProfile} disabled={saving} className="text-[10px] font-black uppercase bg-stone-900 text-white px-4 py-2 rounded-xl hover:bg-rose-500 transition-all">{saving ? '...' : 'Salva'}</button>
+                <button onClick={() => setIsEditing(false)} className="text-[10px] font-black uppercase text-stone-400 hover:bg-stone-50 px-3 py-1.5 rounded-lg">Annulla</button>
+                <button onClick={saveProfile} disabled={saving} className="text-[10px] font-black uppercase bg-stone-900 text-white px-4 py-2 rounded-xl hover:bg-rose-500 transition-all shadow-md">{saving ? '...' : 'Salva'}</button>
               </div>
             )}
           </div>
@@ -233,13 +276,40 @@ function ProfileContent() {
           <div className="space-y-6">
             {isEditing ? (
               <div className="space-y-4">
+                {/* EDIT MODE: FOTO E NICKNAME */}
+                <div className="flex items-center gap-4 border-b border-stone-100 pb-6">
+                  <div className="w-16 h-16 bg-stone-100 rounded-full overflow-hidden relative group shadow-sm flex-shrink-0">
+                    <img src={editForm.avatar_url || `https://ui-avatars.com/api/?name=${editForm.nickname || 'U'}`} className="w-full h-full object-cover" alt="avatar" />
+                    <label className="absolute inset-0 bg-stone-900/40 flex items-center justify-center opacity-0 group-hover:opacity-100 cursor-pointer transition-opacity">
+                      <span className="text-[8px] font-black text-white uppercase">Foto</span>
+                      <input type="file" className="hidden" onChange={uploadAvatar} accept="image/*" />
+                    </label>
+                  </div>
+                  <div className="flex-1 space-y-1">
+                    <p className="text-[8px] font-black uppercase text-rose-500 ml-1">Nickname (Visibile a tutti)</p>
+                    <input type="text" placeholder="Es: VintageLover99" value={editForm.nickname} onChange={(e) => setEditForm({...editForm, nickname: e.target.value})} className="w-full p-3 bg-stone-50 border border-stone-100 rounded-xl text-xs font-bold outline-none focus:border-rose-400" />
+                  </div>
+                </div>
+                
+                {/* EDIT MODE: BIO E TELEFONO */}
+                <div className="space-y-1">
+                  <p className="text-[8px] font-black uppercase text-stone-400 ml-1">Bio / A proposito di me</p>
+                  <textarea value={editForm.bio} onChange={(e) => setEditForm({...editForm, bio: e.target.value})} className="w-full p-3 bg-stone-50 border border-stone-100 rounded-xl text-xs font-bold outline-none focus:border-rose-400 min-h-[80px]" placeholder="Racconta chi sei agli acquirenti..." />
+                </div>
+                
+                <div className="space-y-1">
+                  <p className="text-[8px] font-black uppercase text-stone-400 ml-1">Telefono (Privato)</p>
+                  <input type="text" value={editForm.phone} onChange={(e) => setEditForm({...editForm, phone: e.target.value})} className="w-full p-3 bg-stone-50 border border-stone-100 rounded-xl text-xs font-bold outline-none focus:border-rose-400" placeholder="+39 ..." />
+                </div>
+
+                {/* EDIT MODE: NOME E INDIRIZZO (Tuo codice originale) */}
                 <div className="grid grid-cols-2 gap-4">
                   <div className="space-y-1">
-                    <p className="text-[8px] font-black uppercase text-stone-400 ml-1">Nome</p>
+                    <p className="text-[8px] font-black uppercase text-stone-400 ml-1">Nome Reale (Privato)</p>
                     <input type="text" value={editForm.first_name} onChange={(e) => setEditForm({...editForm, first_name: e.target.value})} className="w-full p-3 bg-stone-50 border border-stone-100 rounded-xl text-xs font-bold outline-none focus:border-rose-400" />
                   </div>
                   <div className="space-y-1">
-                    <p className="text-[8px] font-black uppercase text-stone-400 ml-1">Cognome</p>
+                    <p className="text-[8px] font-black uppercase text-stone-400 ml-1">Cognome Reale (Privato)</p>
                     <input type="text" value={editForm.last_name} onChange={(e) => setEditForm({...editForm, last_name: e.target.value})} className="w-full p-3 bg-stone-50 border border-stone-100 rounded-xl text-xs font-bold outline-none focus:border-rose-400" />
                   </div>
                 </div>
@@ -248,30 +318,51 @@ function ProfileContent() {
                   <input type="text" value={editForm.city} onChange={(e) => setEditForm({...editForm, city: e.target.value})} className="w-full p-3 bg-stone-50 border border-stone-100 rounded-xl text-xs font-bold outline-none focus:border-rose-400" />
                 </div>
                 <div className="space-y-1">
-                  <p className="text-[8px] font-black uppercase text-stone-400 ml-1">Indirizzo completo</p>
+                  <p className="text-[8px] font-black uppercase text-stone-400 ml-1">Indirizzo completo (Privato)</p>
                   <input type="text" value={editForm.full_address} onChange={(e) => setEditForm({...editForm, full_address: e.target.value})} className="w-full p-3 bg-stone-50 border border-stone-100 rounded-xl text-xs font-bold outline-none focus:border-rose-400" />
                 </div>
               </div>
             ) : (
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                <div>
-                  <p className="text-[9px] font-black uppercase text-stone-400 tracking-widest mb-1">Nome e Cognome</p>
-                  <p className="text-sm font-bold uppercase italic">{profile?.first_name} {profile?.last_name}</p>
-                </div>
-                <div>
-                  <p className="text-[9px] font-black uppercase text-stone-400 tracking-widest mb-1">Email</p>
-                  <div className="flex items-center gap-2">
-                    <p className="text-sm font-bold text-stone-800 lowercase">{user?.email}</p>
-                    <span className="bg-emerald-50 text-emerald-600 text-[8px] font-black px-1.5 py-0.5 rounded uppercase border border-emerald-100">✓ Verificata</span>
+              <div className="space-y-8">
+                {/* VIEW MODE: INTESTAZIONE PROFILO */}
+                <div className="flex items-center gap-6">
+                  <div className="w-20 h-20 bg-stone-100 rounded-full overflow-hidden border-2 border-stone-100 shadow-sm flex-shrink-0">
+                    <img src={profile?.avatar_url || `https://ui-avatars.com/api/?name=${profile?.nickname || 'U'}`} className="w-full h-full object-cover" />
+                  </div>
+                  <div>
+                    <p className="text-[9px] font-black uppercase text-stone-400 tracking-widest mb-1">Nickname Pubblico</p>
+                    <p className="text-xl font-black uppercase italic text-stone-900">{profile?.nickname || 'Non impostato'}</p>
                   </div>
                 </div>
-                <div>
-                  <p className="text-[9px] font-black uppercase text-stone-400 tracking-widest mb-1">Città</p>
-                  <p className="text-sm font-bold uppercase italic">{profile?.city || 'Non specificata'}</p>
-                </div>
-                <div>
-                  <p className="text-[9px] font-black uppercase text-stone-400 tracking-widest mb-1">Indirizzo</p>
-                  <p className="text-sm font-bold uppercase italic truncate">{profile?.full_address || 'Non specificato'}</p>
+
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6 pt-4 border-t border-stone-100">
+                  <div>
+                    <p className="text-[9px] font-black uppercase text-stone-400 tracking-widest mb-1">Email</p>
+                    <div className="flex items-center gap-2">
+                      <p className="text-sm font-bold text-stone-800 lowercase">{user?.email}</p>
+                      <span className="bg-emerald-50 text-emerald-600 text-[8px] font-black px-1.5 py-0.5 rounded uppercase border border-emerald-100">✓</span>
+                    </div>
+                  </div>
+                  <div>
+                    <p className="text-[9px] font-black uppercase text-stone-400 tracking-widest mb-1">Telefono (Privato)</p>
+                    <p className="text-sm font-bold uppercase italic">{profile?.phone || 'Non specificato'}</p>
+                  </div>
+                  <div>
+                    <p className="text-[9px] font-black uppercase text-rose-400 tracking-widest mb-1">Nome e Cognome (Privato)</p>
+                    <p className="text-sm font-bold uppercase italic text-stone-600">{profile?.first_name} {profile?.last_name}</p>
+                  </div>
+                  <div>
+                    <p className="text-[9px] font-black uppercase text-rose-400 tracking-widest mb-1">Indirizzo di Spedizione (Privato)</p>
+                    <p className="text-sm font-bold uppercase italic text-stone-600 truncate">{profile?.full_address || 'Non specificato'}</p>
+                  </div>
+                  <div className="md:col-span-2">
+                    <p className="text-[9px] font-black uppercase text-stone-400 tracking-widest mb-1">Città Pubblica</p>
+                    <p className="text-sm font-bold uppercase italic">{profile?.city || 'Non specificata'}</p>
+                  </div>
+                  <div className="md:col-span-2">
+                    <p className="text-[9px] font-black uppercase text-stone-400 tracking-widest mb-1">Bio</p>
+                    <p className="text-sm font-medium italic text-stone-500 bg-stone-50 p-4 rounded-xl border border-stone-100">{profile?.bio || 'Nessuna biografia inserita.'}</p>
+                  </div>
                 </div>
               </div>
             )}

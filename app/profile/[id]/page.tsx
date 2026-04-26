@@ -8,9 +8,10 @@ import Link from 'next/link'
 interface PublicProfile {
   id: string;
   email: string;
-  first_name?: string;
-  last_name?: string;
+  nickname?: string; // Usiamo il nickname
   city?: string;
+  bio?: string;      // Aggiunta Bio
+  avatar_url?: string; // Aggiunto Avatar
   created_at: string;
 }
 
@@ -28,20 +29,20 @@ export default function PublicProfilePage() {
   async function fetchPublicData() {
     setLoading(true)
     
-    // 1. Dati Profilo
+    // 1. Dati Profilo (Inclusi Nickname, Bio e Avatar)
     const { data: prof } = await supabase.from('profiles').select('*').eq('id', id).single()
     
     // 2. Annunci attivi dell'utente
     const { data: ads } = await supabase.from('announcements')
       .select('*')
       .eq('user_id', id)
-      .eq('quantity', 1) // Solo roba disponibile
+      .eq('quantity', 1) 
       .order('created_at', { ascending: false })
 
-    // 3. Recensioni ricevute
+    // 3. Recensioni ricevute (Aggiornato per cercare il nickname del recensore)
     const { data: revs } = await supabase.from('reviews')
-      .select('*, reviewer:reviewer_id(email, first_name)')
-      .eq('reviewed_id', id)
+      .select('*, reviewer:profiles!reviewer_id(nickname, first_name)')
+      .eq('reviewed_user_id', id)
       .order('created_at', { ascending: false })
 
     if (prof) setProfile(prof as PublicProfile)
@@ -51,7 +52,6 @@ export default function PublicProfilePage() {
     setLoading(false)
   }
 
-  // Calcolo media stelline
   const avgRating = reviews.length > 0 
     ? (reviews.reduce((acc, r) => acc + r.rating, 0) / reviews.length).toFixed(1)
     : "N/D"
@@ -62,20 +62,33 @@ export default function PublicProfilePage() {
 
   return (
     <div className="min-h-screen bg-stone-50 pb-20">
-      {/* HEADER PROFILO */}
+      {/* HEADER PROFILO - SOLO NICKNAME E CITTÀ */}
       <div className="bg-white border-b border-stone-200 pt-20 pb-10 px-6">
         <div className="max-w-5xl mx-auto flex flex-col md:flex-row items-center gap-8">
-          <div className="w-32 h-32 bg-gradient-to-tr from-rose-500 to-orange-400 rounded-[3rem] flex items-center justify-center text-white text-4xl font-black shadow-xl shadow-rose-100">
-            {profile.first_name?.[0] || profile.email?.[0].toUpperCase()}
+          
+          {/* AVATAR REALE O FALLBACK */}
+          <div className="w-32 h-32 bg-stone-900 rounded-[3rem] overflow-hidden flex items-center justify-center text-white shadow-xl shadow-stone-200">
+            {profile.avatar_url ? (
+              <img src={profile.avatar_url} className="w-full h-full object-cover" alt="avatar" />
+            ) : (
+              <span className="text-4xl font-black">{profile.nickname?.[0] || 'U'}</span>
+            )}
           </div>
           
           <div className="text-center md:text-left flex-1">
-            <h1 className="text-3xl font-black uppercase italic text-stone-900 tracking-tighter">
-              {profile.first_name} {profile.last_name}
+            <h1 className="text-4xl font-black uppercase italic text-stone-900 tracking-tighter leading-none">
+              {profile.nickname || 'Utente Re-love'}
             </h1>
-            <p className="text-[10px] font-bold text-stone-400 uppercase tracking-widest mt-1">
-              📍 {profile.city || 'Città non specificata'} • Membro dal {new Date(profile.created_at).getFullYear()}
+            <p className="text-[10px] font-bold text-stone-400 uppercase tracking-widest mt-2">
+              📍 {profile.city || 'Italia'} • Membro dal {new Date(profile.created_at).getFullYear()}
             </p>
+
+            {/* BIO PUBBLICA */}
+            {profile.bio && (
+              <p className="mt-4 text-sm font-medium text-stone-500 italic max-w-lg leading-relaxed">
+                "{profile.bio}"
+              </p>
+            )}
             
             <div className="flex items-center justify-center md:justify-start gap-4 mt-6">
               <div className="bg-stone-900 text-white px-4 py-2 rounded-xl flex items-center gap-2">
@@ -93,10 +106,10 @@ export default function PublicProfilePage() {
 
       <main className="max-w-5xl mx-auto px-6 mt-12 grid grid-cols-1 lg:grid-cols-3 gap-12">
         
-        {/* COLONNA SINISTRA: ANNUNCI ATTIVI */}
+        {/* COLONNA SINISTRA: ARMADIO (Nickname) */}
         <div className="lg:col-span-2">
           <h2 className="text-[12px] font-black uppercase tracking-[0.3em] text-stone-900 mb-8 border-l-4 border-rose-500 pl-4">
-            Armadio di {profile.first_name || 'questo utente'}
+            Armadio di {profile.nickname || 'questo utente'}
           </h2>
           
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
@@ -115,10 +128,10 @@ export default function PublicProfilePage() {
           </div>
         </div>
 
-        {/* COLONNA DESTRA: FEEDBACK / RECENSIONI */}
+        {/* COLONNA DESTRA: FEEDBACK (Nickname) */}
         <div>
           <h2 className="text-[12px] font-black uppercase tracking-[0.3em] text-stone-900 mb-8 border-l-4 border-yellow-400 pl-4">
-            Cosa dicono di {profile.first_name || 'lui/lei'}
+            Dicono di {profile.nickname || 'lui/lei'}
           </h2>
           
           <div className="space-y-6">
@@ -132,7 +145,7 @@ export default function PublicProfilePage() {
                 </p>
                 <div className="mt-4 pt-4 border-t border-stone-50 flex items-center justify-between">
                   <span className="text-[9px] font-black uppercase text-stone-400">
-                    Da: {rev.reviewer?.first_name || rev.reviewer?.email.split('@')[0]}
+                    Da: {rev.reviewer?.nickname || rev.reviewer?.first_name || 'Utente'}
                   </span>
                   <span className="text-[8px] font-bold text-stone-300">
                     {new Date(rev.created_at).toLocaleDateString()}
