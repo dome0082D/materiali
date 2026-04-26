@@ -132,15 +132,16 @@ function ProfileContent() {
     const fileName = `${Math.random()}.${fileExt}`
     const filePath = `avatars/${fileName}`
 
+    // 🚨 ECCO LA CORREZIONE: Ora invia al bucket 'avatars' invece che 'announcements'
     const { error: uploadError } = await supabase.storage
-      .from('announcements')
+      .from('avatars') 
       .upload(filePath, file)
 
     if (!uploadError) {
-      const { data: { publicUrl } } = supabase.storage.from('announcements').getPublicUrl(filePath)
+      const { data: { publicUrl } } = supabase.storage.from('avatars').getPublicUrl(filePath)
       setEditForm({ ...editForm, avatar_url: publicUrl })
     } else {
-      alert("Errore caricamento foto.")
+      alert("Errore caricamento foto: " + uploadError.message)
     }
     setSaving(false)
   }
