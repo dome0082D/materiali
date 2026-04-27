@@ -6,7 +6,7 @@ import Link from 'next/link'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { User } from '@supabase/supabase-js'
 
-// 1. Definiamo l'interfaccia per gli annunci per rimuovere gli "any"
+// 1. Definiamo l'interfaccia per gli annunci
 interface Announcement {
   id: string;
   title: string;
@@ -36,7 +36,7 @@ function HomePageContent() {
   const [condition, setSearchCondition] = useState('all')
   const [distance, setDistance] = useState(0) 
   
-  // STATO AGGIUNTO PER LA PAGINAZIONE
+  // STATO PER LA PAGINAZIONE
   const [visibleCount, setVisibleCount] = useState(12)
   
   const router = useRouter()
@@ -123,7 +123,6 @@ function HomePageContent() {
   const topItems = sortedData.filter(i => i.condition === 'Nuovo').slice(0, 5)
   const regularItems = sortedData.filter(i => !topItems.find(t => t.id === i.id))
 
-  // Renderizzo solo se non sto caricando, per evitare flash di contenuti vuoti
   if (loading) {
     return <div className="min-h-screen bg-stone-50 flex items-center justify-center font-bold uppercase tracking-widest text-stone-400 text-xs">Caricamento Vetrina...</div>
   }
@@ -137,21 +136,28 @@ function HomePageContent() {
         </Link>
       )}
 
-      {/* --- HERO SECTION SENZA SFUMATURA, IMMAGINE INTERA E TRIDIMENSIONALE --- */}
+      {/* --- HERO SECTION: Niente sfumatura, foto 3D visibile e nuovo testo leggibile --- */}
       <div className="relative w-full h-[400px] md:h-[650px] flex flex-col items-center overflow-hidden border-b border-rose-100 bg-[#f6f5f2]">
           <div className="absolute inset-0 z-0 flex items-center justify-center p-4">
             <img 
               src="/uploaded_hero.jpeg" 
               alt="Re-love Hero"
-              // object-contain: adatta la foto per renderla visibile al 100% senza tagliare i bordi
-              // drop-shadow-2xl: le conferisce l'effetto 3D distaccato
               className="w-full h-full object-contain drop-shadow-2xl"
             />
           </div>
 
-          {/* Contenitore interno che spinge la barra di ricerca verso il basso */}
-          <div className="relative z-10 w-full h-full max-w-4xl px-4 flex flex-col justify-end pb-10 items-center">
+          <div className="relative z-10 w-full h-full max-w-4xl px-4 flex flex-col justify-end pb-6 items-center">
             
+            {/* ETICHETTA DI TESTO: Copre il testo sgranato della foto con testo reale ed elegante */}
+            <div className="mb-4 bg-white/85 backdrop-blur-md px-6 py-3 rounded-2xl shadow-sm text-center border border-stone-100">
+               <h2 className="text-[10px] md:text-xs font-black uppercase tracking-[0.2em] text-stone-800">
+                 Welcome to Re-love: A Curated Journey
+               </h2>
+               <p className="text-[8px] md:text-[9px] font-bold uppercase tracking-[0.3em] text-stone-500 mt-1">
+                 Discover the Stories within Our Pre-Owned Objects
+               </p>
+            </div>
+
             <div className="relative group w-full max-w-2xl shadow-xl rounded-3xl">
               <input type="text" placeholder="Cerca vestiti, elettronica, arredamento..." className="w-full p-5 pl-14 rounded-3xl bg-white/95 backdrop-blur-sm border border-stone-200 outline-none text-sm font-medium focus:border-rose-400 focus:bg-white focus:shadow-lg focus:shadow-rose-100 transition-all" onChange={(e) => setMainSearch(e.target.value)} />
               <span className="absolute left-5 top-5 opacity-40 text-xl">🔍</span>
