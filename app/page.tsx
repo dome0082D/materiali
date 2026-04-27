@@ -303,10 +303,13 @@ function HomePageContent() {
                 <div className="p-3 flex flex-col justify-between flex-grow">
                   <Link href={`/announcement/${item.id}`} className="block">
                     <h4 className="text-[10px] font-bold uppercase line-clamp-2 text-stone-800 leading-tight mb-1">{item.title}</h4>
-                    <p className="text-[14px] font-black text-rose-600 mt-1">€ {item.price}</p>
+                    <p className="text-[14px] font-black text-rose-600 mt-1">
+                      {item.condition === 'Regalo' || item.condition === 'Baratto' ? '€ 0' : `€ ${item.price}`}
+                    </p>
                   </Link>
                   <Link href={`/announcement/${item.id}`} className="mt-3 block text-center w-full bg-stone-50 text-stone-600 text-[9px] font-bold uppercase py-2 rounded-lg hover:bg-stone-900 hover:text-white transition-colors">
-                    Acquista
+                    {/* ECCO LA MODIFICA DINAMICA PER I TASTINI */}
+                    {item.condition === 'Baratto' ? 'Baratta' : item.condition === 'Regalo' ? 'Ricevi Regalo' : 'Acquista'}
                   </Link>
                 </div>
               </div>

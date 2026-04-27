@@ -112,10 +112,18 @@ function AnnouncementContent() {
       alert("Per sbloccare la chat e parlare col venditore, devi prima completare l'acquisto dell'oggetto.");
       handleSecureBuy();
     } else {
-      // NIENTE PIÙ POPUP DEI 2.50€! Si va dritti al contatto.
-      // Assumiamo che tu abbia una pagina di chat, tipo /chat/[seller_id], ma per ora ti metto un alert.
-      // Sostituisci questo alert con: router.push(`/chat/${ann.user_id}`); quando avrai la pagina chat.
-      alert(`Hai contattato il venditore per: ${ann.title}. (La funzione chat diretta sarà sbloccata gratuitamente!)`);
+      // ECCO LA MAGIA: Sblocca la chat gratuitamente per Baratto e Regalo
+      const startChat = async () => {
+        setActionLoading(true);
+        await supabase.from('messages').insert([{
+          content: `Ciao! Sono interessato al tuo annuncio in ${ann.condition}: "${ann.title}".`,
+          sender_id: user.id,
+          receiver_id: ann.user_id
+        }]);
+        setActionLoading(false);
+        router.push('/chat');
+      };
+      startChat();
     }
   }
 
