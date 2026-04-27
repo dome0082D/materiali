@@ -112,7 +112,10 @@ function AnnouncementContent() {
       alert("Per sbloccare la chat e parlare col venditore, devi prima completare l'acquisto dell'oggetto.");
       handleSecureBuy();
     } else {
-      setShowCoffeeModal(true);
+      // NIENTE PIÙ POPUP DEI 2.50€! Si va dritti al contatto.
+      // Assumiamo che tu abbia una pagina di chat, tipo /chat/[seller_id], ma per ora ti metto un alert.
+      // Sostituisci questo alert con: router.push(`/chat/${ann.user_id}`); quando avrai la pagina chat.
+      alert(`Hai contattato il venditore per: ${ann.title}. (La funzione chat diretta sarà sbloccata gratuitamente!)`);
     }
   }
 
@@ -224,7 +227,6 @@ function AnnouncementContent() {
   const maxQty = ann.quantity !== undefined ? ann.quantity : 1;
   const avgRating = reviews.length > 0 ? (reviews.reduce((acc, cur) => acc + cur.rating, 0) / reviews.length).toFixed(1) : 'Nuovo'
   
-  // MODIFICATO: Mappa basata solo sulla CITTÀ
   const mapUrl = `https://maps.google.com/maps?q=${encodeURIComponent(ann.city || 'Italia')}&t=&z=13&ie=UTF8&iwloc=&output=embed`;
 
   return (
@@ -251,7 +253,6 @@ function AnnouncementContent() {
              )}
           </div>
 
-          {/* POSIZIONE AGGIORNATA (SOLO CITTÀ) */}
           <div className="bg-white p-8 rounded-[2.5rem] border border-stone-200 shadow-sm overflow-hidden">
             <h3 className="text-xs font-black uppercase text-stone-400 tracking-widest mb-4 flex items-center gap-2">
               <span className="w-2 h-2 bg-rose-500 rounded-full animate-pulse"></span> Posizione
@@ -276,7 +277,6 @@ function AnnouncementContent() {
                {ann.type === 'offered' && <span className="bg-rose-500 text-white text-[10px] font-black px-3 py-1 rounded-full uppercase shadow-lg shadow-rose-200">Gift</span>}
             </div>
 
-            {/* MODIFICATO: MOSTRA SOLO IL NICKNAME */}
             <Link href={`/profile/${ann.user_id}`} className="flex items-center justify-between bg-stone-50 p-4 rounded-2xl border border-stone-100 hover:border-rose-200 transition-all mb-8 group">
                 <div className="flex items-center gap-3">
                   <div className="w-10 h-10 bg-stone-900 rounded-full flex items-center justify-center font-black text-sm text-white uppercase">
@@ -470,26 +470,6 @@ function AnnouncementContent() {
                  Invia Proposta
                </button>
                <button onClick={() => setShowOfferModal(false)} className="w-full text-stone-400 py-4 rounded-2xl font-black uppercase text-[10px] tracking-widest hover:bg-stone-100 transition-all">
-                 Annulla
-               </button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {showCoffeeModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-stone-900/80 backdrop-blur-md">
-          <div className="bg-white max-w-sm w-full rounded-[3rem] p-10 shadow-2xl text-center border-t-8 border-rose-500">
-            <span className="text-6xl mb-6 block animate-bounce">🔒</span>
-            <h2 className="text-2xl font-black uppercase italic text-stone-900 mb-2">Sblocca la Chat</h2>
-            <p className="text-sm font-medium text-stone-500 mb-10 leading-relaxed italic">
-              Per sbloccare la conversazione in modalità {ann.condition} è richiesta una commissione simbolica di €2.50.
-            </p>
-            <div className="space-y-3">
-               <button onClick={handleBuyCoffee} disabled={actionLoading} className="w-full bg-stone-900 text-white py-5 rounded-2xl font-black uppercase text-xs tracking-widest shadow-xl hover:bg-rose-500 transition-all disabled:opacity-30">
-                 {actionLoading ? 'Elaborazione...' : 'Paga €2.50 e Sblocca'}
-               </button>
-               <button onClick={() => setShowCoffeeModal(false)} className="w-full bg-stone-50 text-stone-400 py-4 rounded-2xl font-black uppercase text-[10px] tracking-widest hover:bg-stone-200">
                  Annulla
                </button>
             </div>
