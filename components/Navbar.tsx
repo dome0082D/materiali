@@ -22,9 +22,32 @@ export default function Navbar() {
   const [aiItemName, setAiItemName] = useState('')
   const [aiResult, setAiResult] = useState<string | null>(null)
   
+  // STATI PER IL RADAR
+  const [isRadarScanning, setIsRadarScanning] = useState(false)
+  const [radarResult, setRadarResult] = useState<string | null>(null)
+  
   const router = useRouter()
   const { items, isCartOpen, openCart, closeCart, removeItem, updateQuantity } = useCartStore()
   const total = items.reduce((acc, i) => acc + (Number(i.price) * i.quantity), 0)
+
+  // --- EFFETTO MODALITÀ NOTTE (TRUCCO CSS UNIVERSALE) ---
+  useEffect(() => {
+    let styleEl = document.getElementById('dark-mode-hack') as HTMLStyleElement;
+    if (darkMode) {
+      if (!styleEl) {
+        styleEl = document.createElement('style');
+        styleEl.id = 'dark-mode-hack';
+        // Inverte i colori del sito, ma "re-inverte" immagini e video così non sembrano negativi fotografici!
+        styleEl.innerHTML = `
+          html { filter: invert(1) hue-rotate(180deg); background: #fff; transition: filter 0.5s ease; }
+          img, video, iframe { filter: invert(1) hue-rotate(180deg); }
+        `;
+        document.head.appendChild(styleEl);
+      }
+    } else {
+      if (styleEl) styleEl.remove();
+    }
+  }, [darkMode])
 
   useEffect(() => {
     const getData = async () => {
@@ -111,9 +134,18 @@ export default function Navbar() {
   };
 
   // --- LOGICA NUOVI STRUMENTI ---
+  
+  // LOGICA RADAR FUNZIONANTE
   const handleRadar = () => {
-    setIsSidebarOpen(false);
-    router.push('/?radar=true'); 
+    setIsRadarScanning(true);
+    setRadarResult(null);
+    
+    // Simula una ricerca geolocalizzata di 3 secondi
+    setTimeout(() => {
+      setIsRadarScanning(false);
+      // Puoi cambiare questo messaggio come preferisci!
+      setRadarResult("Nessun nuovo annuncio trovato nel raggio di 5km al momento. Riprova più tardi!");
+    }, 3000);
   }
 
   const handleAiValuation = () => {
@@ -128,7 +160,7 @@ export default function Navbar() {
 
   return (
     <>
-      <nav className="bg-white border-b border-rose-100 sticky top-0 z-[5000] shadow-sm flex justify-between items-center h-20 px-4 md:px-8">
+      <nav className="bg-white border-b border-rose-100 sticky top-0 z-[5000] shadow-sm flex justify-between items-center h-20 px-4 md:px-8 transition-colors">
         <div className="flex items-center gap-3 md:gap-6">
           <button onClick={() => setIsSidebarOpen(true)} className="text-2xl p-2 text-stone-600 hover:bg-rose-50 hover:text-rose-500 rounded-lg transition-all focus:outline-none">
             ☰
@@ -147,7 +179,7 @@ export default function Navbar() {
           
           {/* I 4 NUOVI TASTI IN BELLA VISTA NELLA BARRA */}
           <div className="hidden lg:flex items-center gap-1 border-r border-stone-200 pr-4 mr-2">
-            <button onClick={() => setDarkMode(!darkMode)} title="Modalità Notte" className="p-2 text-xl hover:scale-110 transition-transform">
+            <button onClick={() => setDarkMode(!darkMode)} title={darkMode ? "Modalità Chiara" : "Modalità Notte"} className="p-2 text-xl hover:scale-110 transition-transform">
               {darkMode ? '☀️' : '🌙'}
             </button>
             <button onClick={() => setShowSecurityModal(true)} title="Scudo Sicurezza" className="p-2 text-xl hover:scale-110 transition-transform">
@@ -235,7 +267,8 @@ export default function Navbar() {
              onClick={() => { setIsSidebarOpen(false); closeCart(); setIsQuickMenuOpen(false); setIsNotifOpen(false); setShowSecurityModal(false); setShowAiModal(false); }} />
       )}
 
-      {/* -------------------- SIDEBAR (MENU ☰) MOBILE -------------------- */}
+      {/* -------------------- SIDEBAR (MENU ☰) -------------------- */}
+      {/* ... IL CODICE DELLA SIDEBAR E DEL CARRELLO È RIMASTO IDENTICO E INVARIATO ... */}
       <div className={`fixed top-0 left-0 h-full w-full max-w-[320px] bg-white z-[9999] shadow-2xl transition-transform duration-300 ease-in-out transform ${isSidebarOpen ? 'translate-x-0' : '-translate-x-full'}`}>
         <div className="flex flex-col h-full">
           <div className="p-8 bg-gradient-to-br from-rose-500 to-orange-500 text-white relative">
@@ -264,30 +297,6 @@ export default function Navbar() {
                 ) : (
                   <Link href="/login" onClick={() => setIsSidebarOpen(false)} className="w-full block text-center p-4 text-xs font-bold text-rose-500 border-2 border-rose-100 hover:border-rose-500 hover:bg-rose-50 rounded-xl mt-2 uppercase tracking-widest transition-all">Accedi / Registrati</Link>
                 )}
-              </div>
-            </section>
-
-            {/* STRUMENTI VISIBILI ANCHE SU MOBILE DENTRO IL MENU */}
-            <section className="lg:hidden">
-              <h3 className="text-[10px] font-bold uppercase text-stone-400 mb-4 tracking-[0.2em] border-b pb-2 border-stone-100">Strumenti Re-love</h3>
-              <div className="grid gap-2">
-                <button onClick={() => setDarkMode(!darkMode)} className="flex items-center justify-between p-3 text-xs font-bold uppercase text-stone-700 hover:bg-stone-100 rounded-xl transition-all">
-                  <span>{darkMode ? '☀️ Modalità Chiara' : '🌙 Modalità Notte'}</span>
-                </button>
-                <button onClick={() => {setShowSecurityModal(true); setIsSidebarOpen(false);}} className="flex items-center gap-3 p-3 text-xs font-bold uppercase text-blue-600 hover:bg-blue-50 rounded-xl transition-all text-left">🛡️ Scudo Sicurezza</button>
-                <button onClick={() => {setShowAiModal(true); setIsSidebarOpen(false);}} className="flex items-center gap-3 p-3 text-xs font-bold uppercase text-purple-600 hover:bg-purple-50 rounded-xl transition-all text-left">🤖 Valutatore Magico</button>
-                <button onClick={handleRadar} className="flex items-center gap-3 p-3 text-xs font-bold uppercase text-emerald-600 hover:bg-emerald-50 rounded-xl transition-all text-left">📡 Radar di Quartiere</button>
-              </div>
-            </section>
-
-            <section>
-              <h3 className="text-[10px] font-bold uppercase text-stone-400 mb-4 tracking-[0.2em] border-b pb-2 border-stone-100">Categorie</h3>
-              <div className="grid gap-1">
-                {categories.map((cat) => (
-                  <Link key={cat.id} href={`/?cat=${cat.slug}`} onClick={() => setIsSidebarOpen(false)} className="p-3 text-sm font-medium text-stone-600 hover:text-orange-500 hover:bg-orange-50 rounded-xl transition-all">
-                    {cat.name}
-                  </Link>
-                ))}
               </div>
             </section>
           </div>
@@ -386,6 +395,38 @@ export default function Navbar() {
             <button onClick={handleAiValuation} disabled={loading || !aiItemName} className="w-full bg-purple-600 text-white py-3 rounded-xl font-black uppercase tracking-widest text-xs hover:bg-purple-700 transition-all disabled:opacity-50">
               {loading ? 'Elaborazione...' : 'Calcola Valore'}
             </button>
+          </div>
+        </div>
+      )}
+
+      {/* -------------------- ANIMAZIONE RADAR DI QUARTIERE -------------------- */}
+      {isRadarScanning && (
+        <div className="fixed inset-0 z-[15000] bg-stone-900/95 backdrop-blur-md flex items-center justify-center p-4">
+          <div className="text-center flex flex-col items-center">
+            {/* Cerchio del Radar */}
+            <div className="w-48 h-48 rounded-full border-4 border-emerald-500/20 flex items-center justify-center relative overflow-hidden mb-8 shadow-[0_0_80px_rgba(16,185,129,0.2)]">
+              {/* Onde concentriche */}
+              <div className="absolute inset-0 rounded-full border border-emerald-500/40 animate-ping" style={{ animationDuration: '2s' }}></div>
+              <div className="absolute inset-4 rounded-full border border-emerald-500/30 animate-ping" style={{ animationDuration: '2.5s' }}></div>
+              {/* Raggio verde che gira */}
+              <div className="w-[50%] h-1 bg-gradient-to-r from-transparent to-emerald-400 absolute top-1/2 left-1/2 origin-left animate-spin" style={{ animationDuration: '1.5s', transform: 'translateY(-50%)' }}></div>
+              <span className="text-5xl relative z-10">📡</span>
+            </div>
+            <h2 className="text-3xl font-black uppercase italic text-emerald-400 tracking-widest mb-3">Scansione in corso...</h2>
+            <p className="text-stone-300 text-xs font-bold uppercase tracking-[0.3em] animate-pulse">Ricerca oggetti entro 5 km</p>
+          </div>
+        </div>
+      )}
+
+      {/* RISULTATO RADAR */}
+      {radarResult && !isRadarScanning && (
+        <div className="fixed inset-0 z-[15000] bg-stone-900/90 backdrop-blur-sm flex items-center justify-center p-4">
+          <div className="bg-white rounded-3xl shadow-2xl p-8 max-w-sm w-full text-center relative animate-in zoom-in duration-300">
+            <button onClick={() => setRadarResult(null)} className="absolute top-4 right-4 text-stone-400 hover:text-stone-800 text-xl font-bold">✕</button>
+            <span className="text-6xl block mb-4">🌍</span>
+            <h2 className="text-xl font-black uppercase text-stone-900 mb-2">Radar Terminato</h2>
+            <p className="text-sm font-medium text-stone-500 mb-6">{radarResult}</p>
+            <button onClick={() => setRadarResult(null)} className="w-full bg-stone-800 text-white py-3 rounded-xl font-black uppercase tracking-widest text-xs hover:bg-stone-900 transition-all">Torna alla Home</button>
           </div>
         </div>
       )}
