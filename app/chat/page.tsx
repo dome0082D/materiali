@@ -4,6 +4,13 @@ import { supabase } from '@/lib/supabase'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 
+// Lista delle emoticon più popolari da mostrare nel menu
+const POPULAR_EMOJIS = [
+  '😀', '😂', '🥰', '😎', '🤔', '😢', '😡', '😱',
+  '👍', '👎', '❤️', '🔥', '🎉', '✨', '👀', '🙌',
+  '🙏', '🤝', '✅', '❌', '👋', '💡', '💰', '📦'
+]
+
 export default function ChatPage() {
   const [user, setUser] = useState<any>(null)
   const [messages, setMessages] = useState<any[]>([])
@@ -12,6 +19,9 @@ export default function ChatPage() {
   const [newMessage, setNewMessage] = useState('')
   const [loading, setLoading] = useState(true)
   const [errorMsg, setErrorMsg] = useState<string | null>(null)
+  
+  // Stato per gestire l'apertura del menu delle emoticon
+  const [showEmojis, setShowEmojis] = useState(false)
   
   const scrollRef = useRef<HTMLDivElement>(null)
   const router = useRouter()
@@ -112,9 +122,14 @@ export default function ChatPage() {
           receiver_id: receiverId 
       }])
       setNewMessage('')
+      setShowEmojis(false) // Nasconde il menu dopo l'invio
     } catch (e) {
       console.error("Errore invio:", e)
     }
+  }
+
+  const handleEmojiClick = (emoji: string) => {
+    setNewMessage(prev => prev + emoji)
   }
 
   const conversations: Record<string, any[]> = {}
@@ -133,7 +148,7 @@ export default function ChatPage() {
         </h1>
         <div className="flex gap-4 items-center">
           {activeChatPair ? (
-             <button onClick={() => setActiveChatPair(null)} className="text-[10px] font-black uppercase text-stone-400 hover:text-rose-500 transition-colors">← Indietro</button>
+             <button onClick={() => {setActiveChatPair(null); setShowEmojis(false);}} className="text-[10px] font-black uppercase text-stone-400 hover:text-rose-500 transition-colors">← Indietro</button>
           ) : (
              <Link href="/" className="text-[10px] font-black uppercase text-stone-400 hover:text-rose-500 transition-colors">← Home</Link>
           )}
@@ -198,9 +213,51 @@ export default function ChatPage() {
 
       {activeChatPair && (
         <div className="p-4 bg-white border-t border-stone-200 fixed bottom-0 w-full left-0 z-20 shadow-[0_-4px_20px_rgba(0,0,0,0.05)]">
-          <div className="max-w-3xl mx-auto flex gap-3">
-            <input value={newMessage} onKeyDown={(e) => e.key === 'Enter' && sendMessage()} onChange={e => setNewMessage(e.target.value)} type="text" placeholder="Scrivi un messaggio..." className="flex-grow p-4 bg-stone-50 border border-stone-200 rounded-2xl text-xs font-medium outline-none focus:border-rose-400 focus:ring-2 focus:ring-rose-100 transition-all" />
-            <button onClick={sendMessage} className="bg-gradient-to-r from-rose-500 to-orange-400 text-white px-8 rounded-2xl font-black uppercase text-[10px] tracking-widest shadow-md hover:scale-105 transition-all">Invia</button>
+          <div className="max-w-3xl mx-auto relative">
+            
+            {/* PANNELLO EMOTICON */}
+            {showEmojis && (
+              <div className="absolute bottom-[calc(100%+10px)] left-0 bg-white border border-stone-200 shadow-xl rounded-2xl p-4 z-30 animate-in slide-in-from-bottom-2 fade-in">
+                <div className="grid grid-cols-6 sm:grid-cols-8 gap-3">
+                  {POPULAR_EMOJIS.map(emoji => (
+                    <button 
+                      key={emoji} 
+                      type="button" 
+                      onClick={() => handleEmojiClick(emoji)}
+                      className="text-2xl hover:scale-125 transition-transform cursor-pointer"
+                    >
+                      {emoji}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            <div className="flex gap-3 items-center">
+              {/* TASTO PER APRIRE LE EMOTICON */}
+              <button 
+                type="button" 
+                onClick={() => setShowEmojis(!showEmojis)} 
+                className={`text-2xl transition-all ${showEmojis ? 'text-rose-500 scale-110' : 'text-stone-400 hover:text-rose-400'}`}
+              >
+                😊
+              </button>
+              
+              <input 
+                value={newMessage} 
+                onKeyDown={(e) => e.key === 'Enter' && sendMessage()} 
+                onChange={e => setNewMessage(e.target.value)} 
+                type="text" 
+                placeholder="Scrivi un messaggio..." 
+                className="flex-grow p-4 bg-stone-50 border border-stone-200 rounded-2xl text-xs font-medium outline-none focus:border-rose-400 focus:ring-2 focus:ring-rose-100 transition-all" 
+              />
+              <button 
+                onClick={sendMessage} 
+                className="bg-gradient-to-r from-rose-500 to-orange-400 text-white px-6 md:px-8 py-4 rounded-2xl font-black uppercase text-[10px] tracking-widest shadow-md hover:scale-105 transition-all"
+              >
+                Invia
+              </button>
+            </div>
           </div>
         </div>
       )}

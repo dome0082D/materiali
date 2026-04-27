@@ -12,9 +12,9 @@ interface Transaction {
   buyer_id: string;
   seller_id: string;
   stripe_payment_intent_id: string;
-  courier_name?: string;      // AGGIUNTO: Corriere
-  tracking_number?: string;   // AGGIUNTO: Tracking
-  package_id_code?: string;   // AGGIUNTO: Codice interno
+  courier_name?: string;      
+  tracking_number?: string;   
+  package_id_code?: string;   
   announcements: {
     id: string;
     title: string;
@@ -39,12 +39,15 @@ interface Profile {
   role?: string;
 }
 
+// CORRETTO: Aggiunti i campi _id per fare il collegamento manuale
 interface Review {
   id: string;
   rating: number;
   comment: string;
-  reviewer: { email: string };
-  reviewed: { email: string };
+  reviewer_id?: string;
+  reviewed_user_id?: string;
+  reviewer?: { email: string };
+  reviewed?: { email: string };
 }
 
 export default function AdminDashboard() {
@@ -74,30 +77,52 @@ export default function AdminDashboard() {
       return
     }
 
-    // 1. Recupero Transazioni con Annunci
-    const { data: txs } = await supabase
-      .from('transactions')
-      .select('*, announcements(*)')
-      .order('created_at', { ascending: false })
+    try {
+      // 1. Recupero Transazioni con Annunci
+      const { data: txs, error: txError } = await supabase
+        .from('transactions')
+        .select('*, announcements(*)')
+        .order('created_at', { ascending: false })
+      if (txError) console.error("Errore txs:", txError)
 
-    // 2. Recupero Profili (per le email)
-    const { data: profs } = await supabase.from('profiles').select('*')
+      // 2. Recupero Profili (per le email)
+      const { data: profs, error: profsError } = await supabase.from('profiles').select('*')
+      if (profsError) console.error("Errore profili:", profsError)
 
-    // 3. Recupero Recensioni con Join sui profili
-    const { data: revs } = await supabase
-      .from('reviews')
-      .select('*, reviewer:reviewer_id(email), reviewed:reviewed_id(email)')
+      // 3. FIX ERRORE 400: Recuperiamo SOLO i dati base senza fare Join pericolose
+      const { data: revs, error: revsError } = await supabase
+        .from('reviews')
+        .select('*')
+      if (revsError) console.error("Errore reviews:", revsError)
 
-    if (profs) setProfiles(profs as Profile[])
-    if (revs) setReviews(revs as unknown as Review[])
-    
-    if (txs && profs) {
-      const enrichedTxs = txs.map(tx => ({
-        ...tx,
-        buyer: { email: profs.find(p => p.id === tx.buyer_id)?.email || 'N/D' },
-        seller: { email: profs.find(p => p.id === tx.seller_id)?.email || 'N/D' }
-      }))
-      setTransactions(enrichedTxs as unknown as Transaction[])
+      let loadedProfiles: Profile[] = []
+      if (profs) {
+        loadedProfiles = profs as Profile[]
+        setProfiles(loadedProfiles)
+      }
+      
+      // Abbiniamo le email alle transazioni
+      if (txs && loadedProfiles.length > 0) {
+        const enrichedTxs = txs.map(tx => ({
+          ...tx,
+          buyer: { email: loadedProfiles.find(p => p.id === tx.buyer_id)?.email || 'N/D' },
+          seller: { email: loadedProfiles.find(p => p.id === tx.seller_id)?.email || 'N/D' }
+        }))
+        setTransactions(enrichedTxs as unknown as Transaction[])
+      }
+
+      // FIX: Abbiniamo le email alle recensioni MANUALMENTE
+      if (revs && loadedProfiles.length > 0) {
+        const enrichedRevs = revs.map(r => ({
+          ...r,
+          reviewer: { email: loadedProfiles.find(p => p.id === r.reviewer_id)?.email || 'N/D' },
+          reviewed: { email: loadedProfiles.find(p => p.id === r.reviewed_user_id)?.email || 'N/D' }
+        }))
+        setReviews(enrichedRevs as unknown as Review[])
+      }
+
+    } catch (err) {
+      console.error("Errore generale:", err)
     }
     
     setLoading(false)
@@ -111,7 +136,6 @@ export default function AdminDashboard() {
     checkAdminAndFetchData()
   }
 
-  // AGGIUNTO: Funzione per salvare i dati di spedizione
   const updateShipping = async (txId: string, courier: string, track: string, code: string) => {
     if (!confirm(`Vuoi salvare la spedizione con ${courier} e segnare l'ordine come Spedito?`)) return;
     
@@ -139,7 +163,6 @@ export default function AdminDashboard() {
     checkAdminAndFetchData()
   }
 
-  // RISOLTO: Caricamento corretto dei messaggi per l'utente selezionato
   const viewUserDetails = async (profile: Profile) => {
     setSelectedUser(profile)
     setIsModalOpen(true)
@@ -148,7 +171,6 @@ export default function AdminDashboard() {
       const { data, error } = await supabase
         .from('messages')
         .select('*')
-        // La sintassi .or() corretta per controllare sia mittente che destinatario
         .or(`sender_id.eq.${profile.id},receiver_id.eq.${profile.id}`)
         .order('created_at', { ascending: false })
         
@@ -167,15 +189,12 @@ export default function AdminDashboard() {
     if (!confirm("Sei sicuro? Questa azione eliminerà TUTTE le chat (inviate e ricevute) di questo utente in modo irreversibile.")) return
     
     try {
-      // Eliminiamo tutti i messaggi legati all'utente (sia come mittente che come destinatario)
       const { error } = await supabase.from('messages').delete().or(`sender_id.eq.${userId},receiver_id.eq.${userId}`)
       
       if (!error) {
         alert("Tutte le chat dell'utente sono state spazzate via con successo. 🌪️")
-        // Svuotiamo l'array locale per aggiornare la modale in tempo reale
         setUserMessages([]) 
         if (selectedUser?.id === userId) {
-          // Ricarichiamo per sicurezza
           viewUserDetails(selectedUser)
         }
       } else {
@@ -190,11 +209,8 @@ export default function AdminDashboard() {
     if (!confirm("AZIONE NUCLEARE: Eliminare profilo, annunci e messaggi? Questa azione distrugge tutto l'account.")) return
     
     try {
-      // 1. Elimina i messaggi
       await supabase.from('messages').delete().or(`sender_id.eq.${userId},receiver_id.eq.${userId}`)
-      // 2. Elimina gli annunci
       await supabase.from('announcements').delete().eq('user_id', userId)
-      // 3. Elimina il profilo
       await supabase.from('profiles').delete().eq('id', userId)
       
       alert("Utente rimosso completamente dal mondo Re-love. 💥")
@@ -208,7 +224,7 @@ export default function AdminDashboard() {
   // --- CALCOLI DASHBOARD ---
   const earnings = transactions
     .filter(t => t.status === 'Ricevuto' || t.status === 'Concluso')
-    .reduce((acc, t) => acc + (t.announcements.price * 0.1), 0)
+    .reduce((acc, t) => acc + (t.announcements?.price * 0.1 || 0), 0)
 
   if (loading && transactions.length === 0) return <div className="min-h-screen bg-stone-900 flex items-center justify-center font-black uppercase text-rose-500 tracking-widest animate-pulse">Caricamento Hub Re-love Staff...</div>
 
@@ -280,7 +296,6 @@ export default function AdminDashboard() {
                           tx.status === 'Ricevuto' ? 'bg-emerald-500/20 text-emerald-400' : 'bg-rose-500/20 text-rose-400'
                         }`}>{tx.status}</span>
                         
-                        {/* AGGIUNTO: Modulo Spedizione visibile se pagato o già spedito */}
                         {(tx.status === 'Pagato' || tx.status === 'Spedito') && (
                           <div className="flex flex-col gap-2 w-48">
                             <input id={`cour-${tx.id}`} defaultValue={tx.courier_name} placeholder="Corriere (es. BRT)" className="bg-stone-900 text-[10px] font-bold text-white p-2 rounded-lg border border-stone-700 outline-none focus:border-emerald-500" />
@@ -336,7 +351,7 @@ export default function AdminDashboard() {
               {reviews.map(r => (
                 <div key={r.id} className="bg-stone-900/50 p-5 rounded-3xl border border-stone-700/50 relative group">
                   <button onClick={() => deleteReview(r.id)} className="absolute top-4 right-4 text-stone-600 hover:text-rose-500 text-xl transition-colors">&times;</button>
-                  <p className="text-[9px] font-black uppercase text-stone-500 mb-2">Da: {r.reviewer?.email} → Per: {r.reviewed?.email}</p>
+                  <p className="text-[9px] font-black uppercase text-stone-500 mb-2">Da: {r.reviewer?.email || 'Sconosciuto'} → Per: {r.reviewed?.email || 'Sconosciuto'}</p>
                   <div className="flex gap-1 mb-2">
                     {[...Array(5)].map((_, i) => (
                       <span key={i} className={i < r.rating ? 'text-yellow-500' : 'text-stone-700'}>★</span>
@@ -351,7 +366,7 @@ export default function AdminDashboard() {
         </div>
       </div>
 
-      {/* MODALE DI ISPEZIONE TOTALE (IL CUORE DELLO STAFF) */}
+      {/* MODALE DI ISPEZIONE TOTALE */}
       {isModalOpen && selectedUser && (
         <div className="fixed inset-0 z-[100] bg-black/95 backdrop-blur-md flex items-center justify-center p-4">
           <div className="bg-stone-900 border border-stone-700 rounded-[3rem] w-full max-w-5xl max-h-[90vh] flex flex-col shadow-2xl overflow-hidden animate-in fade-in zoom-in duration-300">
@@ -366,7 +381,6 @@ export default function AdminDashboard() {
 
             <div className="flex-1 overflow-y-auto p-10 space-y-10">
               
-              {/* Griglia Dati in Italiano */}
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                 {[
                   { l: '📧 Indirizzo Email', v: selectedUser.email },
@@ -386,7 +400,6 @@ export default function AdminDashboard() {
                 ))}
               </div>
 
-              {/* Sezione Spy Chat */}
               <div>
                 <h3 className="text-[11px] font-black uppercase text-blue-400 tracking-[0.3em] mb-6 flex items-center gap-3">
                   <span className="w-10 h-[1px] bg-blue-500/30"></span> 
@@ -411,7 +424,6 @@ export default function AdminDashboard() {
                 </div>
               </div>
 
-              {/* Zona Pericolosa */}
               <div className="pt-10 border-t border-stone-800 flex flex-wrap gap-4">
                 <button onClick={() => deleteChats(selectedUser.id)} className="bg-orange-500/10 border border-orange-500/40 text-orange-500 hover:bg-orange-500 hover:text-white px-8 py-4 rounded-2xl text-[10px] font-black uppercase tracking-widest transition-all">
                   🔥 Svuota Chat
