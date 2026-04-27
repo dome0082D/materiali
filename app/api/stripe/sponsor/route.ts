@@ -3,8 +3,8 @@ import { NextResponse } from 'next/server';
 import Stripe from 'stripe';
 
 // Inizializza Stripe con la tua chiave segreta
-const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!, {
-  apiVersion: '2026-03-25' as any,
+const stripe = new Stripe(process.env.STRIPE_SECRET_KEY as string, {
+  apiVersion: '2026-03-25.dahlia' as any, // Modificato per sicurezza con i nuovi standard Stripe
 });
 
 export async function POST(req: Request) {
@@ -13,7 +13,8 @@ export async function POST(req: Request) {
     const { announcementId, userId } = body;
 
     if (!announcementId || !userId) {
-      return new NextResponse("Dati mancanti", { status: 400 });
+      // ⚠️ RISPOSTA IN JSON COSÌ IL FRONTEND NON CRASHA!
+      return NextResponse.json({ error: "Dati mancanti" }, { status: 400 });
     }
 
     // Creiamo la sessione di pagamento su Stripe
@@ -27,27 +28,28 @@ export async function POST(req: Request) {
               name: 'Sponsorizzazione Vetrina Top ✨',
               description: 'Il tuo annuncio sarà messo in prima fila.',
             },
-            unit_amount: 200, // 200 centesimi = 2.00 €
+            unit_amount: 299, // 299 centesimi = 2.99 € (allineato al bottone)
           },
           quantity: 1,
         },
       ],
       mode: 'payment',
-      // AGGIUNTA FONDAMENTALE: Diciamo a Stripe chi sta pagando e per cosa
+      // Diciamo a Stripe chi sta pagando e per cosa
       metadata: {
-        type: 'sponsorship',
+        type: 'sponsorship', // Il webhook leggerà questo!
         announcementId: announcementId,
         userId: userId,
       },
-      // Se il pagamento va a buon fine, torna alla bacheca dicendo "success=true" e l'ID dell'annuncio
+      // Se il pagamento va a buon fine, torna alla bacheca
       success_url: `${process.env.NEXT_PUBLIC_BASE_URL || 'http://localhost:3000'}/dashboard/annunci?success=true&ad_id=${announcementId}`,
       cancel_url: `${process.env.NEXT_PUBLIC_BASE_URL || 'http://localhost:3000'}/dashboard/annunci?canceled=true`,
     });
 
-    // Rispondiamo al sito con il link alla pagina di pagamento sicura di Stripe
+    // Rispondiamo al sito con il link alla pagina di pagamento sicura di Stripe in formato JSON
     return NextResponse.json({ url: session.url });
-  } catch (error) {
+  } catch (error: any) {
     console.error("Errore Stripe Sponsor:", error);
-    return new NextResponse("Errore interno", { status: 500 });
+    // ⚠️ RISPOSTA IN JSON IN CASO DI ERRORE
+    return NextResponse.json({ error: error.message || "Errore interno server" }, { status: 500 });
   }
 }

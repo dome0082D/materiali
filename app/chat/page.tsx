@@ -79,6 +79,29 @@ export default function ChatPage() {
 
   async function sendMessage() {
     if (!newMessage.trim() || !activeChatPair) return
+    
+    // --- FILTRO DI SICUREZZA ANTI-FRODE ---
+    const textToCheck = newMessage.toLowerCase();
+
+    // 1. Controllo Numeri di Telefono (cerca sequenze di numeri, anche con spazi o trattini)
+    const phoneRegex = /(?:\+?\d{1,3}[-.\s]?)?(?:\(?\d{3}\)?[-.\s]?)?\d{3}[-.\s]?\d{4,}/;
+    
+    // 2. Controllo Email
+    const emailRegex = /[a-z0-9._%+-]+@[a-z0-9.-]+\.[a-z]{2,}/i;
+
+    // 3. Controllo Link esterni (WhatsApp, Telegram, Instagram, ecc.)
+    const linkRegex = /(https?:\/\/[^\s]+)|(www\.[^\s]+)|(wa\.me\/\d+)|(t\.me\/[a-z0-9_]+)/i;
+    
+    // 4. Parole chiave "sospette" scritte furbescamente
+    const suspiciousWords = ['numero', 'cell', 'cellulare', 'chiamami', 'scrivimi su', 'whatsapp', 'watsapp', 'telegram', 'insta', 'instagram', 'mail', 'chiocciola'];
+    const containsSuspiciousWord = suspiciousWords.some(word => textToCheck.includes(word));
+
+    if (phoneRegex.test(textToCheck) || emailRegex.test(textToCheck) || linkRegex.test(textToCheck) || containsSuspiciousWord) {
+       alert("⚠️ RE-LOVE SECURITY:\nPer la tua sicurezza e per rispettare il regolamento della piattaforma, non è consentito scambiare numeri di telefono, email, link esterni o invitare a chattare fuori da Re-love.\n\nTutte le trattative devono concludersi qui.");
+       return; // Blocca l'esecuzione e non salva il messaggio su Supabase
+    }
+    // --- FINE FILTRO ---
+
     const usersInChat = activeChatPair.split('_')
     const receiverId = usersInChat.find(u => u !== user.id) || usersInChat[0]
 
