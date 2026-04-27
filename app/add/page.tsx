@@ -177,30 +177,21 @@ function AddAnnouncementForm() {
   return (
     <div className="min-h-screen bg-transparent font-sans text-stone-900 pb-32 relative">
       
-      {/* --- SFONDO IMMAGINE DIETRO A TUTTO (SENZA SFOCATURA) --- */}
+      {/* --- SFONDO IMMAGINE UNICO DIETRO A TUTTO (SENZA SFOCATURA) --- */}
       <div className="fixed inset-0 z-0 pointer-events-none">
         <img 
           src={currentBackground} 
           alt="Sfondo Annuncio"
           className="w-full h-full object-cover object-center"
         />
-        {/* Rimosso il div con la patina e la sfocatura! Ora è nitidissimo. */}
       </div>
 
       <div className="relative z-10">
-        {/* --- HEADER DINAMICO CON SFONDO PERSONALIZZATO (SENZA PATINA GRIGIA) --- */}
+        {/* --- HEADER DINAMICO (Rimosso il doppione dell'immagine qui dentro) --- */}
         <div className="relative w-full h-[300px] md:h-[400px] flex items-center justify-center overflow-hidden border-b border-stone-200">
-           <div className="absolute inset-0 z-0">
-              <img 
-                src={currentBackground} 
-                alt={`Sfondo ${mode}`}
-                className="w-full h-full object-cover object-center"
-              />
-              {/* Rimossa la sfumatura grigia bg-stone-900/40! */}
-           </div>
 
            <div className="relative z-10 text-center max-w-2xl px-6">
-              {/* Aggiunto drop-shadow-[0_4px_4px_rgba(0,0,0,0.8)] per leggere il testo sulla foto luminosa */}
+              {/* Testo con ombra per leggerlo sulla foto chiara */}
               <h1 className="text-4xl md:text-5xl font-black uppercase italic text-white tracking-tighter mb-4 drop-shadow-[0_4px_4px_rgba(0,0,0,0.8)]">
                  {mode === 'new' && 'Vendi il tuo Nuovo'}
                  {mode === 'used' && 'Dai una Seconda Vita'}
