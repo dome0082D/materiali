@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react'
 import Link from 'next/link'
-import { useRouter } from 'next/navigation' // Aggiunto per il Radar
+import { useRouter } from 'next/navigation'
 import { supabase } from '@/lib/supabase'
 import { useCartStore } from '@/store/cartStore'
 
@@ -22,7 +22,7 @@ export default function Navbar() {
   const [aiItemName, setAiItemName] = useState('')
   const [aiResult, setAiResult] = useState<string | null>(null)
   
-  const router = useRouter() // Per il Radar
+  const router = useRouter()
   const { items, isCartOpen, openCart, closeCart, removeItem, updateQuantity } = useCartStore()
   const total = items.reduce((acc, i) => acc + (Number(i.price) * i.quantity), 0)
 
@@ -113,7 +113,6 @@ export default function Navbar() {
   // --- LOGICA NUOVI STRUMENTI ---
   const handleRadar = () => {
     setIsSidebarOpen(false);
-    // Rimanda alla home attivando virtualmente il radar
     router.push('/?radar=true'); 
   }
 
@@ -129,8 +128,8 @@ export default function Navbar() {
 
   return (
     <>
-      <nav className="bg-white border-b border-rose-100 sticky top-0 z-[5000] shadow-sm flex justify-between items-center h-20 px-6 md:px-8">
-        <div className="flex items-center gap-4 md:gap-6">
+      <nav className="bg-white border-b border-rose-100 sticky top-0 z-[5000] shadow-sm flex justify-between items-center h-20 px-4 md:px-8">
+        <div className="flex items-center gap-3 md:gap-6">
           <button onClick={() => setIsSidebarOpen(true)} className="text-2xl p-2 text-stone-600 hover:bg-rose-50 hover:text-rose-500 rounded-lg transition-all focus:outline-none">
             ☰
           </button>
@@ -144,15 +143,32 @@ export default function Navbar() {
           </Link>
         </div>
 
-        <div className="flex items-center gap-3 md:gap-5">
+        <div className="flex items-center gap-2 md:gap-4">
+          
+          {/* I 4 NUOVI TASTI IN BELLA VISTA NELLA BARRA */}
+          <div className="hidden lg:flex items-center gap-1 border-r border-stone-200 pr-4 mr-2">
+            <button onClick={() => setDarkMode(!darkMode)} title="Modalità Notte" className="p-2 text-xl hover:scale-110 transition-transform">
+              {darkMode ? '☀️' : '🌙'}
+            </button>
+            <button onClick={() => setShowSecurityModal(true)} title="Scudo Sicurezza" className="p-2 text-xl hover:scale-110 transition-transform">
+              🛡️
+            </button>
+            <button onClick={() => setShowAiModal(true)} title="Valutatore Magico" className="p-2 text-xl hover:scale-110 transition-transform">
+              🤖
+            </button>
+            <button onClick={handleRadar} title="Radar di Quartiere" className="p-2 text-xl hover:scale-110 transition-transform">
+              📡
+            </button>
+          </div>
+
           {!user && (
-            <Link href="/login" className="hidden lg:block text-stone-600 font-bold uppercase text-[11px] tracking-widest hover:text-rose-500 transition-colors px-4">
+            <Link href="/login" className="hidden lg:block text-stone-600 font-bold uppercase text-[11px] tracking-widest hover:text-rose-500 transition-colors px-2">
               Accedi
             </Link>
           )}
 
-          <Link href="/add" className="hidden lg:block bg-gradient-to-r from-rose-500 to-orange-400 text-white px-5 py-2.5 rounded-xl font-bold uppercase text-[11px] tracking-widest hover:shadow-lg hover:scale-105 transition-all shadow-md">
-            ➕ Vendi o Regala
+          <Link href="/add" className="hidden lg:block bg-gradient-to-r from-rose-500 to-orange-400 text-white px-4 py-2 rounded-xl font-bold uppercase text-[11px] tracking-widest hover:shadow-lg hover:scale-105 transition-all shadow-md">
+            ➕ Vendi
           </Link>
 
           <div className="relative">
@@ -213,13 +229,13 @@ export default function Navbar() {
         </div>
       </nav>
 
-      {/* OVERLAY SFONDO (SI APRE SE SIDEBAR, CARRELLO O MODALI SONO APERTI) */}
+      {/* OVERLAY SFONDO */}
       {(isSidebarOpen || isCartOpen || showSecurityModal || showAiModal) && (
         <div className="fixed inset-0 bg-stone-900/60 backdrop-blur-sm z-[9998] transition-opacity" 
              onClick={() => { setIsSidebarOpen(false); closeCart(); setIsQuickMenuOpen(false); setIsNotifOpen(false); setShowSecurityModal(false); setShowAiModal(false); }} />
       )}
 
-      {/* -------------------- SIDEBAR (MENU ☰) -------------------- */}
+      {/* -------------------- SIDEBAR (MENU ☰) MOBILE -------------------- */}
       <div className={`fixed top-0 left-0 h-full w-full max-w-[320px] bg-white z-[9999] shadow-2xl transition-transform duration-300 ease-in-out transform ${isSidebarOpen ? 'translate-x-0' : '-translate-x-full'}`}>
         <div className="flex flex-col h-full">
           <div className="p-8 bg-gradient-to-br from-rose-500 to-orange-500 text-white relative">
@@ -236,7 +252,6 @@ export default function Navbar() {
               <h3 className="text-[10px] font-bold uppercase text-stone-400 mb-4 tracking-[0.2em] border-b pb-2 border-stone-100">Area Riservata</h3>
               <div className="grid gap-2">
                 <Link href="/add" onClick={() => setIsSidebarOpen(false)} className="block w-full bg-gradient-to-r from-rose-500 to-orange-400 text-white text-center py-3 rounded-xl font-bold uppercase text-[11px] tracking-widest shadow-sm lg:hidden mb-2">➕ Vendi o Regala</Link>
-                
                 {user ? (
                   <>
                     <Link href="/profile" onClick={() => setIsSidebarOpen(false)} className="flex items-center gap-4 p-3 text-sm font-medium text-stone-700 hover:text-rose-600 hover:bg-rose-50 rounded-xl transition-all">👤 Profilo</Link>
@@ -247,35 +262,21 @@ export default function Navbar() {
                     <button onClick={handleLogout} className="w-full text-left p-3 text-xs font-bold text-red-500 hover:bg-red-50 rounded-xl mt-4 uppercase tracking-widest transition-all">← Esci</button>
                   </>
                 ) : (
-                  <Link href="/login" onClick={() => setIsSidebarOpen(false)} className="w-full block text-center p-4 text-xs font-bold text-rose-500 border-2 border-rose-100 hover:border-rose-500 hover:bg-rose-50 rounded-xl mt-2 uppercase tracking-widest transition-all">
-                    Accedi / Registrati
-                  </Link>
+                  <Link href="/login" onClick={() => setIsSidebarOpen(false)} className="w-full block text-center p-4 text-xs font-bold text-rose-500 border-2 border-rose-100 hover:border-rose-500 hover:bg-rose-50 rounded-xl mt-2 uppercase tracking-widest transition-all">Accedi / Registrati</Link>
                 )}
               </div>
             </section>
 
-            {/* I 4 NUOVI STRUMENTI INSERITI QUI */}
-            <section>
+            {/* STRUMENTI VISIBILI ANCHE SU MOBILE DENTRO IL MENU */}
+            <section className="lg:hidden">
               <h3 className="text-[10px] font-bold uppercase text-stone-400 mb-4 tracking-[0.2em] border-b pb-2 border-stone-100">Strumenti Re-love</h3>
               <div className="grid gap-2">
                 <button onClick={() => setDarkMode(!darkMode)} className="flex items-center justify-between p-3 text-xs font-bold uppercase text-stone-700 hover:bg-stone-100 rounded-xl transition-all">
                   <span>{darkMode ? '☀️ Modalità Chiara' : '🌙 Modalità Notte'}</span>
-                  <span className={`w-8 h-4 rounded-full flex items-center p-0.5 transition-colors ${darkMode ? 'bg-emerald-500 justify-end' : 'bg-stone-300 justify-start'}`}>
-                    <span className="w-3 h-3 bg-white rounded-full shadow-sm"></span>
-                  </span>
                 </button>
-                
-                <button onClick={() => {setShowSecurityModal(true); setIsSidebarOpen(false);}} className="flex items-center gap-3 p-3 text-xs font-bold uppercase text-blue-600 hover:bg-blue-50 rounded-xl transition-all text-left">
-                  🛡️ Scudo Sicurezza
-                </button>
-                
-                <button onClick={() => {setShowAiModal(true); setIsSidebarOpen(false);}} className="flex items-center gap-3 p-3 text-xs font-bold uppercase text-purple-600 hover:bg-purple-50 rounded-xl transition-all text-left">
-                  🤖 Valutatore Magico
-                </button>
-                
-                <button onClick={handleRadar} className="flex items-center gap-3 p-3 text-xs font-bold uppercase text-emerald-600 hover:bg-emerald-50 rounded-xl transition-all text-left">
-                  📡 Radar di Quartiere
-                </button>
+                <button onClick={() => {setShowSecurityModal(true); setIsSidebarOpen(false);}} className="flex items-center gap-3 p-3 text-xs font-bold uppercase text-blue-600 hover:bg-blue-50 rounded-xl transition-all text-left">🛡️ Scudo Sicurezza</button>
+                <button onClick={() => {setShowAiModal(true); setIsSidebarOpen(false);}} className="flex items-center gap-3 p-3 text-xs font-bold uppercase text-purple-600 hover:bg-purple-50 rounded-xl transition-all text-left">🤖 Valutatore Magico</button>
+                <button onClick={handleRadar} className="flex items-center gap-3 p-3 text-xs font-bold uppercase text-emerald-600 hover:bg-emerald-50 rounded-xl transition-all text-left">📡 Radar di Quartiere</button>
               </div>
             </section>
 
