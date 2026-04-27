@@ -139,33 +139,70 @@ export default function AdminDashboard() {
     checkAdminAndFetchData()
   }
 
+  // RISOLTO: Caricamento corretto dei messaggi per l'utente selezionato
   const viewUserDetails = async (profile: Profile) => {
     setSelectedUser(profile)
     setIsModalOpen(true)
-    const { data } = await supabase
-      .from('messages')
-      .select('*')
-      .or(`sender_id.eq.${profile.id},receiver_id.eq.${profile.id}`)
-      .order('created_at', { ascending: false })
-    setUserMessages(data || [])
+    
+    try {
+      const { data, error } = await supabase
+        .from('messages')
+        .select('*')
+        // La sintassi .or() corretta per controllare sia mittente che destinatario
+        .or(`sender_id.eq.${profile.id},receiver_id.eq.${profile.id}`)
+        .order('created_at', { ascending: false })
+        
+      if (error) {
+        console.error("Errore recupero messaggi:", error)
+        setUserMessages([])
+      } else {
+        setUserMessages(data || [])
+      }
+    } catch (err) {
+      console.error("Errore catch messaggi:", err)
+    }
   }
 
   const deleteChats = async (userId: string) => {
-    if (!confirm("ELIMINARE TUTTE le chat di questo utente?")) return
-    await supabase.from('messages').delete().or(`sender_id.eq.${userId},receiver_id.eq.${userId}`)
-    alert("Chat pulite.")
-    if (selectedUser?.id === userId) setIsModalOpen(false)
-    checkAdminAndFetchData()
+    if (!confirm("Sei sicuro? Questa azione eliminerà TUTTE le chat (inviate e ricevute) di questo utente in modo irreversibile.")) return
+    
+    try {
+      // Eliminiamo tutti i messaggi legati all'utente (sia come mittente che come destinatario)
+      const { error } = await supabase.from('messages').delete().or(`sender_id.eq.${userId},receiver_id.eq.${userId}`)
+      
+      if (!error) {
+        alert("Tutte le chat dell'utente sono state spazzate via con successo. 🌪️")
+        // Svuotiamo l'array locale per aggiornare la modale in tempo reale
+        setUserMessages([]) 
+        if (selectedUser?.id === userId) {
+          // Ricarichiamo per sicurezza
+          viewUserDetails(selectedUser)
+        }
+      } else {
+        alert("Errore durante l'eliminazione: " + error.message)
+      }
+    } catch (err: any) {
+      alert("Errore: " + err.message)
+    }
   }
 
   const deleteProfile = async (userId: string) => {
-    if (!confirm("AZIONE NUCLEARE: Eliminare profilo, annunci e messaggi?")) return
-    await supabase.from('messages').delete().or(`sender_id.eq.${userId},receiver_id.eq.${userId}`)
-    await supabase.from('announcements').delete().eq('user_id', userId)
-    await supabase.from('profiles').delete().eq('id', userId)
-    alert("Utente rimosso dal mondo Re-love.")
-    setIsModalOpen(false)
-    checkAdminAndFetchData()
+    if (!confirm("AZIONE NUCLEARE: Eliminare profilo, annunci e messaggi? Questa azione distrugge tutto l'account.")) return
+    
+    try {
+      // 1. Elimina i messaggi
+      await supabase.from('messages').delete().or(`sender_id.eq.${userId},receiver_id.eq.${userId}`)
+      // 2. Elimina gli annunci
+      await supabase.from('announcements').delete().eq('user_id', userId)
+      // 3. Elimina il profilo
+      await supabase.from('profiles').delete().eq('id', userId)
+      
+      alert("Utente rimosso completamente dal mondo Re-love. 💥")
+      setIsModalOpen(false)
+      checkAdminAndFetchData()
+    } catch (err: any) {
+      alert("Si è verificato un problema durante la procedura nucleare: " + err.message)
+    }
   }
 
   // --- CALCOLI DASHBOARD ---
