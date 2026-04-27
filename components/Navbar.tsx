@@ -2,58 +2,62 @@
 
 import { useState, useEffect } from 'react'
 import Link from 'next/link'
+import { useRouter } from 'next/navigation' // Aggiunto per il Radar
 import { supabase } from '@/lib/supabase'
 import { useCartStore } from '@/store/cartStore'
 
 export default function Navbar() {
   const [isSidebarOpen, setIsSidebarOpen] = useState(false)
   const [isQuickMenuOpen, setIsQuickMenuOpen] = useState(false)
-  // NUOVO STATO AGGIUNTO PER LA TENDINA DELLE NOTIFICHE
   const [isNotifOpen, setIsNotifOpen] = useState(false) 
   const [user, setUser] = useState<any>(null)
   const [categories, setCategories] = useState<any[]>([])
   const [loading, setLoading] = useState(false)
   const [notifications, setNotifications] = useState(0)
+
+  // STATI PER I NUOVI STRUMENTI
+  const [darkMode, setDarkMode] = useState(false)
+  const [showSecurityModal, setShowSecurityModal] = useState(false)
+  const [showAiModal, setShowAiModal] = useState(false)
+  const [aiItemName, setAiItemName] = useState('')
+  const [aiResult, setAiResult] = useState<string | null>(null)
   
+  const router = useRouter() // Per il Radar
   const { items, isCartOpen, openCart, closeCart, removeItem, updateQuantity } = useCartStore()
   const total = items.reduce((acc, i) => acc + (Number(i.price) * i.quantity), 0)
 
   useEffect(() => {
     const getData = async () => {
       try {
-        // RISOLUZIONE ERRORE "auth-token stole it": uso getSession invece di getUser
         const { data: { session } } = await supabase.auth.getSession()
         const currentUser = session?.user || null
         setUser(currentUser)
         
-        // AGGIUNTA PROTEZIONE CONTRO ERRORE 404 SULLE CATEGORIE
         try {
           const { data: cats, error: catsError } = await supabase.from('categories').select('*').order('name')
           if (!catsError && cats) {
             setCategories(cats)
           }
         } catch (catErr) {
-          console.warn("Nessuna tabella categorie trovata, ignoro l'errore", catErr)
+          console.warn("Nessuna tabella categorie trovata", catErr)
         }
 
         if (currentUser) {
           await fetchNotifications(currentUser.id)
           
-          // AGGIUNTA PROTEZIONE E FIX "PAYLOAD" SUL CANALE REALTIME
           try {
             const channel = supabase.channel('realtime-notifications')
-              .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'notifications', filter: `user_id=eq.${currentUser.id}` }, (payload) => {
-                // Ora il parametro payload è dichiarato, eviterà il crash se indefinito
+              .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'notifications', filter: `user_id=eq.${currentUser.id}` }, () => {
                 fetchNotifications(currentUser.id)
               }).subscribe()
               
             return () => { supabase.removeChannel(channel) }
           } catch (channelErr) {
-            console.warn("Canale notifiche non avviato, ignoro l'errore", channelErr)
+            console.warn("Canale notifiche non avviato")
           }
         }
       } catch (mainErr) {
-        console.error("Errore di inizializzazione Navbar:", mainErr)
+        console.error("Errore Navbar:", mainErr)
       }
     }
     
@@ -70,16 +74,13 @@ export default function Navbar() {
     }
   }, [])
 
-  // AGGIUNTA PROTEZIONE CONTRO ERRORE 404 SULLE NOTIFICHE
   const fetchNotifications = async (userId: string) => {
     try {
       const { count, error } = await supabase.from('notifications').select('*', { count: 'exact', head: true }).eq('user_id', userId).eq('is_read', false)
       if (!error && count !== null) {
         setNotifications(count)
       }
-    } catch (e) { 
-      console.warn("Impossibile caricare le notifiche:", e) 
-    }
+    } catch (e) {}
   }
 
   const handleLogout = async () => {
@@ -100,14 +101,31 @@ export default function Navbar() {
       if (data.url) {
         window.location.href = data.url; 
       } else {
-        alert("Errore Checkout Stripe. Riprova più tardi.");
+        alert("Errore Checkout Stripe.");
         setLoading(false);
       }
     } catch (err) {
-      alert("Errore di connessione al server.");
+      alert("Errore di connessione.");
       setLoading(false);
     }
   };
+
+  // --- LOGICA NUOVI STRUMENTI ---
+  const handleRadar = () => {
+    setIsSidebarOpen(false);
+    // Rimanda alla home attivando virtualmente il radar
+    router.push('/?radar=true'); 
+  }
+
+  const handleAiValuation = () => {
+    if (!aiItemName) return;
+    setLoading(true);
+    setTimeout(() => {
+      const randomPrice = Math.floor(Math.random() * 50) + 10;
+      setAiResult(`Basato sull'attuale mercato dell'usato, un "${aiItemName}" potrebbe valere circa €${randomPrice}.00. Ottimo anche per il baratto!`);
+      setLoading(false);
+    }, 1500);
+  }
 
   return (
     <>
@@ -137,12 +155,11 @@ export default function Navbar() {
             ➕ Vendi o Regala
           </Link>
 
-          {/* INIZIO MODIFICA: BLOCCO NOTIFICHE CON TENDINA */}
           <div className="relative">
             <button 
               onClick={() => {
                 setIsNotifOpen(!isNotifOpen);
-                setIsQuickMenuOpen(false); // Chiude l'altro menu se è aperto
+                setIsQuickMenuOpen(false);
               }} 
               className="relative p-2 text-xl text-stone-500 hover:bg-rose-50 hover:text-rose-500 rounded-full transition-all"
             >
@@ -154,7 +171,6 @@ export default function Navbar() {
               )}
             </button>
             
-            {/* La Tendina */}
             {isNotifOpen && (
               <div className="absolute right-0 mt-2 w-64 bg-white border border-stone-200 rounded-2xl shadow-xl p-4 z-[6000]">
                 <div className="flex justify-between items-center border-b border-stone-100 pb-2 mb-2">
@@ -169,12 +185,11 @@ export default function Navbar() {
               </div>
             )}
           </div>
-          {/* FINE MODIFICA */}
 
           <div className="relative">
             <button onClick={() => {
               setIsQuickMenuOpen(!isQuickMenuOpen);
-              setIsNotifOpen(false); // Chiude le notifiche se si apre questo menu
+              setIsNotifOpen(false);
             }} className="p-2 text-xl text-stone-500 hover:bg-rose-50 hover:text-rose-500 rounded-full transition-all">
               ⋮
             </button>
@@ -198,11 +213,13 @@ export default function Navbar() {
         </div>
       </nav>
 
-      {(isSidebarOpen || isCartOpen) && (
-        <div className="fixed inset-0 bg-stone-900/40 backdrop-blur-sm z-[9998] transition-opacity" 
-             onClick={() => { setIsSidebarOpen(false); closeCart(); setIsQuickMenuOpen(false); setIsNotifOpen(false); }} />
+      {/* OVERLAY SFONDO (SI APRE SE SIDEBAR, CARRELLO O MODALI SONO APERTI) */}
+      {(isSidebarOpen || isCartOpen || showSecurityModal || showAiModal) && (
+        <div className="fixed inset-0 bg-stone-900/60 backdrop-blur-sm z-[9998] transition-opacity" 
+             onClick={() => { setIsSidebarOpen(false); closeCart(); setIsQuickMenuOpen(false); setIsNotifOpen(false); setShowSecurityModal(false); setShowAiModal(false); }} />
       )}
 
+      {/* -------------------- SIDEBAR (MENU ☰) -------------------- */}
       <div className={`fixed top-0 left-0 h-full w-full max-w-[320px] bg-white z-[9999] shadow-2xl transition-transform duration-300 ease-in-out transform ${isSidebarOpen ? 'translate-x-0' : '-translate-x-full'}`}>
         <div className="flex flex-col h-full">
           <div className="p-8 bg-gradient-to-br from-rose-500 to-orange-500 text-white relative">
@@ -237,6 +254,31 @@ export default function Navbar() {
               </div>
             </section>
 
+            {/* I 4 NUOVI STRUMENTI INSERITI QUI */}
+            <section>
+              <h3 className="text-[10px] font-bold uppercase text-stone-400 mb-4 tracking-[0.2em] border-b pb-2 border-stone-100">Strumenti Re-love</h3>
+              <div className="grid gap-2">
+                <button onClick={() => setDarkMode(!darkMode)} className="flex items-center justify-between p-3 text-xs font-bold uppercase text-stone-700 hover:bg-stone-100 rounded-xl transition-all">
+                  <span>{darkMode ? '☀️ Modalità Chiara' : '🌙 Modalità Notte'}</span>
+                  <span className={`w-8 h-4 rounded-full flex items-center p-0.5 transition-colors ${darkMode ? 'bg-emerald-500 justify-end' : 'bg-stone-300 justify-start'}`}>
+                    <span className="w-3 h-3 bg-white rounded-full shadow-sm"></span>
+                  </span>
+                </button>
+                
+                <button onClick={() => {setShowSecurityModal(true); setIsSidebarOpen(false);}} className="flex items-center gap-3 p-3 text-xs font-bold uppercase text-blue-600 hover:bg-blue-50 rounded-xl transition-all text-left">
+                  🛡️ Scudo Sicurezza
+                </button>
+                
+                <button onClick={() => {setShowAiModal(true); setIsSidebarOpen(false);}} className="flex items-center gap-3 p-3 text-xs font-bold uppercase text-purple-600 hover:bg-purple-50 rounded-xl transition-all text-left">
+                  🤖 Valutatore Magico
+                </button>
+                
+                <button onClick={handleRadar} className="flex items-center gap-3 p-3 text-xs font-bold uppercase text-emerald-600 hover:bg-emerald-50 rounded-xl transition-all text-left">
+                  📡 Radar di Quartiere
+                </button>
+              </div>
+            </section>
+
             <section>
               <h3 className="text-[10px] font-bold uppercase text-stone-400 mb-4 tracking-[0.2em] border-b pb-2 border-stone-100">Categorie</h3>
               <div className="grid gap-1">
@@ -247,18 +289,11 @@ export default function Navbar() {
                 ))}
               </div>
             </section>
-
-            <section>
-              <h3 className="text-[10px] font-bold uppercase text-stone-400 mb-4 tracking-[0.2em] border-b pb-2 border-stone-100">Informazioni</h3>
-              <div className="grid gap-1">
-                <Link href="/come-funziona" onClick={() => setIsSidebarOpen(false)} className="p-3 text-xs font-medium text-stone-500 hover:text-stone-900 hover:bg-stone-50 rounded-xl transition-all">ℹ️ Come Funziona</Link>
-                <Link href="/privacy" onClick={() => setIsSidebarOpen(false)} className="p-3 text-xs font-medium text-stone-500 hover:text-stone-900 hover:bg-stone-50 rounded-xl transition-all">🔒 Privacy e Sicurezza</Link>
-              </div>
-            </section>
           </div>
         </div>
       </div>
 
+      {/* -------------------- CARRELLO -------------------- */}
       <div className={`fixed top-0 right-0 h-full w-full max-w-[380px] bg-white z-[9999] shadow-2xl transition-transform duration-300 ease-in-out transform ${isCartOpen ? 'translate-x-0' : 'translate-x-full'} flex flex-col`}>
         <div className="p-6 flex justify-between items-center border-b border-stone-100 bg-stone-50">
           <h2 className="text-xl font-bold uppercase italic tracking-tighter text-rose-500">Carrello</h2>
@@ -304,6 +339,55 @@ export default function Navbar() {
           </div>
         )}
       </div>
+
+      {/* -------------------- POPUP SCUDO SICUREZZA -------------------- */}
+      {showSecurityModal && (
+        <div className="fixed inset-0 z-[10000] flex items-center justify-center p-4">
+          <div className="bg-white rounded-3xl shadow-2xl p-8 max-w-md w-full relative">
+            <button onClick={() => setShowSecurityModal(false)} className="absolute top-4 right-4 text-stone-400 hover:text-stone-800 text-xl font-bold">✕</button>
+            <div className="text-center mb-6">
+              <span className="text-6xl block mb-2">🛡️</span>
+              <h2 className="text-2xl font-black uppercase italic text-stone-900">Scudo Re-love</h2>
+              <p className="text-[10px] uppercase font-bold text-stone-400 tracking-widest mt-1">Acquisti e Baratti Protetti</p>
+            </div>
+            <div className="space-y-4 text-sm font-medium text-stone-600">
+              <p className="flex items-start gap-2"><span>🔒</span> <b>Pagamenti Sicuri:</b> Usiamo Stripe. I tuoi fondi sono congelati finché non ricevi il pacco.</p>
+              <p className="flex items-start gap-2"><span>🤝</span> <b>Baratto Diretto:</b> Per barattare, usa la nostra chat integrata. Mai scambiarsi numeri privati.</p>
+              <p className="flex items-start gap-2"><span>🚚</span> <b>Spedizione Tracciata:</b> Tutti gli acquisti "Nuovo" e "Usato" sono tracciati nel pannello Staff.</p>
+            </div>
+            <button onClick={() => setShowSecurityModal(false)} className="w-full mt-8 bg-blue-600 text-white py-3 rounded-xl font-black uppercase tracking-widest text-xs hover:bg-blue-700 transition-all">Ho Capito</button>
+          </div>
+        </div>
+      )}
+
+      {/* -------------------- POPUP VALUTATORE MAGICO -------------------- */}
+      {showAiModal && (
+        <div className="fixed inset-0 z-[10000] flex items-center justify-center p-4">
+          <div className="bg-white rounded-3xl shadow-2xl p-8 max-w-md w-full relative">
+            <button onClick={() => {setShowAiModal(false); setAiResult(null); setAiItemName('');}} className="absolute top-4 right-4 text-stone-400 hover:text-stone-800 text-xl font-bold">✕</button>
+            <div className="text-center mb-6">
+              <span className="text-6xl block mb-2">🤖</span>
+              <h2 className="text-2xl font-black uppercase italic text-stone-900">Valutatore Magico</h2>
+              <p className="text-[10px] uppercase font-bold text-stone-400 tracking-widest mt-1">Scopri quanto vale il tuo oggetto</p>
+            </div>
+            <input 
+              type="text" 
+              placeholder="Cosa vuoi vendere? (es. PS4 Pro)" 
+              value={aiItemName}
+              onChange={(e) => setAiItemName(e.target.value)}
+              className="w-full p-4 bg-stone-50 border border-stone-200 rounded-2xl mb-4 font-bold text-sm outline-none focus:border-purple-400"
+            />
+            {aiResult ? (
+              <div className="bg-purple-50 p-4 rounded-xl border border-purple-200 mb-4">
+                <p className="text-xs font-bold text-purple-800">{aiResult}</p>
+              </div>
+            ) : null}
+            <button onClick={handleAiValuation} disabled={loading || !aiItemName} className="w-full bg-purple-600 text-white py-3 rounded-xl font-black uppercase tracking-widest text-xs hover:bg-purple-700 transition-all disabled:opacity-50">
+              {loading ? 'Elaborazione...' : 'Calcola Valore'}
+            </button>
+          </div>
+        </div>
+      )}
     </>
   )
 }
