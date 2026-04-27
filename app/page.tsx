@@ -137,19 +137,19 @@ function HomePageContent() {
         </Link>
       )}
 
-      {/* --- HERO SECTION MODIFICATA CON LA NUOVA FOTO INSERITA --- */}
+      {/* --- HERO SECTION SENZA SFUMATURA, IMMAGINE INTERA E TRIDIMENSIONALE --- */}
       <div className="relative w-full h-[400px] md:h-[650px] flex flex-col items-center overflow-hidden border-b border-rose-100 bg-[#f6f5f2]">
-          <div className="absolute inset-0 z-0">
+          <div className="absolute inset-0 z-0 flex items-center justify-center p-4">
             <img 
-              src="/uploaded_hero.jpeg" // Il nome della tua nuova immagine
+              src="/uploaded_hero.jpeg" 
               alt="Re-love Hero"
-              className="w-full h-full object-cover object-center opacity-90"
+              // object-contain: adatta la foto per renderla visibile al 100% senza tagliare i bordi
+              // drop-shadow-2xl: le conferisce l'effetto 3D distaccato
+              className="w-full h-full object-contain drop-shadow-2xl"
             />
-            {/* Sfumatura leggera per non coprire la foto ma permettere di leggere cosa c'è sopra */}
-            <div className="absolute inset-0 bg-gradient-to-t from-stone-900/40 to-transparent"></div>
           </div>
 
-          {/* Contenitore interno che spinge la barra di ricerca verso il basso per non coprire l'immagine */}
+          {/* Contenitore interno che spinge la barra di ricerca verso il basso */}
           <div className="relative z-10 w-full h-full max-w-4xl px-4 flex flex-col justify-end pb-10 items-center">
             
             <div className="relative group w-full max-w-2xl shadow-xl rounded-3xl">
