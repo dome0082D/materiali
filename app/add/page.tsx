@@ -177,38 +177,37 @@ function AddAnnouncementForm() {
   return (
     <div className="min-h-screen bg-transparent font-sans text-stone-900 pb-32 relative">
       
-      {/* --- SFONDO IMMAGINE DIETRO A TUTTO --- */}
+      {/* --- SFONDO IMMAGINE DIETRO A TUTTO (SENZA SFOCATURA) --- */}
       <div className="fixed inset-0 z-0 pointer-events-none">
         <img 
           src={currentBackground} 
           alt="Sfondo Annuncio"
           className="w-full h-full object-cover object-center"
         />
-        {/* Patina chiara per far risaltare il modulo bianco */}
-        <div className="absolute inset-0 bg-stone-100/70 backdrop-blur-sm"></div>
+        {/* Rimosso il div con la patina e la sfocatura! Ora è nitidissimo. */}
       </div>
 
       <div className="relative z-10">
-        {/* --- HEADER DINAMICO CON SFONDO PERSONALIZZATO (RIPRISTINATO) --- */}
+        {/* --- HEADER DINAMICO CON SFONDO PERSONALIZZATO (SENZA PATINA GRIGIA) --- */}
         <div className="relative w-full h-[300px] md:h-[400px] flex items-center justify-center overflow-hidden border-b border-stone-200">
            <div className="absolute inset-0 z-0">
               <img 
                 src={currentBackground} 
                 alt={`Sfondo ${mode}`}
-                className="w-full h-full object-cover object-center opacity-90"
+                className="w-full h-full object-cover object-center"
               />
-              {/* Sfumatura per far leggere bene il testo bianco sopra l'immagine */}
-              <div className="absolute inset-0 bg-stone-900/40"></div>
+              {/* Rimossa la sfumatura grigia bg-stone-900/40! */}
            </div>
 
            <div className="relative z-10 text-center max-w-2xl px-6">
-              <h1 className="text-4xl md:text-5xl font-black uppercase italic text-white tracking-tighter mb-4 shadow-sm drop-shadow-lg">
+              {/* Aggiunto drop-shadow-[0_4px_4px_rgba(0,0,0,0.8)] per leggere il testo sulla foto luminosa */}
+              <h1 className="text-4xl md:text-5xl font-black uppercase italic text-white tracking-tighter mb-4 drop-shadow-[0_4px_4px_rgba(0,0,0,0.8)]">
                  {mode === 'new' && 'Vendi il tuo Nuovo'}
                  {mode === 'used' && 'Dai una Seconda Vita'}
                  {mode === 'gift' && 'Regalo Solidale'}
                  {mode === 'barter' && 'Inizia il Baratto'}
               </h1>
-              <p className="text-stone-100 font-medium text-xs md:text-sm uppercase tracking-[0.2em] shadow-sm drop-shadow-md">
+              <p className="text-white font-medium text-xs md:text-sm uppercase tracking-[0.2em] drop-shadow-[0_2px_2px_rgba(0,0,0,0.8)]">
                  {mode === 'new' && 'Sigillato, intatto, mai aperto. Trasformalo in guadagno.'}
                  {mode === 'used' && 'Vendi ciò che non usi più, proteggi il pianeta.'}
                  {mode === 'gift' && 'Un piccolo gesto che può significare molto per qualcuno.'}
