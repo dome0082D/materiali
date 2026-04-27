@@ -1,362 +1,356 @@
 'use client'
 
-import { Suspense, useState, useRef } from 'react'
-import { useSearchParams, useRouter } from 'next/navigation'
-import Link from 'next/link'
+import { useState, useEffect, Suspense } from 'react'
 import { supabase } from '@/lib/supabase'
+import { useRouter, useSearchParams } from 'next/navigation'
+import { User } from '@supabase/supabase-js'
+import Link from 'next/link'
 
-// Interfaccia completa per evitare errori TypeScript e "any"
-interface AnnouncementData {
-  user_id: string;
-  title: string;
-  description: string;
-  price: number;
-  quantity: number;
-  category_id: string;
-  condition: string;
-  image_urls: string[];
-  image_url: string;
-  shipping_cost: number;
-  allow_local_pickup: boolean;
-  nation: string;
-  region: string;
-  city: string;
-  postcode: string;
-  street: string;
-  house_number: string;
-  origin_address: string;
-  exchange_item: string | null; // Campo specifico per il Baratto
+interface ProfileData {
+  stripe_account_id?: string;
+  first_name?: string;
+  last_name?: string;
 }
 
-function AddPageContent() {
-  const searchParams = useSearchParams()
-  const mode = searchParams.get('mode')
+const CATEGORIES = [
+  'Abbigliamento e Accessori',
+  'Elettronica e Informatica',
+  'Casa, Arredamento e Giardino',
+  'Alimentari e Bevande',
+  'Libri, Film e Musica',
+  'Salute e Bellezza',
+  'Sport e Tempo Libero',
+  'Motori e Veicoli',
+  'Altro / Varie'
+]
+
+function AddAnnouncementForm() {
+  const [user, setUser] = useState<User | null>(null)
+  const [profile, setProfile] = useState<ProfileData | null>(null)
+  const [loadingUser, setLoadingUser] = useState(true)
+
   const router = useRouter()
-  const formRef = useRef<HTMLFormElement>(null)
-  
-  const [loading, setLoading] = useState(false)
-  const [files, setFiles] = useState<File[]>([]) 
-  
-  const [shippingCost, setShippingCost] = useState<string>('0')
-  const [allowLocalPickup, setAllowLocalPickup] = useState<boolean>(false)
-  
-  // STATI PER I 6 CAMPI OBBLIGATORI
-  const [nation, setNation] = useState<string>('Italia')
-  const [region, setRegion] = useState<string>('')
-  const [city, setCity] = useState<string>('')
-  const [postcode, setPostcode] = useState<string>('')
-  const [street, setStreet] = useState<string>('')
-  const [houseNumber, setHouseNumber] = useState<string>('')
+  const searchParams = useSearchParams()
+  const mode = searchParams.get('mode') || 'used' 
 
-  const categorieFisse = [
-    { id: '1', name: '👕 Abbigliamento e Accessori' },
-    { id: '2', name: '💻 Elettronica e Informatica' },
-    { id: '3', name: '🛋️ Casa, Arredo, Giardino' },
-    { id: '4', name: '🍎 Alimentari e Bevande' },
-    { id: '5', name: '📚 Libri, Film e Musica' },
-    { id: '6', name: '💄 Salute e Bellezza' },
-    { id: '7', name: '⚽ Sport e Tempo Libero' },
-    { id: '8', name: '🚗 Motori e Veicoli' },
-    { id: '9', name: '📦 Altro / Varie' }
-  ]
+  // --- MAPPA DEGLI SFONDI DINAMICI (NOMI ESATTI DA VS CODE) ---
+  const backgroundMap: Record<string, string> = {
+    new: '/relove citta.jpeg',
+    used: '/urbano.jpeg',
+    gift: '/relove montagna.jpeg',
+    barter: '/relove antico.jpeg'
+  }
 
-  const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
+  const currentBackground = backgroundMap[mode] || '/urbano.jpeg'
+
+  // Impostazioni iniziali in base al mode
+  const initialCondition = mode === 'new' ? 'Nuovo' : mode === 'gift' ? 'Regalo' : mode === 'barter' ? 'Baratto' : 'Usato'
+  
+  const [title, setTitle] = useState('')
+  const [description, setDescription] = useState('')
+  const [price, setPrice] = useState('')
+  const [category, setCategory] = useState(CATEGORIES[0])
+  const [condition, setCondition] = useState(initialCondition)
+  const [shippingCost, setShippingCost] = useState('0')
+  const [quantity, setQuantity] = useState('1')
+  const [allowLocalPickup, setAllowLocalPickup] = useState(false)
+  const [exchangeItem, setExchangeItem] = useState('')
+
+  const [images, setImages] = useState<File[]>([])
+  const [imageUrls, setImageUrls] = useState<string[]>([])
+  const [uploading, setUploading] = useState(false)
+
+  useEffect(() => {
+    async function checkUser() {
+      const { data: { user } } = await supabase.auth.getUser()
+      if (!user) {
+        router.push('/login')
+        return
+      }
+      setUser(user)
+      
+      const { data } = await supabase.from('profiles').select('stripe_account_id, first_name, last_name').eq('id', user.id).single()
+      setProfile(data)
+      setLoadingUser(false)
+    }
+    checkUser()
+  }, [router])
+
+  // Seleziona la condizione quando cambia il 'mode' nell'URL
+  useEffect(() => {
+    setCondition(mode === 'new' ? 'Nuovo' : mode === 'gift' ? 'Regalo' : mode === 'barter' ? 'Baratto' : 'Usato')
+    if (mode === 'gift' || mode === 'barter') {
+      setPrice('0')
+    }
+  }, [mode])
+
+  const handleImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (e.target.files) {
+      const selectedFiles = Array.from(e.target.files)
+      if (images.length + selectedFiles.length > 5) {
+         alert("Massimo 5 foto consentite.")
+         return
+      }
+      setImages([...images, ...selectedFiles])
+      
+      const newUrls = selectedFiles.map(file => URL.createObjectURL(file))
+      setImageUrls([...imageUrls, ...newUrls])
+    }
+  }
+
+  const removeImage = (index: number) => {
+    const newImages = [...images]
+    newImages.splice(index, 1)
+    setImages(newImages)
+
+    const newUrls = [...imageUrls]
+    URL.revokeObjectURL(newUrls[index])
+    newUrls.splice(index, 1)
+    setImageUrls(newUrls)
+  }
+
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
-    if (loading) return
-    
-    // Cattura istantanea dei dati del form
-    const formData = new FormData(e.currentTarget)
-    setLoading(true)
-    
+    if (!user) return
+
+    if (!profile?.stripe_account_id && condition !== 'Regalo' && condition !== 'Baratto') {
+      alert("Per vendere oggetti e ricevere pagamenti, devi prima collegare il tuo conto Stripe dal tuo Profilo.")
+      router.push('/profile')
+      return
+    }
+
+    if (images.length === 0) {
+      alert('Carica almeno una foto!')
+      return
+    }
+
+    setUploading(true)
     try {
-      const { data: { user }, error: authError } = await supabase.auth.getUser()
-      if (authError || !user) { 
-        alert('Sessione scaduta. Per favore effettua di nuovo il login.')
-        setLoading(false)
-        return 
+      const uploadedImageUrls: string[] = []
+
+      for (const file of images) {
+        const fileExt = file.name.split('.').pop()
+        const fileName = `${Math.random()}.${fileExt}`
+        const filePath = `${user.id}/${fileName}`
+
+        const { error: uploadError } = await supabase.storage.from('announcements').upload(filePath, file)
+        if (uploadError) throw uploadError
+
+        const { data } = supabase.storage.from('announcements').getPublicUrl(filePath)
+        uploadedImageUrls.push(data.publicUrl)
       }
 
-      const condition = mode === 'new' ? 'Nuovo' : mode === 'used' ? 'Usato' : mode === 'barter' ? 'Baratto' : 'Regalo'
-      const priceVal = (mode === 'gift' || mode === 'barter') ? 0 : (parseFloat(formData.get('price') as string) || 0)
-      const quantityVal = parseInt(formData.get('quantity') as string, 10) || 1
-      const exchangeVal = mode === 'barter' ? (formData.get('exchange_item') as string) : null
+      const numPrice = condition === 'Regalo' || condition === 'Baratto' ? 0 : parseFloat(price)
+      const numShipping = parseFloat(shippingCost) || 0
+      const qty = parseInt(quantity) || 1
 
-      const uploadedUrls: string[] = []
-
-      // CARICAMENTO IMMAGINI
-      if (files.length > 0) {
-        for (const file of files) {
-          const fileExt = file.name.split('.').pop()
-          const fileName = `${Math.random()}.${fileExt}`
-          const filePath = `${user.id}/${fileName}`
-          
-          const { error: uploadError } = await supabase.storage.from('images').upload(filePath, file)
-          
-          if (!uploadError) {
-            const { data } = supabase.storage.from('images').getPublicUrl(filePath)
-            uploadedUrls.push(data.publicUrl)
-          }
+      const { data: insertedData, error } = await supabase.from('announcements').insert([
+        {
+          title,
+          description,
+          price: numPrice,
+          category,
+          condition,
+          image_url: uploadedImageUrls[0],
+          image_urls: uploadedImageUrls,
+          user_id: user.id,
+          shipping_cost: numShipping,
+          quantity: qty,
+          allow_local_pickup: allowLocalPickup,
+          exchange_item: condition === 'Baratto' ? exchangeItem : null,
         }
-      }
+      ]).select()
 
-      // PREPARAZIONE OGGETTO DATABASE
-      const announcementData: AnnouncementData = {
-        user_id: user.id,
-        title: formData.get('title') as string,
-        description: formData.get('description') as string,
-        price: priceVal,
-        quantity: quantityVal,
-        category_id: formData.get('category_id') as string,
-        condition: condition,
-        image_urls: uploadedUrls,
-        image_url: uploadedUrls.length > 0 ? uploadedUrls[0] : '/usato.png',
-        shipping_cost: mode === 'barter' ? 0 : (parseFloat(shippingCost) || 0),
-        allow_local_pickup: mode === 'barter' ? true : allowLocalPickup,
-        nation,
-        region,
-        city,
-        postcode,
-        street,
-        house_number: houseNumber,
-        origin_address: `${street} ${houseNumber}, ${postcode} ${city} (${region}), ${nation}`,
-        exchange_item: exchangeVal
-      }
+      if (error) throw error
 
-      const { error: insertError } = await supabase.from('announcements').insert([announcementData]) 
-
-      if (!insertError) {
-        alert("Annuncio pubblicato con successo!")
-        router.push('/')
-      } else {
-        alert("Errore database: " + insertError.message)
-      }
-
-    } catch (err) {
-      console.error(err)
-      alert("Si è verificato un errore imprevisto durante la pubblicazione.")
+      alert('Annuncio creato con successo! 🚀')
+      router.push(`/announcement/${insertedData[0].id}`)
+    } catch (error: any) {
+      alert('Errore: ' + error.message)
     } finally {
-      setLoading(false) 
+      setUploading(false)
     }
   }
 
-  // --- COMPONENTE GUIDA DINAMICA AGGIORNATA ---
-  const renderGuideBox = () => {
-    const guides = {
-      new: {
-        title: "Vendi il Nuovo",
-        color: "border-rose-400",
-        steps: "Inserisci prezzo e spedizione. Re-love trattiene una commissione del 10% sul totale.",
-        logic: "🔒 FONDI CONGELATI: I soldi rimangono su Stripe finché il compratore non conferma 'Pacco ricevuto integro'. In caso di mancato arrivo, il cliente riceverà il rimborso."
-      },
-      used: {
-        title: "Vendi l'Usato",
-        color: "border-orange-400",
-        steps: "Descrivi onestamente lo stato. Commissione del 10% sul totale a favore del sito.",
-        logic: "🔒 SICUREZZA: I soldi vengono accreditati al venditore solo dopo la convalida del compratore o tramite procedura di rimborso se il pacco non arriva."
-      },
-      gift: {
-        title: "Regala un Oggetto",
-        color: "border-rose-500",
-        steps: "Il prezzo è €0. Chi riceve paga solo €2.50 di commissione fissa al sito.",
-        logic: "☕ SBLOCCO CHAT: La conversazione si attiva solo dopo che chi riceve ha pagato il caffè simbolico al sito."
-      },
-      barter: {
-        title: "Gestisci il Baratto",
-        color: "border-blue-400",
-        steps: "⚠️ SOLO CONSEGNA A MANO. Specifica cosa cerchi. Entrambi pagate €2.50 per sbloccare la chat.",
-        logic: "🔄 DOPPIA CONFERMA: I €2.50 a testa rimangono congelati. Il sito incassa solo se entrambi cliccate 'Conferma Scambio' dopo l'incontro. Altrimenti, i soldi vengono restituiti."
-      }
-    }
-
-    const g = guides[mode as keyof typeof guides]
-    if (!g) return null
-
-    return (
-      <div className={`mt-10 p-8 bg-stone-900 text-white rounded-[2.5rem] shadow-2xl border-t-8 ${g.color} relative overflow-hidden`}>
-        <div className="absolute -top-4 -right-4 opacity-10 text-6xl">💡</div>
-        <h3 className="text-xl font-black uppercase italic italic mb-4 tracking-tight">Guida {g.title}</h3>
-        <div className="space-y-4">
-          <div className="bg-stone-800/50 p-4 rounded-2xl">
-            <p className="text-[10px] font-black uppercase text-stone-400 tracking-widest mb-1">Come compilare</p>
-            <p className="text-xs font-medium text-stone-200 leading-relaxed">{g.steps}</p>
-          </div>
-          <div className="bg-rose-500/10 p-4 rounded-2xl border border-rose-500/20">
-            <p className="text-[10px] font-black uppercase text-rose-400 tracking-widest mb-1">Logica Pagamento e Chat</p>
-            <p className="text-xs font-black italic text-white leading-relaxed">{g.logic}</p>
-          </div>
-          <div className="pt-4 border-t border-stone-800">
-             <p className="text-[9px] font-bold text-stone-500 uppercase tracking-tight text-center leading-tight">
-               Re-love mette solo in contatto gli utenti e non ha responsabilità sullo scambio o sull&apos;integrità degli oggetti.
-             </p>
-          </div>
-        </div>
-      </div>
-    )
-  }
-
-  if (!mode) {
-    return (
-      <div className="min-h-screen bg-stone-50 p-6 md:p-10 flex flex-col items-center pt-10">
-        <h1 className="text-3xl md:text-5xl font-medium uppercase italic mb-2 tracking-tight text-transparent bg-clip-text bg-gradient-to-r from-rose-500 to-orange-400 text-center">Cosa pubblichi?</h1>
-        <p className="text-stone-400 font-bold uppercase text-[11px] tracking-widest mb-10 text-center">Seleziona la modalità</p>
-        
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-4 w-full max-w-5xl">
-          <Link href="/add?mode=new" className="bg-white p-6 rounded-2xl border border-stone-200 text-center hover:border-rose-400 shadow-sm transition-all hover:-translate-y-1">
-            <img src="/nuovo.png" alt="Nuovo" className="w-full object-cover rounded-xl mb-4" />
-            <h3 className="text-xl font-bold uppercase italic text-stone-900">Nuovo</h3>
-            <p className="text-[11px] font-medium text-stone-500 mt-2">Articoli mai usati o eccedenze.</p>
-          </Link>
-          <Link href="/add?mode=used" className="bg-white p-6 rounded-2xl border border-stone-200 text-center hover:border-orange-400 shadow-sm transition-all hover:-translate-y-1">
-            <img src="/usato.png" alt="Usato" className="w-full object-cover rounded-xl mb-4" />
-            <h3 className="text-xl font-bold uppercase italic text-stone-900">Usato</h3>
-            <p className="text-[11px] font-medium text-stone-500 mt-2">Materiali di seconda mano.</p>
-          </Link>
-          <Link href="/add?mode=gift" className="bg-rose-50 p-6 rounded-2xl border-2 border-rose-400 text-center shadow-md transition-all hover:-translate-y-1">
-            <img src="/regalo.png" alt="Regalo" className="w-full object-cover rounded-xl mb-4" />
-            <h3 className="text-xl font-bold uppercase italic text-rose-800">Regalo</h3>
-            <p className="text-[11px] font-medium text-rose-700 mt-2">Dona a chi ne ha bisogno.</p>
-          </Link>
-          <Link href="/add?mode=barter" className="bg-blue-50 p-6 rounded-2xl border-2 border-blue-400 text-center shadow-md transition-all hover:-translate-y-1">
-            <img src="/baratto.png" alt="Baratto" className="w-full object-cover rounded-xl mb-4" />
-            <h3 className="text-xl font-bold uppercase italic text-blue-800">Baratto</h3>
-            <p className="text-[11px] font-medium text-blue-700 mt-2">Scambia senza denaro.</p>
-          </Link>
-        </div>
-      </div>
-    )
-  }
+  if (loadingUser) return <div className="min-h-screen flex items-center justify-center font-black uppercase text-stone-400 tracking-widest text-xs">Accesso in corso...</div>
 
   return (
-    <div className="min-h-screen bg-stone-50 p-4 md:p-8 flex flex-col items-center">
-      <div className="w-full max-w-2xl">
-        <div className="bg-white p-6 md:p-8 rounded-[2rem] shadow-md border border-stone-200">
-          <div className="mb-6 border-b border-stone-100 pb-4 text-center">
-            <span className="bg-stone-100 text-stone-700 px-4 py-1 rounded-full text-[10px] font-black uppercase tracking-widest mb-3 inline-block">
-              {mode === 'new' ? 'Nuovo' : mode === 'used' ? 'Usato' : mode === 'barter' ? 'Baratto' : 'Regalo'}
-            </span>
-            <h2 className="text-2xl font-black uppercase italic text-stone-900">Compila l&apos;Annuncio</h2>
-          </div>
-          
-          <form ref={formRef} onSubmit={handleSubmit} className="space-y-6">
-            <div>
-              <label htmlFor="title" className="text-[10px] font-black uppercase tracking-widest text-stone-400 ml-1">Titolo Annuncio</label>
-              <input id="title" name="title" required type="text" className="w-full p-4 mt-1 bg-stone-50 rounded-2xl border border-stone-100 outline-none focus:border-rose-400 text-sm font-bold text-stone-800" placeholder="Cosa vendi?" />
-            </div>
+    <div className="min-h-screen bg-transparent font-sans text-stone-900 pb-32 relative">
+      
+      {/* --- SFONDO IMMAGINE DIETRO A TUTTO --- */}
+      <div className="fixed inset-0 z-0 pointer-events-none">
+        <img 
+          src={currentBackground} 
+          alt="Sfondo Annuncio"
+          className="w-full h-full object-cover object-center"
+        />
+        {/* Patina chiara per far risaltare il modulo bianco */}
+        <div className="absolute inset-0 bg-stone-100/70 backdrop-blur-sm"></div>
+      </div>
 
-            <div className="grid grid-cols-2 gap-4">
-              <div>
-                <label htmlFor="category_id" className="text-[10px] font-black uppercase tracking-widest text-stone-400 ml-1">Categoria</label>
-                <select id="category_id" name="category_id" required className="w-full p-4 mt-1 bg-stone-50 rounded-2xl border border-stone-100 outline-none focus:border-rose-400 text-sm font-bold text-stone-800">
-                  {categorieFisse.map(cat => <option key={cat.id} value={cat.id}>{cat.name}</option>)}
-                </select>
-              </div>
-              <div>
-                <label htmlFor="quantity" className="text-[10px] font-black uppercase tracking-widest text-stone-400 ml-1">Quantità</label>
-                <input id="quantity" name="quantity" required type="number" min="1" defaultValue="1" className="w-full p-4 mt-1 bg-stone-50 rounded-2xl border border-stone-100 outline-none focus:border-rose-400 text-sm font-bold text-stone-800" />
-              </div>
-            </div>
+      <div className="relative z-10">
+        {/* --- HEADER DINAMICO CON SFONDO PERSONALIZZATO (RIPRISTINATO) --- */}
+        <div className="relative w-full h-[300px] md:h-[400px] flex items-center justify-center overflow-hidden border-b border-stone-200">
+           <div className="absolute inset-0 z-0">
+              <img 
+                src={currentBackground} 
+                alt={`Sfondo ${mode}`}
+                className="w-full h-full object-cover object-center opacity-90"
+              />
+              {/* Sfumatura per far leggere bene il testo bianco sopra l'immagine */}
+              <div className="absolute inset-0 bg-stone-900/40"></div>
+           </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              {mode === 'barter' ? (
-                <div className="col-span-1 md:col-span-2">
-                  <label htmlFor="exchange_item" className="text-[10px] font-black uppercase tracking-widest text-blue-500 ml-1">Cosa cerchi in cambio?</label>
-                  <input id="exchange_item" name="exchange_item" required type="text" className="w-full p-4 mt-1 bg-blue-50/30 rounded-2xl border border-blue-100 outline-none focus:border-blue-400 text-sm font-bold text-stone-800" placeholder="Es: Scambio con cellulare o tablet" />
-                </div>
-              ) : mode !== 'gift' && (
-                <div>
-                  <label htmlFor="price" className="text-[10px] font-black uppercase tracking-widest text-stone-400 ml-1">Prezzo (€)</label>
-                  <input id="price" name="price" required type="number" step="0.01" className="w-full p-4 mt-1 bg-stone-50 rounded-2xl border border-stone-100 outline-none focus:border-rose-400 text-sm font-bold text-stone-800" placeholder="0.00" />
-                </div>
-              )}
-              
-              {/* SPEDIZIONE DISABILITATA PER IL BARATTO */}
-              {mode !== 'barter' && mode !== 'gift' && (
-                <div>
-                  <label htmlFor="shipping" className="text-[10px] font-black uppercase tracking-widest text-rose-500 ml-1">Spese Spedizione (€)</label>
-                  <input id="shipping" type="number" step="0.01" value={shippingCost} onChange={(e) => setShippingCost(e.target.value)} className="w-full p-4 mt-1 bg-rose-50/30 rounded-2xl border border-rose-100 outline-none focus:border-rose-400 text-sm font-black text-stone-800" />
-                </div>
-              )}
-            </div>
-
-            <div className="p-6 bg-stone-50 rounded-[2rem] border-2 border-stone-100 space-y-4">
-              <p className="text-[10px] font-black uppercase tracking-[0.2em] text-rose-500 text-center mb-4">📍 Località dell&apos;oggetto</p>
-              
-              <div className="grid grid-cols-2 gap-3">
-                 <div>
-                   <label htmlFor="nation" className="text-[9px] font-bold text-stone-400 uppercase ml-1">Nazione</label>
-                   <input id="nation" required type="text" value={nation} onChange={(e) => setNation(e.target.value)} className="w-full p-3 mt-1 bg-white rounded-xl border border-stone-200 text-sm font-bold text-stone-800" />
-                 </div>
-                 <div>
-                   <label htmlFor="region" className="text-[9px] font-bold text-stone-400 uppercase ml-1">Regione</label>
-                   <input id="region" required type="text" placeholder="Es: Sicilia" value={region} onChange={(e) => setRegion(e.target.value)} className="w-full p-3 mt-1 bg-white rounded-xl border border-stone-200 text-sm font-bold text-stone-800" />
-                 </div>
-              </div>
-
-              <div className="grid grid-cols-2 gap-3">
-                 <div>
-                   <label htmlFor="city" className="text-[9px] font-bold text-stone-400 uppercase ml-1">Città</label>
-                   <input id="city" required type="text" placeholder="Es: Palermo" value={city} onChange={(e) => setCity(e.target.value)} className="w-full p-3 mt-1 bg-white rounded-xl border border-stone-200 text-sm font-bold text-stone-800" />
-                 </div>
-                 <div>
-                   <label htmlFor="postcode" className="text-[9px] font-bold text-stone-400 uppercase ml-1">CAP</label>
-                   <input id="postcode" required type="text" placeholder="90100" value={postcode} onChange={(e) => setPostcode(e.target.value)} className="w-full p-3 mt-1 bg-white rounded-xl border border-stone-200 text-sm font-bold text-stone-800" />
-                 </div>
-              </div>
-
-              <div className="grid grid-cols-3 gap-3">
-                 <div className="col-span-2">
-                   <label htmlFor="street" className="text-[9px] font-bold text-stone-400 uppercase ml-1">Via / Piazza</label>
-                   <input id="street" required type="text" placeholder="Es: Via Libertà" value={street} onChange={(e) => setStreet(e.target.value)} className="w-full p-3 mt-1 bg-white rounded-xl border border-stone-200 text-sm font-bold text-stone-800" />
-                 </div>
-                 <div>
-                   <label htmlFor="houseNumber" className="text-[9px] font-bold text-stone-400 uppercase ml-1">Civico</label>
-                   <input id="houseNumber" required type="text" placeholder="10" value={houseNumber} onChange={(e) => setHouseNumber(e.target.value)} className="w-full p-3 mt-1 bg-white rounded-xl border border-stone-200 text-sm font-bold text-stone-800" />
-                 </div>
-              </div>
-
-              {/* CONSEGNA A MANO AUTOMATICA PER BARATTO */}
-              <label className="flex items-center gap-3 cursor-pointer group pt-2 justify-center">
-                <input 
-                  type="checkbox" 
-                  disabled={mode === 'barter'}
-                  checked={mode === 'barter' ? true : allowLocalPickup} 
-                  onChange={(e) => setAllowLocalPickup(e.target.checked)} 
-                  className="w-6 h-6 rounded-lg accent-rose-500 border-stone-200" 
-                />
-                <span className="text-[10px] font-black uppercase text-stone-600 group-hover:text-rose-500 transition-colors">
-                  {mode === 'barter' ? 'Consegna a mano Obbligatoria' : 'Permetti Consegna a Mano'}
-                </span>
-              </label>
-            </div>
-
-            <div>
-              <label htmlFor="description" className="text-[10px] font-black uppercase tracking-widest text-stone-400 ml-1">Descrizione</label>
-              <textarea id="description" name="description" required rows={4} className="w-full p-4 mt-1 bg-stone-50 rounded-2xl border border-stone-100 outline-none focus:border-rose-400 text-sm font-medium text-stone-800" placeholder="Descrivi il tuo articolo..."></textarea>
-            </div>
-
-            <div className="bg-stone-50 p-6 rounded-2xl border border-stone-100">
-               <span className="text-[10px] font-black uppercase tracking-widest text-stone-400 mb-4 block ml-1 text-center">Foto dell&apos;articolo</span>
-               <label htmlFor="file-upload" className="flex items-center justify-center gap-3 bg-white text-stone-700 px-6 py-5 rounded-2xl text-[11px] font-black uppercase tracking-widest hover:bg-rose-50 hover:text-rose-600 hover:border-rose-200 cursor-pointer transition-all border-2 border-stone-200 border-dashed w-full shadow-sm">
-                  <span className="text-xl">📸</span> AGGIUNGI FOTO
-                  <input id="file-upload" type="file" multiple accept="image/*" className="hidden" onChange={(e) => { if (e.target.files) setFiles(Array.from(e.target.files)) }} />
-               </label>
-
-               {files.length > 0 && (
-                 <div className="mt-4 bg-rose-50 p-4 rounded-xl border border-rose-100 flex items-center gap-3">
-                   <span className="text-rose-600 text-lg">✓</span>
-                   <p className="text-[10px] font-black text-rose-700 uppercase tracking-tight">{files.length} Immagini pronte</p>
-                 </div>
-               )}
-            </div>
-
-            <button disabled={loading} type="submit" className="w-full bg-stone-900 text-white font-black uppercase text-xs tracking-[0.2em] py-6 rounded-[2rem] hover:bg-rose-500 transition-all shadow-xl disabled:opacity-50 mt-6 active:scale-95">
-              {loading ? 'CARICAMENTO IN CORSO...' : 'PUBBLICA ORA SU RE-LOVE'}
-            </button>
-          </form>
+           <div className="relative z-10 text-center max-w-2xl px-6">
+              <h1 className="text-4xl md:text-5xl font-black uppercase italic text-white tracking-tighter mb-4 shadow-sm drop-shadow-lg">
+                 {mode === 'new' && 'Vendi il tuo Nuovo'}
+                 {mode === 'used' && 'Dai una Seconda Vita'}
+                 {mode === 'gift' && 'Regalo Solidale'}
+                 {mode === 'barter' && 'Inizia il Baratto'}
+              </h1>
+              <p className="text-stone-100 font-medium text-xs md:text-sm uppercase tracking-[0.2em] shadow-sm drop-shadow-md">
+                 {mode === 'new' && 'Sigillato, intatto, mai aperto. Trasformalo in guadagno.'}
+                 {mode === 'used' && 'Vendi ciò che non usi più, proteggi il pianeta.'}
+                 {mode === 'gift' && 'Un piccolo gesto che può significare molto per qualcuno.'}
+                 {mode === 'barter' && 'Scambia i tuoi oggetti senza bisogno di denaro.'}
+              </p>
+           </div>
         </div>
 
-        {/* GUIDA INFORMATIVA SOTTO IL MODULO */}
-        {renderGuideBox()}
+        <div className="max-w-3xl mx-auto px-4 -mt-10 relative z-20">
+          
+          {(!profile?.stripe_account_id && mode !== 'gift' && mode !== 'barter') && (
+            <div className="bg-orange-50 border-2 border-orange-200 p-6 rounded-[2rem] mb-8 text-center shadow-lg">
+              <span className="text-4xl mb-4 block">⚠️</span>
+              <h3 className="font-black uppercase text-orange-600 mb-2">Attenzione</h3>
+              <p className="text-xs font-bold text-orange-500 mb-6 uppercase tracking-widest">Devi collegare Stripe prima di poter incassare i pagamenti degli annunci in vendita.</p>
+              <Link href="/profile" className="bg-orange-500 text-white px-6 py-3 rounded-xl font-black uppercase text-[10px] tracking-widest shadow-md hover:bg-stone-900 transition-colors">
+                Configura Portafoglio
+              </Link>
+            </div>
+          )}
+
+          <form onSubmit={handleSubmit} className="bg-white p-8 md:p-12 rounded-[3rem] shadow-xl border border-stone-200 space-y-10">
+            
+            <div className="space-y-4">
+              <div className="flex justify-between items-end">
+                <div>
+                  <h3 className="text-xs font-black uppercase tracking-widest text-stone-900">Le tue foto</h3>
+                  <p className="text-[10px] font-bold uppercase text-stone-400 mt-1">Carica fino a 5 immagini (La prima sarà la copertina)</p>
+                </div>
+                <span className="text-[10px] font-black text-rose-500 bg-rose-50 px-2 py-1 rounded">{images.length}/5</span>
+              </div>
+              
+              <div className="flex gap-4 overflow-x-auto pb-2">
+                {imageUrls.map((url, i) => (
+                  <div key={i} className="relative w-32 h-32 flex-shrink-0 rounded-2xl overflow-hidden border-2 border-stone-100 group">
+                    <img src={url} className="w-full h-full object-cover" alt="Preview" />
+                    <button type="button" onClick={() => removeImage(i)} className="absolute top-2 right-2 bg-stone-900/80 text-white w-6 h-6 rounded-full text-xs flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity hover:bg-rose-500">✕</button>
+                    {i === 0 && <span className="absolute bottom-2 left-2 bg-white/90 px-2 py-0.5 text-[8px] font-black uppercase rounded shadow-sm">Cover</span>}
+                  </div>
+                ))}
+                
+                {images.length < 5 && (
+                  <label className="w-32 h-32 flex-shrink-0 rounded-2xl border-2 border-dashed border-stone-200 flex flex-col items-center justify-center text-stone-400 hover:border-rose-400 hover:text-rose-500 hover:bg-rose-50 transition-all cursor-pointer">
+                    <span className="text-2xl mb-1">+</span>
+                    <span className="text-[9px] font-black uppercase tracking-widest">Aggiungi</span>
+                    <input type="file" multiple accept="image/*" onChange={handleImageChange} className="hidden" />
+                  </label>
+                )}
+              </div>
+            </div>
+
+            <div className="space-y-6 pt-6 border-t border-stone-100">
+               <div className="space-y-2">
+                 <label className="text-[10px] font-black uppercase text-stone-400 tracking-widest ml-2">Cosa vuoi proporre?</label>
+                 <input required type="text" placeholder="Es. Giacca Vintage anni 80" value={title} onChange={(e) => setTitle(e.target.value)} className="w-full p-5 bg-stone-50 border border-stone-100 rounded-2xl font-bold outline-none focus:bg-white focus:border-rose-400 transition-all" />
+               </div>
+
+               <div className="space-y-2">
+                 <label className="text-[10px] font-black uppercase text-stone-400 tracking-widest ml-2">Descrizione (Sii sincero sui difetti)</label>
+                 <textarea required rows={4} placeholder="Descrivi taglia, marca, eventuali segni d'usura..." value={description} onChange={(e) => setDescription(e.target.value)} className="w-full p-5 bg-stone-50 border border-stone-100 rounded-2xl font-bold outline-none focus:bg-white focus:border-rose-400 transition-all resize-none" />
+               </div>
+
+               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                  <div className="space-y-2">
+                    <label className="text-[10px] font-black uppercase text-stone-400 tracking-widest ml-2">Categoria</label>
+                    <select value={category} onChange={(e) => setCategory(e.target.value)} className="w-full p-5 bg-stone-50 border border-stone-100 rounded-2xl font-bold outline-none focus:bg-white focus:border-rose-400 transition-all appearance-none cursor-pointer">
+                      {CATEGORIES.map(c => <option key={c} value={c}>{c}</option>)}
+                    </select>
+                  </div>
+
+                  <div className="space-y-2">
+                    <label className="text-[10px] font-black uppercase text-stone-400 tracking-widest ml-2">Condizione Selezionata</label>
+                    <div className="w-full p-5 bg-stone-100 border border-stone-200 rounded-2xl font-black text-stone-600 uppercase">
+                      {condition}
+                    </div>
+                  </div>
+               </div>
+            </div>
+
+            <div className="space-y-6 pt-6 border-t border-stone-100">
+               {condition === 'Baratto' && (
+               <div className="space-y-2 bg-blue-50 p-6 rounded-3xl border border-blue-100">
+                   <label className="text-[10px] font-black uppercase text-blue-500 tracking-widest ml-2">Cosa cerchi in cambio?</label>
+                   <input required type="text" placeholder="Es. Cerco vinili rock, oppure libri fantasy..." value={exchangeItem} onChange={(e) => setExchangeItem(e.target.value)} className="w-full p-5 bg-white border border-blue-200 rounded-2xl font-bold outline-none focus:border-blue-500 transition-all text-blue-900" />
+                 </div>
+               )}
+
+               {condition !== 'Regalo' && condition !== 'Baratto' && (
+                 <div className="grid grid-cols-2 gap-6">
+                    <div className="space-y-2">
+                      <label className="text-[10px] font-black uppercase text-stone-400 tracking-widest ml-2 flex justify-between">
+                        Prezzo
+                        <span className="text-rose-500 bg-rose-50 px-1 rounded">-10% Comm.</span>
+                      </label>
+                      <div className="relative">
+                        <span className="absolute left-5 top-1/2 -translate-y-1/2 font-black text-stone-400">€</span>
+                        <input required type="number" step="0.01" min="0.50" value={price} onChange={(e) => setPrice(e.target.value)} className="w-full p-5 pl-10 bg-stone-50 border border-stone-100 rounded-2xl font-black outline-none focus:bg-white focus:border-rose-400 transition-all text-xl" placeholder="0.00" />
+                      </div>
+                    </div>
+                    <div className="space-y-2">
+                      <label className="text-[10px] font-black uppercase text-emerald-600 tracking-widest ml-2">Tu Guadagni</label>
+                      <div className="w-full p-5 bg-emerald-50 border border-emerald-100 rounded-2xl font-black text-emerald-700 text-xl flex items-center h-[68px]">
+                        € {price ? (parseFloat(price) * 0.90).toFixed(2) : '0.00'}
+                      </div>
+                    </div>
+                 </div>
+               )}
+
+               <div className="grid grid-cols-2 gap-6">
+                  <div className="space-y-2">
+                    <label className="text-[10px] font-black uppercase text-stone-400 tracking-widest ml-2">Pezzi disponibili</label>
+                    <input type="number" min="1" value={quantity} onChange={(e) => setQuantity(e.target.value)} className="w-full p-5 bg-stone-50 border border-stone-100 rounded-2xl font-black outline-none focus:bg-white focus:border-rose-400 transition-all" />
+                  </div>
+
+                  <div className="space-y-2">
+                    <label className="text-[10px] font-black uppercase text-stone-400 tracking-widest ml-2">Spese Spedizione</label>
+                    <div className="relative">
+                      <span className="absolute left-5 top-1/2 -translate-y-1/2 font-black text-stone-400">€</span>
+                      <input type="number" step="0.10" min="0" value={shippingCost} onChange={(e) => setShippingCost(e.target.value)} className="w-full p-5 pl-10 bg-stone-50 border border-stone-100 rounded-2xl font-black outline-none focus:bg-white focus:border-rose-400 transition-all" placeholder="0.00 (Gratis)" />
+                    </div>
+                  </div>
+               </div>
+
+               <label className="flex items-center gap-4 p-5 bg-stone-50 border border-stone-100 rounded-2xl cursor-pointer hover:bg-stone-100 transition-colors">
+                 <input type="checkbox" checked={allowLocalPickup} onChange={(e) => setAllowLocalPickup(e.target.checked)} className="w-6 h-6 accent-rose-500 rounded" />
+                 <div className="flex flex-col">
+                   <span className="text-xs font-black uppercase text-stone-800">Consenti Ritiro a Mano</span>
+                   <span className="text-[9px] font-bold uppercase text-stone-400">Gli acquirenti vicini potranno non pagare la spedizione</span>
+                 </div>
+               </label>
+            </div>
+
+            <div className="pt-8">
+              <button disabled={uploading || (!profile?.stripe_account_id && condition !== 'Regalo' && condition !== 'Baratto')} type="submit" className="w-full bg-stone-900 text-white py-6 rounded-2xl font-black uppercase text-sm tracking-[0.2em] shadow-2xl hover:bg-rose-500 hover:scale-[1.02] transition-all disabled:opacity-50 disabled:hover:scale-100">
+                {uploading ? 'Pubblicazione in corso...' : 'Pubblica il tuo annuncio 🚀'}
+              </button>
+              <p className="text-center mt-6 text-[10px] font-bold uppercase text-stone-400 tracking-widest">
+                Cliccando accetti il manifesto etico di Re-love.
+              </p>
+            </div>
+          </form>
+        </div>
       </div>
     </div>
   )
@@ -364,8 +358,8 @@ function AddPageContent() {
 
 export default function AddPage() {
   return (
-    <Suspense fallback={<div className="min-h-screen bg-stone-50 flex items-center justify-center font-black uppercase text-[10px] text-stone-400 tracking-widest">Preparazione...</div>}>
-      <AddPageContent />
+    <Suspense fallback={<div className="min-h-screen bg-stone-50 flex items-center justify-center font-black uppercase text-stone-400 tracking-widest text-xs animate-pulse">Re-love sta arrivando...</div>}>
+      <AddAnnouncementForm />
     </Suspense>
   )
 }
