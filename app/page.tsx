@@ -137,16 +137,18 @@ function HomePageContent() {
         </Link>
       )}
 
-      {/* HERO SECTION - IMMAGINE INTERA NON TAGLIATA */}
-      <div 
-        className="relative w-full h-[400px] md:h-[650px] flex flex-col items-center overflow-hidden border-b border-rose-100 bg-[#f6f5f2]"
-        style={{
-          backgroundImage: "url('/hero-bg.jpg')",
-          backgroundSize: 'contain', 
-          backgroundPosition: 'center',
-          backgroundRepeat: 'no-repeat', 
-        }}
-      >
+      {/* --- HERO SECTION MODIFICATA CON LA NUOVA FOTO INSERITA --- */}
+      <div className="relative w-full h-[400px] md:h-[650px] flex flex-col items-center overflow-hidden border-b border-rose-100 bg-[#f6f5f2]">
+          <div className="absolute inset-0 z-0">
+            <img 
+              src="/uploaded_hero.jpeg" // Il nome della tua nuova immagine
+              alt="Re-love Hero"
+              className="w-full h-full object-cover object-center opacity-90"
+            />
+            {/* Sfumatura leggera per non coprire la foto ma permettere di leggere cosa c'è sopra */}
+            <div className="absolute inset-0 bg-gradient-to-t from-stone-900/40 to-transparent"></div>
+          </div>
+
           {/* Contenitore interno che spinge la barra di ricerca verso il basso per non coprire l'immagine */}
           <div className="relative z-10 w-full h-full max-w-4xl px-4 flex flex-col justify-end pb-10 items-center">
             
