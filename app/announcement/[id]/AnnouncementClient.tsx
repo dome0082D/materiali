@@ -112,7 +112,6 @@ function AnnouncementContent() {
       alert("Per sbloccare la chat e parlare col venditore, devi prima completare l'acquisto dell'oggetto.");
       handleSecureBuy();
     } else {
-      // ECCO LA MAGIA: Sblocca la chat gratuitamente per Baratto e Regalo
       const startChat = async () => {
         setActionLoading(true);
         await supabase.from('messages').insert([{
@@ -238,43 +237,47 @@ function AnnouncementContent() {
   const mapUrl = `https://maps.google.com/maps?q=${encodeURIComponent(ann.city || 'Italia')}&t=&z=13&ie=UTF8&iwloc=&output=embed`;
 
   return (
-    <div className="min-h-screen bg-stone-50 p-4 md:p-10 font-sans pb-32">
+    /* SFONDO PAGINA RESO TRASPARENTE */
+    <div className="min-h-screen bg-transparent p-4 md:p-10 font-sans pb-32">
       <div className="max-w-6xl mx-auto grid grid-cols-1 lg:grid-cols-12 gap-8">
         
         {/* COLONNA SINISTRA */}
         <div className="lg:col-span-7 space-y-6">
-          <div className="bg-white p-3 rounded-[2.5rem] shadow-sm border border-stone-200 relative">
+          {/* BOX IMMAGINE RESO SEMI-TRASPARENTE */}
+          <div className="bg-white/20 backdrop-blur-md p-3 rounded-[2.5rem] shadow-xl border border-white/30 relative">
              {ann.is_sponsored && (
                <div className="absolute top-8 left-8 z-20 bg-gradient-to-r from-rose-500 to-orange-400 text-white px-4 py-2 rounded-xl text-xs font-black uppercase tracking-widest shadow-xl">
                  ✨ In Vetrina
                </div>
              )}
-             <div className="rounded-[2rem] overflow-hidden bg-stone-100">
+             <div className="rounded-[2rem] overflow-hidden bg-transparent">
                <img src={ann.image_url || "/usato.png"} className="w-full h-auto object-cover aspect-square" alt={ann.title} />
              </div>
              {ann.image_urls && ann.image_urls.length > 1 && (
                <div className="flex gap-3 p-4 overflow-x-auto">
                  {ann.image_urls.map((img: string, i: number) => (
-                    <img key={i} src={img} className="w-24 h-24 rounded-2xl object-cover border-2 border-stone-100 hover:border-rose-400 cursor-pointer transition-all flex-shrink-0 shadow-sm" />
+                    <img key={i} src={img} className="w-24 h-24 rounded-2xl object-cover border-2 border-white/40 hover:border-rose-400 cursor-pointer transition-all flex-shrink-0 shadow-sm" />
                  ))}
                </div>
              )}
           </div>
 
-          <div className="bg-white p-8 rounded-[2.5rem] border border-stone-200 shadow-sm overflow-hidden">
-            <h3 className="text-xs font-black uppercase text-stone-400 tracking-widest mb-4 flex items-center gap-2">
+          {/* BOX MAPPA RESO SEMI-TRASPARENTE */}
+          <div className="bg-white/20 backdrop-blur-md p-8 rounded-[2.5rem] border border-white/30 shadow-xl overflow-hidden">
+            <h3 className="text-xs font-black uppercase text-stone-900 tracking-widest mb-4 flex items-center gap-2">
               <span className="w-2 h-2 bg-rose-500 rounded-full animate-pulse"></span> Posizione
             </h3>
-            <div className="w-full h-64 rounded-3xl overflow-hidden border border-stone-100">
+            <div className="w-full h-64 rounded-3xl overflow-hidden border border-white/20 shadow-inner">
               <iframe width="100%" height="100%" frameBorder="0" scrolling="no" src={mapUrl}></iframe>
             </div>
-            <p className="mt-3 text-xs font-bold text-stone-500 uppercase italic">Località: {ann.city || 'Non specificata'}</p>
+            <p className="mt-3 text-xs font-black text-stone-900 uppercase italic">Località: {ann.city || 'Non specificata'}</p>
           </div>
         </div>
 
         {/* COLONNA DESTRA */}
         <div className="lg:col-span-5 space-y-6">
-          <div className="bg-white p-8 rounded-[3rem] shadow-xl border border-stone-200 relative overflow-hidden">
+          {/* BOX INFO PRINCIPALE RESO SEMI-TRASPARENTE */}
+          <div className="bg-white/20 backdrop-blur-md p-8 rounded-[3rem] shadow-2xl border border-white/30 relative overflow-hidden">
             <div className="flex justify-between items-start mb-6">
                <div className="space-y-1">
                   <span className="bg-stone-900 text-white text-[10px] font-black uppercase px-3 py-1 rounded-md tracking-widest">
@@ -285,40 +288,40 @@ function AnnouncementContent() {
                {ann.type === 'offered' && <span className="bg-rose-500 text-white text-[10px] font-black px-3 py-1 rounded-full uppercase shadow-lg shadow-rose-200">Gift</span>}
             </div>
 
-            <Link href={`/profile/${ann.user_id}`} className="flex items-center justify-between bg-stone-50 p-4 rounded-2xl border border-stone-100 hover:border-rose-200 transition-all mb-8 group">
+            <Link href={`/profile/${ann.user_id}`} className="flex items-center justify-between bg-white/40 p-4 rounded-2xl border border-white/50 hover:bg-white/60 transition-all mb-8 group">
                 <div className="flex items-center gap-3">
                   <div className="w-10 h-10 bg-stone-900 rounded-full flex items-center justify-center font-black text-sm text-white uppercase">
                     {seller?.nickname?.[0] || seller?.first_name?.[0] || 'U'}
                   </div>
                   <div className="flex flex-col">
-                    <span className="text-[10px] font-black uppercase text-stone-400">Venditore</span>
-                    <span className="text-sm font-black uppercase text-stone-800 group-hover:text-rose-500 transition-colors">
+                    <span className="text-[10px] font-black uppercase text-stone-600">Venditore</span>
+                    <span className="text-sm font-black uppercase text-stone-900 group-hover:text-rose-500 transition-colors">
                       {seller?.nickname || 'Utente Re-love'} →
                     </span>
                   </div>
                 </div>
                 <div className="flex items-center gap-1.5">
-                  <span className="text-orange-400 text-lg">★</span>
-                  <span className="text-sm font-black text-stone-700">{avgRating}</span>
-                  <span className="text-[10px] text-stone-400 font-bold">({reviews.length})</span>
+                  <span className="text-orange-500 text-lg">★</span>
+                  <span className="text-sm font-black text-stone-900">{avgRating}</span>
+                  <span className="text-[10px] text-stone-600 font-bold">({reviews.length})</span>
                 </div>
             </Link>
 
             <div className="mb-8">
                {ann.condition === 'Baratto' ? (
-                 <div className="bg-blue-50 border border-blue-100 p-5 rounded-2xl">
-                    <p className="text-xs font-black text-blue-500 uppercase tracking-widest">Modalità Baratto</p>
+                 <div className="bg-blue-500/20 border border-blue-400/30 p-5 rounded-2xl backdrop-blur-sm">
+                    <p className="text-xs font-black text-blue-700 uppercase tracking-widest">Modalità Baratto</p>
                     <p className="text-2xl font-black text-stone-900 uppercase italic mt-1">
                       🔄 Cerca: {ann.exchange_item || 'Oggetto da concordare'}
                     </p>
                  </div>
                ) : (
                  <>
-                   <p className="text-5xl font-black text-transparent bg-clip-text bg-gradient-to-r from-rose-500 to-orange-400 italic">
+                   <p className="text-5xl font-black text-stone-900 italic drop-shadow-sm">
                       {ann.type === 'offered' || ann.condition === 'Regalo' ? 'GRATIS' : `€ ${(ann.price * selectedQuantity).toFixed(2)}`}
                    </p>
                    {!usePickup && ann.shipping_cost > 0 && (
-                     <p className="text-xs font-black text-stone-400 uppercase mt-2">+ Spese Spedizione € {ann.shipping_cost}</p>
+                     <p className="text-xs font-black text-stone-600 uppercase mt-2">+ Spese Spedizione € {ann.shipping_cost}</p>
                    )}
                  </>
                )}
@@ -327,7 +330,7 @@ function AnnouncementContent() {
             {ann.condition !== 'Baratto' && ann.condition !== 'Regalo' && (
               <div className="space-y-6 mb-10">
                  <div className="space-y-2">
-                    <p className="text-[10px] font-black uppercase text-stone-400 tracking-[0.2em]">Quantità (Max: {maxQty})</p>
+                    <p className="text-[10px] font-black uppercase text-stone-900 tracking-[0.2em]">Quantità (Max: {maxQty})</p>
                     <div className="flex items-center gap-4">
                       <input type="range" min="1" max={maxQty} value={selectedQuantity} onChange={(e) => setSelectedQuantity(Number(e.target.value))} className="flex-grow accent-rose-500" />
                       <span className="w-12 h-12 flex items-center justify-center bg-stone-900 text-white rounded-xl font-black text-sm">{selectedQuantity}</span>
@@ -335,29 +338,29 @@ function AnnouncementContent() {
                  </div>
 
                  <div className="space-y-3">
-                    <p className="text-[10px] font-black uppercase text-stone-400 tracking-[0.2em]">Metodo di ricezione</p>
-                    <button onClick={() => setUsePickup(false)} className={`w-full p-5 rounded-2xl border flex justify-between items-center transition-all ${!usePickup ? 'border-rose-500 bg-rose-50/50' : 'border-stone-200 bg-white hover:bg-stone-50'}`}>
+                    <p className="text-[10px] font-black uppercase text-stone-900 tracking-[0.2em]">Metodo di ricezione</p>
+                    <button onClick={() => setUsePickup(false)} className={`w-full p-5 rounded-2xl border flex justify-between items-center transition-all ${!usePickup ? 'border-rose-500 bg-white/60' : 'border-white/40 bg-white/20 hover:bg-white/40'}`}>
                       <div className="text-left">
-                         <p className="text-xs font-black uppercase text-stone-800">Spedizione Standard</p>
-                         <p className="text-[10px] font-bold text-stone-400 italic mt-0.5">Tracciata Re-love</p>
+                         <p className="text-xs font-black uppercase text-stone-900">Spedizione Standard</p>
+                         <p className="text-[10px] font-bold text-stone-600 italic mt-0.5">Tracciata Re-love</p>
                       </div>
                       <span className="font-black text-sm text-stone-900">€ {ann.shipping_cost || '0.00'}</span>
                     </button>
 
                     {ann.allow_local_pickup && (
-                      <button onClick={() => setUsePickup(true)} className={`w-full p-5 rounded-2xl border flex justify-between items-center transition-all ${usePickup ? 'border-emerald-500 bg-emerald-50' : 'border-stone-200 bg-white hover:bg-stone-50'}`}>
+                      <button onClick={() => setUsePickup(true)} className={`w-full p-5 rounded-2xl border flex justify-between items-center transition-all ${usePickup ? 'border-emerald-500 bg-emerald-100/60' : 'border-white/40 bg-white/20 hover:bg-white/40'}`}>
                         <div className="text-left">
-                           <p className="text-xs font-black uppercase text-emerald-800">Consegna a mano</p>
-                           <p className="text-[10px] font-bold text-emerald-600 italic mt-0.5">Presso {ann.city || 'località del venditore'}</p>
+                           <p className="text-xs font-black uppercase text-emerald-900">Consegna a mano</p>
+                           <p className="text-[10px] font-bold text-emerald-800 italic mt-0.5">Presso {ann.city || 'località del venditore'}</p>
                         </div>
-                        <span className="font-black text-xs uppercase text-emerald-600 bg-emerald-100 px-2 py-1 rounded">Gratis</span>
+                        <span className="font-black text-xs uppercase text-emerald-700 bg-emerald-200/60 px-2 py-1 rounded">Gratis</span>
                       </button>
                     )}
                  </div>
               </div>
             )}
 
-            <div className="space-y-3 pt-6 border-t border-stone-100">
+            <div className="space-y-3 pt-6 border-t border-white/20">
                {user?.id !== ann.user_id ? (
                  <>
                    {ann.condition === 'Nuovo' || ann.condition === 'Usato' ? (
@@ -367,13 +370,13 @@ function AnnouncementContent() {
                        </button>
 
                        {existingOffer ? (
-                         <div className={`w-full p-4 rounded-2xl text-center border ${existingOffer.status === 'In attesa' ? 'bg-orange-50 border-orange-200' : existingOffer.status === 'Rifiutata' ? 'bg-rose-50 border-rose-200' : 'bg-emerald-50 border-emerald-200'}`}>
-                           <p className="text-xs font-black uppercase text-stone-600 tracking-widest">
-                             La tua offerta (€{existingOffer.offer_price}): <span className={existingOffer.status === 'In attesa' ? 'text-orange-500' : existingOffer.status === 'Rifiutata' ? 'text-rose-500' : 'text-emerald-500'}>{existingOffer.status}</span>
+                         <div className={`w-full p-4 rounded-2xl text-center border ${existingOffer.status === 'In attesa' ? 'bg-orange-100/60 border-orange-200' : existingOffer.status === 'Rifiutata' ? 'bg-rose-100/60 border-rose-200' : 'bg-emerald-100/60 border-emerald-200'}`}>
+                           <p className="text-xs font-black uppercase text-stone-900 tracking-widest">
+                             La tua offerta (€{existingOffer.offer_price}): <span className={existingOffer.status === 'In attesa' ? 'text-orange-600' : existingOffer.status === 'Rifiutata' ? 'text-rose-600' : 'text-emerald-600'}>{existingOffer.status}</span>
                            </p>
                          </div>
                        ) : (
-                         <button onClick={() => { if(!user){ router.push('/login'); return; } setShowOfferModal(true); }} disabled={actionLoading || maxQty <= 0} className="w-full bg-white border-2 border-stone-200 text-stone-700 p-4 rounded-2xl font-black uppercase text-xs tracking-widest hover:border-stone-900 hover:text-stone-900 transition-all disabled:opacity-30">
+                         <button onClick={() => { if(!user){ router.push('/login'); return; } setShowOfferModal(true); }} disabled={actionLoading || maxQty <= 0} className="w-full bg-white/40 border-2 border-white/60 text-stone-900 p-4 rounded-2xl font-black uppercase text-xs tracking-widest hover:bg-white/80 transition-all disabled:opacity-30">
                            💡 Fai una Proposta
                          </button>
                        )}
@@ -384,14 +387,14 @@ function AnnouncementContent() {
                      </button>
                    )}
                    
-                   <button onClick={handleContact} disabled={actionLoading} className="text-stone-400 font-bold text-xs underline hover:text-stone-900 transition-all mt-4 w-full text-center disabled:opacity-30">
+                   <button onClick={handleContact} disabled={actionLoading} className="text-stone-900 font-black text-xs underline hover:text-rose-600 transition-all mt-4 w-full text-center disabled:opacity-30">
                      Hai dubbi? Contatta il venditore in chat
                    </button>
                  </>
                ) : (
                  <div className="space-y-3">
-                    <div className="p-4 bg-stone-50 rounded-2xl text-center border border-stone-100">
-                      <p className="text-[10px] font-black uppercase text-stone-400">Questo è il tuo annuncio</p>
+                    <div className="p-4 bg-white/40 rounded-2xl text-center border border-white/50">
+                      <p className="text-[10px] font-black uppercase text-stone-900">Questo è il tuo annuncio</p>
                     </div>
                     {!ann.is_sponsored && (
                       <button onClick={handleSponsor} disabled={actionLoading} className="w-full bg-gradient-to-r from-orange-400 to-rose-500 text-white p-5 rounded-2xl font-black uppercase text-xs tracking-[0.2em] shadow-xl hover:scale-105 transition-transform disabled:opacity-30">
@@ -403,50 +406,52 @@ function AnnouncementContent() {
             </div>
           </div>
           
-          <div className="bg-stone-900 p-8 rounded-[3rem] text-white shadow-2xl relative overflow-hidden">
+          {/* BOX STATO SPEDIZIONE RESO SEMI-TRASPARENTE */}
+          <div className="bg-stone-900/90 backdrop-blur-md p-8 rounded-[3rem] text-white shadow-2xl relative overflow-hidden">
              <div className="absolute top-0 right-0 p-6 opacity-20 text-5xl">🚚</div>
              <h3 className="text-xs font-black uppercase text-rose-400 tracking-[0.3em] mb-6">Stato Spedizione</h3>
              
              <div className="space-y-6 relative">
-                <div className="absolute left-1.5 top-0 bottom-0 w-0.5 bg-stone-800"></div>
+                <div className="absolute left-1.5 top-0 bottom-0 w-0.5 bg-stone-700"></div>
                 <div className="flex items-center gap-4 relative">
                   <div className="w-3 h-3 bg-rose-500 rounded-full border-4 border-stone-900 z-10 shadow-[0_0_10px_rgba(244,63,94,0.8)]"></div>
-                  <p className="text-xs font-black uppercase text-stone-200 italic tracking-wider">In attesa di acquisto</p>
+                  <p className="text-xs font-black uppercase text-stone-100 italic tracking-wider">In attesa di acquisto</p>
                 </div>
                 <div className="flex items-center gap-4 relative opacity-40">
-                  <div className="w-3 h-3 bg-stone-700 rounded-full border-4 border-stone-900 z-10"></div>
-                  <p className="text-xs font-black uppercase text-stone-400 italic">Pacco affidato al corriere</p>
+                  <div className="w-3 h-3 bg-stone-500 rounded-full border-4 border-stone-900 z-10"></div>
+                  <p className="text-xs font-black uppercase text-stone-300 italic">Pacco affidato al corriere</p>
                 </div>
              </div>
           </div>
 
-          <div className="bg-white rounded-[2.5rem] p-8 border border-stone-200 shadow-sm">
+          {/* BOX FEEDBACK RESO SEMI-TRASPARENTE */}
+          <div className="bg-white/20 backdrop-blur-md rounded-[2.5rem] p-8 border border-white/30 shadow-xl">
             <h3 className="text-sm font-black uppercase italic text-stone-900 mb-6">Feedback della Community</h3>
             {hasPurchased && (
-              <form onSubmit={submitReview} className="mb-8 p-6 bg-rose-50 rounded-3xl border border-rose-100">
-                <h4 className="text-xs font-black uppercase text-rose-600 mb-4">Lascia la tua opinione</h4>
+              <form onSubmit={submitReview} className="mb-8 p-6 bg-rose-500/20 rounded-3xl border border-rose-400/30">
+                <h4 className="text-xs font-black uppercase text-rose-700 mb-4">Lascia la tua opinione</h4>
                 <div className="flex gap-2 mb-4">
                   {[1, 2, 3, 4, 5].map(star => (
-                    <button key={star} type="button" onClick={() => setNewReview({...newReview, rating: star})} className={`text-3xl ${newReview.rating >= star ? 'text-orange-400' : 'text-stone-300'} transition-transform hover:scale-125`}>★</button>
+                    <button key={star} type="button" onClick={() => setNewReview({...newReview, rating: star})} className={`text-3xl ${newReview.rating >= star ? 'text-orange-500' : 'text-stone-400'} transition-transform hover:scale-125`}>★</button>
                   ))}
                 </div>
-                <textarea required className="w-full p-4 rounded-2xl border border-rose-200 outline-none text-sm font-medium mb-4 text-stone-700" placeholder="Come ti sei trovato con il venditore?" value={newReview.comment} onChange={(e) => setNewReview({...newReview, comment: e.target.value})} />
+                <textarea required className="w-full p-4 rounded-2xl border border-white/50 bg-white/40 outline-none text-sm font-bold mb-4 text-stone-900 placeholder:text-stone-500" placeholder="Come ti sei trovato con il venditore?" value={newReview.comment} onChange={(e) => setNewReview({...newReview, comment: e.target.value})} />
                 <button disabled={submittingReview} type="submit" className="w-full bg-rose-500 text-white py-4 rounded-xl text-xs font-black uppercase tracking-widest shadow-md">Pubblica Feedback</button>
               </form>
             )}
             
             <div className="space-y-4">
-              {reviews.length === 0 ? <p className="text-xs font-bold text-stone-400 italic text-center py-6">Nessun feedback ancora.</p> : reviews.slice(0, visibleReviews).map(review => (
-                  <div key={review.id} className="p-5 bg-stone-50 rounded-2xl border border-stone-100">
+              {reviews.length === 0 ? <p className="text-xs font-black text-stone-900 italic text-center py-6">Nessun feedback ancora.</p> : reviews.slice(0, visibleReviews).map(review => (
+                  <div key={review.id} className="p-5 bg-white/30 rounded-2xl border border-white/40">
                     <div className="flex justify-between items-center mb-3">
-                      <span className="text-xs font-black uppercase text-stone-800 italic">{review.reviewer?.first_name || 'Utente Re-love'}</span>
-                      <div className="flex text-orange-400 text-sm">{'★'.repeat(review.rating)}</div>
+                      <span className="text-xs font-black uppercase text-stone-900 italic">{review.reviewer?.first_name || 'Utente Re-love'}</span>
+                      <div className="flex text-orange-500 text-sm">{'★'.repeat(review.rating)}</div>
                     </div>
-                    <p className="text-sm font-medium text-stone-600 italic">"{review.comment}"</p>
+                    <p className="text-sm font-black text-stone-800 italic">"{review.comment}"</p>
                   </div>
               ))}
               {reviews.length > visibleReviews && (
-                <button onClick={() => setVisibleReviews(prev => prev + 3)} className="w-full py-4 text-[10px] font-black uppercase text-stone-400 hover:text-stone-900 transition-all tracking-widest">↓ Vedi altri</button>
+                <button onClick={() => setVisibleReviews(prev => prev + 3)} className="w-full py-4 text-[10px] font-black uppercase text-stone-900 hover:text-rose-600 transition-all tracking-widest">↓ Vedi altri</button>
               )}
             </div>
           </div>
@@ -490,7 +495,7 @@ function AnnouncementContent() {
 
 export default function AnnouncementClientWrapper({ announcementId }: { announcementId?: string }) {
   return (
-    <Suspense fallback={<div className="min-h-screen bg-stone-50 flex items-center justify-center font-black uppercase tracking-widest text-stone-400 text-xs">In caricamento...</div>}>
+    <Suspense fallback={<div className="min-h-screen bg-transparent flex items-center justify-center font-black uppercase tracking-widest text-stone-400 text-xs">In caricamento...</div>}>
       <AnnouncementContent />
     </Suspense>
   )

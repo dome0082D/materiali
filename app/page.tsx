@@ -135,14 +135,15 @@ function HomePageContent() {
         </Link>
       )}
 
-      {/* --- HERO SECTION: SOSTITUITA CON TEATRO.JPEG --- */}
-      <div className="relative w-full h-[400px] md:h-[650px] flex flex-col items-center overflow-hidden">
+      {/* --- HERO SECTION: IMMAGINE INTERA --- */}
+      <div className="relative w-full h-[300px] md:h-[480px] flex flex-col items-center overflow-hidden bg-transparent">
           {/* Immagine Teatro dedicata all'Hero */}
           <div className="absolute inset-0 z-0">
             <img 
               src="/teatro.jpeg" 
               alt="Re-love Hero"
-              className="w-full h-full object-cover"
+              /* MODIFICATO: object-contain per vedere l'immagine INTERA senza ritagli */
+              className="w-full h-full object-contain"
             />
           </div>
 
