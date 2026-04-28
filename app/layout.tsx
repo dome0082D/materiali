@@ -28,7 +28,7 @@ export default function RootLayout({
           {`
             if ('serviceWorker' in navigator) {
               window.addEventListener('load', function() {
-                navigator.serviceWorker.register('/sw.js').then(function(registration) {
+                navigator.worker.register('/sw.js').then(function(registration) {
                   console.log('Re-love: Service Worker registrato');
                 }, function(err) {
                   console.log('Re-love: Errore Service Worker', err);
@@ -38,24 +38,23 @@ export default function RootLayout({
           `}
         </Script>
       </head>
-      {/* Rimosso bg-stone-50 da qui per far vedere l'immagine sotto */}
+      {/* Impostiamo bg-transparent per far vedere l'immagine sotto senza filtri */}
       <body className="bg-transparent text-stone-900 font-sans antialiased min-h-screen flex flex-col relative">
         
-        {/* --- INIZIO SFONDO GLOBALE TEATRO --- */}
+        {/* --- SFONDO GLOBALE TEATRO (Senza Velo) --- */}
         <div className="fixed inset-0 z-[-10] pointer-events-none">
           <img 
             src="/teatro.jpeg" 
             alt="Sfondo Globale Re-love"
             className="w-full h-full object-cover object-center"
           />
-          {/* Velo chiaro e leggera sfocatura per permettere di leggere i testi del sito */}
-          <div className="absolute inset-0 bg-stone-50/80 backdrop-blur-[3px]"></div>
+          {/* Velo rimosso come richiesto! */}
         </div>
-        {/* --- FINE SFONDO GLOBALE --- */}
 
         <Navbar />
         
-        <main className="flex-grow relative z-10">
+        {/* main reso trasparente per far passare lo sfondo */}
+        <main className="flex-grow relative z-10 bg-transparent">
           {children}
         </main>
       </body>
