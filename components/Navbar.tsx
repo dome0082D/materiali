@@ -7,8 +7,8 @@ import { useRouter } from 'next/navigation'
 import { supabase } from '@/lib/supabase'
 import { useCartStore } from '@/store/cartStore'
 
-// CARICAMENTO MAPPA: file in minuscolo './italymap', ma variabile Maiuscola 'ItalyMap' per React
-const ItalyMap = dynamic(() => import('./italymap'), { 
+// CARICAMENTO MAPPA: file in minuscolo './italymap', ma variabile Maiuscola 'italymap' per React
+const italymap = dynamic(() => import('./italymap'), { 
   ssr: false,
   loading: () => (
     <div className="h-full w-full bg-stone-100 flex flex-col items-center justify-center p-4">
@@ -443,7 +443,7 @@ export default function Navbar() {
             </button>
           </div>
           <div className="flex-1 relative z-0">
-             <ItalyMap announcements={announcements} />
+             <italymap announcements={announcements} />
           </div>
         </div>
       )}
