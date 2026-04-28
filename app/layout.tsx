@@ -38,9 +38,24 @@ export default function RootLayout({
           `}
         </Script>
       </head>
-      <body className="bg-stone-50 text-stone-900 font-sans antialiased min-h-screen flex flex-col">
+      {/* Rimosso bg-stone-50 da qui per far vedere l'immagine sotto */}
+      <body className="bg-transparent text-stone-900 font-sans antialiased min-h-screen flex flex-col relative">
+        
+        {/* --- INIZIO SFONDO GLOBALE TEATRO --- */}
+        <div className="fixed inset-0 z-[-10] pointer-events-none">
+          <img 
+            src="/teatro.jpeg" 
+            alt="Sfondo Globale Re-love"
+            className="w-full h-full object-cover object-center"
+          />
+          {/* Velo chiaro e leggera sfocatura per permettere di leggere i testi del sito */}
+          <div className="absolute inset-0 bg-stone-50/80 backdrop-blur-[3px]"></div>
+        </div>
+        {/* --- FINE SFONDO GLOBALE --- */}
+
         <Navbar />
-        <main className="flex-grow">
+        
+        <main className="flex-grow relative z-10">
           {children}
         </main>
       </body>
