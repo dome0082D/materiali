@@ -7,13 +7,13 @@ import { useRouter } from 'next/navigation'
 import { supabase } from '@/lib/supabase'
 import { useCartStore } from '@/store/cartStore'
 
-// Caricamento dinamico della Mappa dell'Italia per evitare errori SSR
-const ItalyMap = dynamic(() => import('./ItalyMap'), { 
+// CARICAMENTO MAPPA CON LA "i" MINUSCOLA PER RISOLVERE L'ERRORE
+const ItalyMap = dynamic(() => import('./italyMap'), { 
   ssr: false,
   loading: () => (
-    <div className="h-full w-full bg-stone-100 flex flex-col items-center justify-center">
+    <div className="h-full w-full bg-stone-100 flex flex-col items-center justify-center p-4">
       <div className="w-12 h-12 border-4 border-rose-500 border-t-transparent rounded-full animate-spin mb-4"></div>
-      <p className="text-[10px] font-black uppercase text-stone-400 tracking-widest text-center">Aggancio Satellitare Re-love...</p>
+      <p className="text-[10px] font-black uppercase text-stone-400 tracking-widest text-center">Aggancio Satellitare Mappa Italia in corso...</p>
     </div>
   )
 })
@@ -24,18 +24,20 @@ export default function Navbar() {
   const [isNotifOpen, setIsNotifOpen] = useState(false) 
   const [user, setUser] = useState<any>(null)
   const [categories, setCategories] = useState<any[]>([])
-  const [announcements, setAnnouncements] = useState<any[]>([]) // Aggiunto per la Mappa
   const [loading, setLoading] = useState(false)
   const [notifications, setNotifications] = useState(0)
 
-  // STATI PER I NUOVI STRUMENTI E MAPPA
+  // STATI PER I NUOVI STRUMENTI E LA MAPPA
   const [darkMode, setDarkMode] = useState(false)
   const [showSecurityModal, setShowSecurityModal] = useState(false)
   const [showAiModal, setShowAiModal] = useState(false)
-  const [showMapModal, setShowMapModal] = useState(false) // Aggiunto per il popup Mappa
-  const [isRadarScanning, setIsRadarScanning] = useState(false)
+  const [showMapModal, setShowMapModal] = useState(false)
+  const [announcements, setAnnouncements] = useState<any[]>([])
   const [aiItemName, setAiItemName] = useState('')
   const [aiResult, setAiResult] = useState<string | null>(null)
+  
+  // STATI PER IL RADAR
+  const [isRadarScanning, setIsRadarScanning] = useState(false)
   
   const router = useRouter()
   const { items, isCartOpen, openCart, closeCart, removeItem, updateQuantity } = useCartStore()
@@ -48,7 +50,7 @@ export default function Navbar() {
       if (!styleEl) {
         styleEl = document.createElement('style');
         styleEl.id = 'dark-mode-hack';
-        // Inverte i colori del sito, ma "re-inverte" immagini, video e mappa
+        // Inverte i colori del sito, ma "re-inverte" immagini e video così non sembrano negativi fotografici!
         styleEl.innerHTML = `
           html { filter: invert(1) hue-rotate(180deg); background: #fff; transition: filter 0.5s ease; }
           img, video, iframe, .leaflet-container { filter: invert(1) hue-rotate(180deg); }
@@ -60,7 +62,6 @@ export default function Navbar() {
     }
   }, [darkMode])
 
-  // --- INIZIALIZZAZIONE DATI E REALTIME ---
   useEffect(() => {
     const getData = async () => {
       try {
@@ -68,7 +69,6 @@ export default function Navbar() {
         const currentUser = session?.user || null
         setUser(currentUser)
         
-        // Carica Categorie
         try {
           const { data: cats, error: catsError } = await supabase.from('categories').select('*').order('name')
           if (!catsError && cats) {
@@ -78,14 +78,14 @@ export default function Navbar() {
           console.warn("Nessuna tabella categorie trovata", catErr)
         }
 
-        // Carica Annunci per la Mappa
+        // CARICAMENTO ANNUNCI PER LA MAPPA
         try {
           const { data: anns, error: annsError } = await supabase.from('announcements').select('*')
           if (!annsError && anns) {
             setAnnouncements(anns)
           }
         } catch (annsErr) {
-          console.warn("Impossibile caricare gli annunci per la mappa", annsErr)
+          console.warn("Nessuna tabella annunci trovata", annsErr)
         }
 
         if (currentUser) {
@@ -158,16 +158,15 @@ export default function Navbar() {
 
   // --- LOGICA NUOVI STRUMENTI ---
   
-  // LOGICA RADAR CON APERTURA MAPPA
+  // LOGICA RADAR CHE APRE LA MAPPA DELL'ITALIA
   const handleRadar = () => {
     setIsSidebarOpen(false);
     setIsRadarScanning(true);
     
-    // Mostra scansione per 2.5 secondi, poi apre la mappa dell'Italia
     setTimeout(() => {
       setIsRadarScanning(false);
       setShowMapModal(true);
-    }, 2500);
+    }, 3000);
   }
 
   const handleAiValuation = () => {
@@ -320,7 +319,7 @@ export default function Navbar() {
                 )}
               </div>
             </section>
-            
+
             <section>
               <h3 className="text-[10px] font-bold uppercase text-stone-400 mb-4 tracking-[0.2em] border-b pb-2 border-stone-100">Categorie</h3>
               <div className="grid gap-1">
@@ -382,24 +381,6 @@ export default function Navbar() {
         )}
       </div>
 
-      {/* -------------------- POPUP MAPPA ITALIA (NUOVO) -------------------- */}
-      {showMapModal && (
-        <div className="fixed inset-0 z-[15000] bg-white flex flex-col animate-in slide-in-from-bottom duration-500">
-          <div className="p-4 border-b border-stone-100 flex justify-between items-center bg-white shadow-sm z-10">
-            <div>
-              <h2 className="text-xl md:text-2xl font-black uppercase italic text-rose-500 tracking-tighter">Mappa Re-love Italia</h2>
-              <p className="text-[10px] font-bold text-stone-400 uppercase tracking-widest">Esplora gli annunci in tutto il Paese</p>
-            </div>
-            <button onClick={() => setShowMapModal(false)} className="bg-stone-900 text-white px-4 py-2 md:px-6 md:py-3 rounded-2xl font-black uppercase text-[10px] tracking-widest hover:bg-rose-500 transition-all shadow-md">
-              Chiudi X
-            </button>
-          </div>
-          <div className="flex-1 relative z-0">
-             <ItalyMap announcements={announcements} />
-          </div>
-        </div>
-      )}
-
       {/* -------------------- POPUP SCUDO SICUREZZA -------------------- */}
       {showSecurityModal && (
         <div className="fixed inset-0 z-[10000] flex items-center justify-center p-4">
@@ -410,7 +391,7 @@ export default function Navbar() {
               <h2 className="text-2xl font-black uppercase italic text-stone-900">Scudo Re-love</h2>
               <p className="text-[10px] uppercase font-bold text-stone-400 tracking-widest mt-1">Acquisti e Baratti Protetti</p>
             </div>
-            <div className="space-y-4 text-sm font-medium text-stone-600 border-y border-stone-100 py-4">
+            <div className="space-y-4 text-sm font-medium text-stone-600">
               <p className="flex items-start gap-2"><span>🔒</span> <b>Pagamenti Sicuri:</b> Usiamo Stripe. I tuoi fondi sono congelati finché non ricevi il pacco.</p>
               <p className="flex items-start gap-2"><span>🤝</span> <b>Baratto Diretto:</b> Per barattare, usa la nostra chat integrata. Mai scambiarsi numeri privati.</p>
               <p className="flex items-start gap-2"><span>🚚</span> <b>Spedizione Tracciata:</b> Tutti gli acquisti "Nuovo" e "Usato" sono tracciati nel pannello Staff.</p>
@@ -438,7 +419,7 @@ export default function Navbar() {
               className="w-full p-4 bg-stone-50 border border-stone-200 rounded-2xl mb-4 font-bold text-sm outline-none focus:border-purple-400"
             />
             {aiResult ? (
-              <div className="bg-purple-50 p-4 rounded-xl border border-purple-200 mb-4 animate-in fade-in">
+              <div className="bg-purple-50 p-4 rounded-xl border border-purple-200 mb-4">
                 <p className="text-xs font-bold text-purple-800">{aiResult}</p>
               </div>
             ) : null}
@@ -449,18 +430,39 @@ export default function Navbar() {
         </div>
       )}
 
-      {/* -------------------- ANIMAZIONE RADAR -------------------- */}
+      {/* -------------------- POPUP MAPPA ITALIA DETTAGLIATA -------------------- */}
+      {showMapModal && (
+        <div className="fixed inset-0 z-[15000] bg-white flex flex-col animate-in slide-in-from-bottom duration-500">
+          <div className="p-4 border-b border-stone-100 flex justify-between items-center bg-white shadow-sm z-10">
+            <div>
+              <h2 className="text-xl md:text-2xl font-black uppercase italic text-rose-500 tracking-tighter">Mappa Re-love Italia</h2>
+              <p className="text-[10px] font-bold text-stone-400 uppercase tracking-widest">Esplora gli annunci in tutto il Paese</p>
+            </div>
+            <button onClick={() => setShowMapModal(false)} className="bg-stone-900 text-white px-4 py-2 md:px-6 md:py-3 rounded-2xl font-black uppercase text-[10px] tracking-widest hover:bg-rose-500 transition-all shadow-md">
+              Chiudi X
+            </button>
+          </div>
+          <div className="flex-1 relative z-0">
+             <ItalyMap announcements={announcements} />
+          </div>
+        </div>
+      )}
+
+      {/* -------------------- ANIMAZIONE RADAR DI QUARTIERE -------------------- */}
       {isRadarScanning && (
         <div className="fixed inset-0 z-[20000] bg-stone-900/95 backdrop-blur-md flex items-center justify-center p-4">
           <div className="text-center flex flex-col items-center">
+            {/* Cerchio del Radar */}
             <div className="w-48 h-48 rounded-full border-4 border-emerald-500/20 flex items-center justify-center relative overflow-hidden mb-8 shadow-[0_0_80px_rgba(16,185,129,0.2)]">
+              {/* Onde concentriche */}
               <div className="absolute inset-0 rounded-full border border-emerald-500/40 animate-ping" style={{ animationDuration: '2s' }}></div>
               <div className="absolute inset-4 rounded-full border border-emerald-500/30 animate-ping" style={{ animationDuration: '2.5s' }}></div>
+              {/* Raggio verde che gira */}
               <div className="w-[50%] h-1 bg-gradient-to-r from-transparent to-emerald-400 absolute top-1/2 left-1/2 origin-left animate-spin" style={{ animationDuration: '1.5s', transform: 'translateY(-50%)' }}></div>
               <span className="text-5xl relative z-10">📡</span>
             </div>
             <h2 className="text-3xl font-black uppercase italic text-emerald-400 tracking-widest mb-3">Scansione in corso...</h2>
-            <p className="text-stone-300 text-xs font-bold uppercase tracking-[0.3em] animate-pulse">Analisi oggetti in tutta Italia</p>
+            <p className="text-stone-300 text-xs font-bold uppercase tracking-[0.3em] animate-pulse">Ricerca oggetti in Italia</p>
           </div>
         </div>
       )}
