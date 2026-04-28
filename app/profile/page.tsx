@@ -17,6 +17,8 @@ interface ProfileData {
   bio?: string;
   phone?: string;
   avatar_url?: string;
+  latitude?: number;
+  longitude?: number;
 }
 
 interface EditForm {
@@ -146,8 +148,22 @@ function ProfileContent() {
     setSaving(false)
   }
 
+  // --- FUNZIONE GEOLOCALIZZAZIONE AUTOMATICA DA NOME CITTÀ ---
+  async function getCoordinatesFromCity(city: string): Promise<{ lat: number, lon: number } | null> {
+    try {
+      const response = await fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(city + ', Italy')}`)
+      const data = await response.json()
+      if (data && data.length > 0) {
+        return { lat: parseFloat(data[0].lat), lon: parseFloat(data[0].lon) }
+      }
+      return null
+    } catch (error) {
+      console.error("Errore Geocoding:", error)
+      return null
+    }
+  }
+
   async function saveProfile() {
-    // Aggiunto il nickname nei campi obbligatori
     if (!editForm.nickname?.trim() || !editForm.first_name?.trim() || !editForm.last_name?.trim() || !editForm.city?.trim() || !editForm.full_address?.trim()) {
       alert("Nickname, Nome, Cognome, Città e Indirizzo sono obbligatori.")
       return
@@ -155,6 +171,18 @@ function ProfileContent() {
 
     setSaving(true)
     try {
+      // 1. Calcola le coordinate in background basate sulla città
+      let lat = null;
+      let lon = null;
+      if (editForm.city) {
+        const coords = await getCoordinatesFromCity(editForm.city);
+        if (coords) {
+          lat = coords.lat;
+          lon = coords.lon;
+        }
+      }
+
+      // 2. Salva su Supabase (inclusi latitudine e longitudine)
       const { error } = await supabase
         .from('profiles')
         .update({
@@ -165,13 +193,22 @@ function ProfileContent() {
           first_name: editForm.first_name,
           last_name: editForm.last_name,
           city: editForm.city,
-          full_address: editForm.full_address
+          full_address: editForm.full_address,
+          latitude: lat,
+          longitude: lon
         })
         .eq('id', user?.id)
 
       if (error) throw error
-      setProfile({ ...profile, ...editForm })
+      
+      setProfile({ ...profile, ...editForm, latitude: lat || undefined, longitude: lon || undefined })
       setIsEditing(false)
+      if(lat && lon) {
+          alert("Profilo aggiornato! La tua città è stata posizionata sul Radar. 📍")
+      } else {
+          alert("Profilo aggiornato! (Non è stato possibile mappare esattamente la città sul Radar)")
+      }
+
     } catch (error: unknown) { 
       const err = error as Error
       alert("Errore salvataggio: " + err.message)
@@ -303,7 +340,7 @@ function ProfileContent() {
                   <input type="text" value={editForm.phone} onChange={(e) => setEditForm({...editForm, phone: e.target.value})} className="w-full p-3 bg-stone-50 border border-stone-100 rounded-xl text-xs font-bold outline-none focus:border-rose-400" placeholder="+39 ..." />
                 </div>
 
-                {/* EDIT MODE: NOME E INDIRIZZO (Tuo codice originale) */}
+                {/* EDIT MODE: NOME E INDIRIZZO */}
                 <div className="grid grid-cols-2 gap-4">
                   <div className="space-y-1">
                     <p className="text-[8px] font-black uppercase text-stone-400 ml-1">Nome Reale (Privato)</p>
@@ -315,8 +352,8 @@ function ProfileContent() {
                   </div>
                 </div>
                 <div className="space-y-1">
-                  <p className="text-[8px] font-black uppercase text-stone-400 ml-1">Città</p>
-                  <input type="text" value={editForm.city} onChange={(e) => setEditForm({...editForm, city: e.target.value})} className="w-full p-3 bg-stone-50 border border-stone-100 rounded-xl text-xs font-bold outline-none focus:border-rose-400" />
+                  <p className="text-[8px] font-black uppercase text-stone-400 ml-1">Città (Viene usata per il Radar)</p>
+                  <input type="text" value={editForm.city} onChange={(e) => setEditForm({...editForm, city: e.target.value})} className="w-full p-3 bg-stone-50 border border-stone-100 rounded-xl text-xs font-bold outline-none focus:border-rose-400" placeholder="Es: Milano, Roma..." />
                 </div>
                 <div className="space-y-1">
                   <p className="text-[8px] font-black uppercase text-stone-400 ml-1">Indirizzo completo (Privato)</p>
@@ -356,9 +393,16 @@ function ProfileContent() {
                     <p className="text-[9px] font-black uppercase text-rose-400 tracking-widest mb-1">Indirizzo di Spedizione (Privato)</p>
                     <p className="text-sm font-bold uppercase italic text-stone-600 truncate">{profile?.full_address || 'Non specificato'}</p>
                   </div>
-                  <div className="md:col-span-2">
-                    <p className="text-[9px] font-black uppercase text-stone-400 tracking-widest mb-1">Città Pubblica</p>
-                    <p className="text-sm font-bold uppercase italic">{profile?.city || 'Non specificata'}</p>
+                  <div className="md:col-span-2 flex justify-between items-center bg-stone-50 p-4 rounded-xl border border-stone-100">
+                    <div>
+                      <p className="text-[9px] font-black uppercase text-stone-400 tracking-widest mb-1">Città Pubblica (Radar)</p>
+                      <p className="text-sm font-bold uppercase italic">{profile?.city || 'Non specificata'}</p>
+                    </div>
+                    {profile?.latitude && profile?.longitude ? (
+                       <span className="text-[10px] font-black uppercase text-emerald-500 tracking-widest">📍 Su Mappa</span>
+                    ) : (
+                       <span className="text-[10px] font-black uppercase text-rose-400 tracking-widest">Mappa Offline</span>
+                    )}
                   </div>
                   <div className="md:col-span-2">
                     <p className="text-[9px] font-black uppercase text-stone-400 tracking-widest mb-1">Bio</p>

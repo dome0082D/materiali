@@ -10,6 +10,9 @@ interface ProfileData {
   stripe_account_id?: string;
   first_name?: string;
   last_name?: string;
+  city?: string;
+  latitude?: number;
+  longitude?: number;
 }
 
 const CATEGORIES = [
@@ -59,11 +62,6 @@ function AddAnnouncementForm() {
   const [imageUrls, setImageUrls] = useState<string[]>([])
   const [uploading, setUploading] = useState(false)
 
-  // --- STATI PER LA POSIZIONE GPS ---
-  const [latitude, setLatitude] = useState<number | null>(null)
-  const [longitude, setLongitude] = useState<number | null>(null)
-  const [gettingLocation, setGettingLocation] = useState(false)
-
   useEffect(() => {
     async function checkUser() {
       const { data: { user } } = await supabase.auth.getUser()
@@ -73,7 +71,8 @@ function AddAnnouncementForm() {
       }
       setUser(user)
       
-      const { data } = await supabase.from('profiles').select('stripe_account_id, first_name, last_name').eq('id', user.id).single()
+      // Carichiamo i dati del profilo inclusi città e coordinate salvate in precedenza
+      const { data } = await supabase.from('profiles').select('stripe_account_id, first_name, last_name, city, latitude, longitude').eq('id', user.id).single()
       setProfile(data)
       setLoadingUser(false)
     }
@@ -112,27 +111,6 @@ function AddAnnouncementForm() {
     setImageUrls(newUrls)
   }
 
-  // --- FUNZIONE PER OTTENERE LA POSIZIONE ---
-  const handleGetLocation = () => {
-    if (!navigator.geolocation) {
-      alert("Il tuo browser o dispositivo non supporta la geolocalizzazione.")
-      return
-    }
-    setGettingLocation(true)
-    navigator.geolocation.getCurrentPosition(
-      (position) => {
-        setLatitude(position.coords.latitude)
-        setLongitude(position.coords.longitude)
-        setGettingLocation(false)
-      },
-      (error) => {
-        alert("Non è stato possibile ottenere la posizione. Assicurati di aver dato i permessi al browser.")
-        setGettingLocation(false)
-      },
-      { enableHighAccuracy: true, timeout: 10000, maximumAge: 0 }
-    )
-  }
-
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     if (!user) return
@@ -168,7 +146,7 @@ function AddAnnouncementForm() {
       const numShipping = parseFloat(shippingCost) || 0
       const qty = parseInt(quantity) || 1
 
-      // Salvataggio con latitudine e longitudine
+      // Salvataggio annuncio: latitudine e longitudine vengono prese automaticamente dal profilo caricato in useEffect
       const { data: insertedData, error } = await supabase.from('announcements').insert([
         {
           title,
@@ -183,14 +161,14 @@ function AddAnnouncementForm() {
           quantity: qty,
           allow_local_pickup: allowLocalPickup,
           exchange_item: condition === 'Baratto' ? exchangeItem : null,
-          latitude: latitude,
-          longitude: longitude
+          latitude: profile?.latitude || null,
+          longitude: profile?.longitude || null
         }
       ]).select()
 
       if (error) throw error
 
-      alert('Annuncio creato con successo! 🚀')
+      alert('Annuncio creato con successo! 🚀 Apparirà automaticamente sulla Mappa Italia.')
       router.push(`/announcement/${insertedData[0].id}`)
     } catch (error: any) {
       alert('Errore: ' + error.message)
@@ -204,7 +182,6 @@ function AddAnnouncementForm() {
   return (
     <div className="min-h-screen bg-transparent font-sans text-stone-900 pb-32 relative">
       
-      {/* --- SFONDO IMMAGINE --- */}
       <div className="fixed inset-0 z-0 pointer-events-none">
         <img 
           src={currentBackground} 
@@ -355,27 +332,16 @@ function AddAnnouncementForm() {
                </label>
             </div>
 
-            {/* --- NUOVA SEZIONE POSIZIONE PER LA MAPPA --- */}
-            <div className="bg-stone-50 p-5 rounded-2xl border border-stone-100 flex flex-col md:flex-row items-center justify-between gap-4">
-               <div className="flex flex-col text-center md:text-left">
-                 <span className="text-xs font-black uppercase text-stone-800">Posizione Mappa</span>
-                 <span className="text-[9px] font-bold uppercase text-stone-400">
-                   {latitude && longitude 
-                     ? '📍 Posizione acquisita. Il tuo oggetto apparirà nel Radar!' 
-                     : 'Fai apparire il tuo annuncio sul Radar Italia'}
-                 </span>
-               </div>
-               <button
-                 type="button"
-                 onClick={handleGetLocation}
-                 disabled={gettingLocation}
-                 className={`px-5 py-3 rounded-xl font-black uppercase text-[10px] tracking-widest transition-all w-full md:w-auto ${latitude && longitude ? 'bg-emerald-500 text-white hover:bg-emerald-600 shadow-md' : 'bg-stone-900 text-white hover:bg-rose-500 shadow-lg'}`}
-               >
-                 {gettingLocation ? 'Ricerca GPS...' : (latitude && longitude ? '📍 Ricalcola' : '📍 Usa la mia posizione')}
-               </button>
-            </div>
-
             <div className="pt-8">
+              {/* Stato della geolocalizzazione nel profilo */}
+              <div className="mb-6 text-center">
+                 {profile?.latitude && profile?.longitude ? (
+                   <p className="text-[10px] font-black uppercase text-emerald-500 tracking-widest">📍 L'annuncio verrà posizionato a: {profile.city}</p>
+                 ) : (
+                   <p className="text-[10px] font-black uppercase text-rose-400 tracking-widest">⚠️ Attenzione: Aggiungi la tua città nel Profilo per apparire sulla Mappa Italia!</p>
+                 )}
+              </div>
+
               <button disabled={uploading || (!profile?.stripe_account_id && condition !== 'Regalo' && condition !== 'Baratto')} type="submit" className="w-full bg-stone-900 text-white py-6 rounded-2xl font-black uppercase text-sm tracking-[0.2em] shadow-2xl hover:bg-rose-500 hover:scale-[1.02] transition-all disabled:opacity-50 disabled:hover:scale-100">
                 {uploading ? 'Pubblicazione in corso...' : 'Pubblica il tuo annuncio 🚀'}
               </button>
