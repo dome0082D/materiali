@@ -134,6 +134,37 @@ export default function Navbar() {
     window.location.href = '/'
   }
 
+  // --- NUOVA FUNZIONE: CANCELLAZIONE DEFINITIVA PROFILO ---
+  const handleDeleteAccount = async () => {
+    const firstConfirm = window.confirm("⚠️ ATTENZIONE: Sei sicuro di voler cancellare il tuo profilo? Questa azione eliminerà i tuoi dati. Non potrai tornare indietro.");
+    
+    if (firstConfirm) {
+      const secondConfirm = window.confirm("Sei PROPRIO sicuro? Dovrai registrarti di nuovo se vorrai tornare su Re-love.");
+      
+      if (secondConfirm && user) {
+        setLoading(true);
+        try {
+          // 1. Eliminiamo il profilo dal database
+          const { error } = await supabase
+            .from('profiles')
+            .delete()
+            .eq('id', user.id);
+
+          if (error) throw error;
+
+          // 2. Logout e redirect
+          await supabase.auth.signOut();
+          alert("Profilo eliminato con successo. Ci dispiace vederti andare via! 🌹");
+          window.location.href = '/';
+        } catch (err: any) {
+          alert("Errore durante l'eliminazione: " + err.message);
+        } finally {
+          setLoading(false);
+        }
+      }
+    }
+  };
+
   const handleCheckout = async () => {
     if (!user) { alert("Devi accedere o registrarti per completare l'acquisto"); return; }
     setLoading(true);
@@ -266,7 +297,13 @@ export default function Navbar() {
               <div className="absolute right-0 mt-2 w-48 bg-white border border-stone-100 shadow-xl rounded-xl p-2 z-[6000]">
                 <Link href="/profile" className="block p-3 text-xs font-medium text-stone-700 hover:bg-rose-50 hover:text-rose-600 rounded-lg transition-all">⚙️ Impostazioni</Link>
                 <Link href="/come-funziona" className="block p-3 text-xs font-medium text-stone-700 hover:bg-rose-50 hover:text-rose-600 rounded-lg transition-all">❓ Aiuto</Link>
-                {user && <button onClick={handleLogout} className="w-full text-left p-3 text-xs font-medium text-red-500 hover:bg-red-50 rounded-lg transition-all">Esci</button>}
+                {user && (
+                  <>
+                    <button onClick={handleLogout} className="w-full text-left p-3 text-xs font-medium text-stone-700 hover:bg-stone-50 rounded-lg transition-all">Esci</button>
+                    <div className="border-t border-stone-100 my-1"></div>
+                    <button onClick={handleDeleteAccount} className="w-full text-left p-3 text-xs font-bold text-red-500 hover:bg-red-50 rounded-lg transition-all">🗑️ Elimina Profilo</button>
+                  </>
+                )}
               </div>
             )}
           </div>
