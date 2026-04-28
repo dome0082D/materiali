@@ -2,6 +2,7 @@ import type { Metadata, Viewport } from 'next'
 import './globals.css'
 import Navbar from '@/components/Navbar'
 import Script from 'next/script'
+import RealtimeNotifications from '@/components/RealtimeNotifications' // <-- ECCO L'IMPORTAZIONE!
 
 export const metadata: Metadata = {
   title: 'Re-love - Dai nuova vita all\'usato',
@@ -34,6 +35,10 @@ export default function RootLayout({
       {/* Torniamo allo sfondo bianco solido (bg-white) */}
       <body className="bg-white text-stone-900 font-sans antialiased min-h-screen flex flex-col relative">
         <Navbar />
+        
+        {/* IL NOSTRO MAGICO POPUP IN TEMPO REALE */}
+        <RealtimeNotifications />
+        
         <main className="flex-grow bg-white">
           {children}
         </main>
