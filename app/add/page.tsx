@@ -192,7 +192,17 @@ function AddAnnouncementForm() {
 
       <div className="relative z-10">
         <div className="relative w-full h-[300px] md:h-[400px] flex items-center justify-center overflow-hidden border-b border-stone-200">
-           <div className="relative z-10 text-center max-w-2xl px-6">
+           
+           {/* --- NUOVA IMMAGINE HERO: TEATRO --- */}
+           <img 
+             src="/teatro.jpeg" 
+             alt="Sfondo Hero Teatro"
+             className="absolute inset-0 w-full h-full object-cover z-0"
+           />
+           {/* Velo scuro per garantire la leggibilità del testo */}
+           <div className="absolute inset-0 bg-stone-900/40 z-10"></div>
+
+           <div className="relative z-20 text-center max-w-2xl px-6">
               <h1 className="text-4xl md:text-5xl font-black uppercase italic text-white tracking-tighter mb-4 drop-shadow-[0_4px_4px_rgba(0,0,0,0.8)]">
                  {mode === 'new' && 'Vendi il tuo Nuovo'}
                  {mode === 'used' && 'Dai una Seconda Vita'}
