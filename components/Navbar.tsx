@@ -7,7 +7,7 @@ import { useRouter } from 'next/navigation'
 import { supabase } from '@/lib/supabase'
 import { useCartStore } from '@/store/cartStore'
 
-// CARICAMENTO MAPPA: file in minuscolo './italymap', ma variabile Maiuscola 'italymap' per React
+// CARICAMENTO MAPPA: TUTTO MINUSCOLO
 const italymap = dynamic(() => import('./italymap'), { 
   ssr: false,
   loading: () => (
@@ -324,7 +324,7 @@ export default function Navbar() {
               <h3 className="text-[10px] font-bold uppercase text-stone-400 mb-4 tracking-[0.2em] border-b pb-2 border-stone-100">Categorie</h3>
               <div className="grid gap-1">
                 {categories.map((cat) => (
-                  <Link key={cat.id} href={`/?cat=${cat.slug}`} onClick={() => setIsSidebarOpen(false)} className="p-3 text-sm font-medium text-stone-600 hover:text-orange-500 hover:bg-orange-50 rounded-xl transition-all">
+                  <Link key={cat.id} href={`/?cat=${cat.slug}`} onClick={() => setIsSidebarOpen(false)} className="p-3 text-sm font-medium text-stone-600 hover:text-orange-500 hover:bg-orange-50 rounded-xl transition-all capitalize">
                     {cat.name}
                   </Link>
                 ))}
