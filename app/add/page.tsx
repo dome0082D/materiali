@@ -33,7 +33,7 @@ function AddAnnouncementForm() {
   const searchParams = useSearchParams()
   const mode = searchParams.get('mode') || 'used' 
 
-  // --- MAPPA DEGLI SFONDI DINAMICI (NOMI ESATTI DA VS CODE) ---
+  // --- MAPPA DEGLI SFONDI DINAMICI ---
   const backgroundMap: Record<string, string> = {
     new: '/relove citta.jpeg',
     used: '/urbano.jpeg',
@@ -43,7 +43,6 @@ function AddAnnouncementForm() {
 
   const currentBackground = backgroundMap[mode] || '/urbano.jpeg'
 
-  // Impostazioni iniziali in base al mode
   const initialCondition = mode === 'new' ? 'Nuovo' : mode === 'gift' ? 'Regalo' : mode === 'barter' ? 'Baratto' : 'Usato'
   
   const [title, setTitle] = useState('')
@@ -59,6 +58,11 @@ function AddAnnouncementForm() {
   const [images, setImages] = useState<File[]>([])
   const [imageUrls, setImageUrls] = useState<string[]>([])
   const [uploading, setUploading] = useState(false)
+
+  // --- STATI PER LA POSIZIONE GPS ---
+  const [latitude, setLatitude] = useState<number | null>(null)
+  const [longitude, setLongitude] = useState<number | null>(null)
+  const [gettingLocation, setGettingLocation] = useState(false)
 
   useEffect(() => {
     async function checkUser() {
@@ -76,7 +80,6 @@ function AddAnnouncementForm() {
     checkUser()
   }, [router])
 
-  // Seleziona la condizione quando cambia il 'mode' nell'URL
   useEffect(() => {
     setCondition(mode === 'new' ? 'Nuovo' : mode === 'gift' ? 'Regalo' : mode === 'barter' ? 'Baratto' : 'Usato')
     if (mode === 'gift' || mode === 'barter') {
@@ -107,6 +110,27 @@ function AddAnnouncementForm() {
     URL.revokeObjectURL(newUrls[index])
     newUrls.splice(index, 1)
     setImageUrls(newUrls)
+  }
+
+  // --- FUNZIONE PER OTTENERE LA POSIZIONE ---
+  const handleGetLocation = () => {
+    if (!navigator.geolocation) {
+      alert("Il tuo browser o dispositivo non supporta la geolocalizzazione.")
+      return
+    }
+    setGettingLocation(true)
+    navigator.geolocation.getCurrentPosition(
+      (position) => {
+        setLatitude(position.coords.latitude)
+        setLongitude(position.coords.longitude)
+        setGettingLocation(false)
+      },
+      (error) => {
+        alert("Non è stato possibile ottenere la posizione. Assicurati di aver dato i permessi al browser.")
+        setGettingLocation(false)
+      },
+      { enableHighAccuracy: true, timeout: 10000, maximumAge: 0 }
+    )
   }
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -144,6 +168,7 @@ function AddAnnouncementForm() {
       const numShipping = parseFloat(shippingCost) || 0
       const qty = parseInt(quantity) || 1
 
+      // Salvataggio con latitudine e longitudine
       const { data: insertedData, error } = await supabase.from('announcements').insert([
         {
           title,
@@ -158,6 +183,8 @@ function AddAnnouncementForm() {
           quantity: qty,
           allow_local_pickup: allowLocalPickup,
           exchange_item: condition === 'Baratto' ? exchangeItem : null,
+          latitude: latitude,
+          longitude: longitude
         }
       ]).select()
 
@@ -177,7 +204,7 @@ function AddAnnouncementForm() {
   return (
     <div className="min-h-screen bg-transparent font-sans text-stone-900 pb-32 relative">
       
-      {/* --- SFONDO IMMAGINE UNICO DIETRO A TUTTO (SENZA SFOCATURA) --- */}
+      {/* --- SFONDO IMMAGINE --- */}
       <div className="fixed inset-0 z-0 pointer-events-none">
         <img 
           src={currentBackground} 
@@ -187,11 +214,8 @@ function AddAnnouncementForm() {
       </div>
 
       <div className="relative z-10">
-        {/* --- HEADER DINAMICO (Rimosso il doppione dell'immagine qui dentro) --- */}
         <div className="relative w-full h-[300px] md:h-[400px] flex items-center justify-center overflow-hidden border-b border-stone-200">
-
            <div className="relative z-10 text-center max-w-2xl px-6">
-              {/* Testo con ombra per leggerlo sulla foto chiara */}
               <h1 className="text-4xl md:text-5xl font-black uppercase italic text-white tracking-tighter mb-4 drop-shadow-[0_4px_4px_rgba(0,0,0,0.8)]">
                  {mode === 'new' && 'Vendi il tuo Nuovo'}
                  {mode === 'used' && 'Dai una Seconda Vita'}
@@ -329,6 +353,26 @@ function AddAnnouncementForm() {
                    <span className="text-[9px] font-bold uppercase text-stone-400">Gli acquirenti vicini potranno non pagare la spedizione</span>
                  </div>
                </label>
+            </div>
+
+            {/* --- NUOVA SEZIONE POSIZIONE PER LA MAPPA --- */}
+            <div className="bg-stone-50 p-5 rounded-2xl border border-stone-100 flex flex-col md:flex-row items-center justify-between gap-4">
+               <div className="flex flex-col text-center md:text-left">
+                 <span className="text-xs font-black uppercase text-stone-800">Posizione Mappa</span>
+                 <span className="text-[9px] font-bold uppercase text-stone-400">
+                   {latitude && longitude 
+                     ? '📍 Posizione acquisita. Il tuo oggetto apparirà nel Radar!' 
+                     : 'Fai apparire il tuo annuncio sul Radar Italia'}
+                 </span>
+               </div>
+               <button
+                 type="button"
+                 onClick={handleGetLocation}
+                 disabled={gettingLocation}
+                 className={`px-5 py-3 rounded-xl font-black uppercase text-[10px] tracking-widest transition-all w-full md:w-auto ${latitude && longitude ? 'bg-emerald-500 text-white hover:bg-emerald-600 shadow-md' : 'bg-stone-900 text-white hover:bg-rose-500 shadow-lg'}`}
+               >
+                 {gettingLocation ? 'Ricerca GPS...' : (latitude && longitude ? '📍 Ricalcola' : '📍 Usa la mia posizione')}
+               </button>
             </div>
 
             <div className="pt-8">
