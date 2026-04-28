@@ -36,15 +36,7 @@ function AddAnnouncementForm() {
   const searchParams = useSearchParams()
   const mode = searchParams.get('mode') || 'used' 
 
-  // --- MAPPA DEGLI SFONDI DINAMICI ---
-  const backgroundMap: Record<string, string> = {
-    new: '/relove citta.jpeg',
-    used: '/urbano.jpeg',
-    gift: '/relove montagna.jpeg',
-    barter: '/relove antico.jpeg'
-  }
-
-  const currentBackground = backgroundMap[mode] || '/urbano.jpeg'
+  // --- LOGICA SFONDI RIMOSSA ---
 
   const initialCondition = mode === 'new' ? 'Nuovo' : mode === 'gift' ? 'Regalo' : mode === 'barter' ? 'Baratto' : 'Usato'
   
@@ -71,7 +63,6 @@ function AddAnnouncementForm() {
       }
       setUser(user)
       
-      // Carichiamo i dati del profilo inclusi città e coordinate salvate in precedenza
       const { data } = await supabase.from('profiles').select('stripe_account_id, first_name, last_name, city, latitude, longitude').eq('id', user.id).single()
       setProfile(data)
       setLoadingUser(false)
@@ -146,7 +137,6 @@ function AddAnnouncementForm() {
       const numShipping = parseFloat(shippingCost) || 0
       const qty = parseInt(quantity) || 1
 
-      // Salvataggio annuncio: latitudine e longitudine vengono prese automaticamente dal profilo caricato in useEffect
       const { data: insertedData, error } = await supabase.from('announcements').insert([
         {
           title,
@@ -177,39 +167,23 @@ function AddAnnouncementForm() {
     }
   }
 
-  if (loadingUser) return <div className="min-h-screen flex items-center justify-center font-black uppercase text-stone-400 tracking-widest text-xs">Accesso in corso...</div>
+  if (loadingUser) return <div className="min-h-screen bg-white flex items-center justify-center font-black uppercase text-stone-400 tracking-widest text-xs">Accesso in corso...</div>
 
   return (
-    <div className="min-h-screen bg-transparent font-sans text-stone-900 pb-32 relative">
+    /* PAGINA ORA COMPLETAMENTE BIANCA */
+    <div className="min-h-screen bg-white font-sans text-stone-900 pb-32">
       
-      <div className="fixed inset-0 z-0 pointer-events-none">
-        <img 
-          src={currentBackground} 
-          alt="Sfondo Annuncio"
-          className="w-full h-full object-cover object-center"
-        />
-      </div>
-
       <div className="relative z-10">
-        <div className="relative w-full h-[300px] md:h-[400px] flex items-center justify-center overflow-hidden border-b border-stone-200">
-           
-           {/* --- NUOVA IMMAGINE HERO: TEATRO --- */}
-           <img 
-             src="/teatro.jpeg" 
-             alt="Sfondo Hero Teatro"
-             className="absolute inset-0 w-full h-full object-cover z-0"
-           />
-           {/* Velo scuro per garantire la leggibilità del testo */}
-           <div className="absolute inset-0 bg-stone-900/40 z-10"></div>
-
-           <div className="relative z-20 text-center max-w-2xl px-6">
-              <h1 className="text-4xl md:text-5xl font-black uppercase italic text-white tracking-tighter mb-4 drop-shadow-[0_4px_4px_rgba(0,0,0,0.8)]">
+        {/* HEADER PULITO SENZA IMMAGINI */}
+        <div className="w-full py-16 md:py-24 flex items-center justify-center border-b border-stone-100 bg-stone-50/50">
+           <div className="text-center max-w-2xl px-6">
+              <h1 className="text-4xl md:text-5xl font-black uppercase italic text-stone-900 tracking-tighter mb-4">
                  {mode === 'new' && 'Vendi il tuo Nuovo'}
                  {mode === 'used' && 'Dai una Seconda Vita'}
                  {mode === 'gift' && 'Regalo Solidale'}
                  {mode === 'barter' && 'Inizia il Baratto'}
               </h1>
-              <p className="text-white font-medium text-xs md:text-sm uppercase tracking-[0.2em] drop-shadow-[0_2px_2px_rgba(0,0,0,0.8)]">
+              <p className="text-stone-400 font-bold text-[10px] md:text-xs uppercase tracking-[0.3em]">
                  {mode === 'new' && 'Sigillato, intatto, mai aperto. Trasformalo in guadagno.'}
                  {mode === 'used' && 'Vendi ciò che non usi più, proteggi il pianeta.'}
                  {mode === 'gift' && 'Un piccolo gesto che può significare molto per qualcuno.'}
@@ -218,20 +192,19 @@ function AddAnnouncementForm() {
            </div>
         </div>
 
-        <div className="max-w-3xl mx-auto px-4 -mt-10 relative z-20">
+        <div className="max-w-3xl mx-auto px-4 mt-12 relative z-20">
           
           {(!profile?.stripe_account_id && mode !== 'gift' && mode !== 'barter') && (
-            <div className="bg-orange-50 border-2 border-orange-200 p-6 rounded-[2rem] mb-8 text-center shadow-lg">
-              <span className="text-4xl mb-4 block">⚠️</span>
-              <h3 className="font-black uppercase text-orange-600 mb-2">Attenzione</h3>
-              <p className="text-xs font-bold text-orange-500 mb-6 uppercase tracking-widest">Devi collegare Stripe prima di poter incassare i pagamenti degli annunci in vendita.</p>
-              <Link href="/profile" className="bg-orange-500 text-white px-6 py-3 rounded-xl font-black uppercase text-[10px] tracking-widest shadow-md hover:bg-stone-900 transition-colors">
+            <div className="bg-orange-50 border border-orange-200 p-6 rounded-3xl mb-8 text-center shadow-sm">
+              <h3 className="font-black uppercase text-orange-600 mb-2 text-sm">Attenzione</h3>
+              <p className="text-[10px] font-bold text-orange-500 mb-6 uppercase tracking-widest leading-relaxed">Devi collegare Stripe prima di poter incassare i pagamenti degli annunci in vendita.</p>
+              <Link href="/profile" className="inline-block bg-orange-500 text-white px-6 py-3 rounded-xl font-black uppercase text-[10px] tracking-widest shadow-md hover:bg-stone-900 transition-all">
                 Configura Portafoglio
               </Link>
             </div>
           )}
 
-          <form onSubmit={handleSubmit} className="bg-white p-8 md:p-12 rounded-[3rem] shadow-xl border border-stone-200 space-y-10">
+          <form onSubmit={handleSubmit} className="bg-white p-8 md:p-12 rounded-[3rem] shadow-sm border border-stone-200 space-y-10">
             
             <div className="space-y-4">
               <div className="flex justify-between items-end">
@@ -343,16 +316,7 @@ function AddAnnouncementForm() {
             </div>
 
             <div className="pt-8">
-              {/* Stato della geolocalizzazione nel profilo */}
-              <div className="mb-6 text-center">
-                 {profile?.latitude && profile?.longitude ? (
-                   <p className="text-[10px] font-black uppercase text-emerald-500 tracking-widest">📍 L'annuncio verrà posizionato a: {profile.city}</p>
-                 ) : (
-                   <p className="text-[10px] font-black uppercase text-rose-400 tracking-widest">⚠️ Attenzione: Aggiungi la tua città nel Profilo per apparire sulla Mappa Italia!</p>
-                 )}
-              </div>
-
-              <button disabled={uploading || (!profile?.stripe_account_id && condition !== 'Regalo' && condition !== 'Baratto')} type="submit" className="w-full bg-stone-900 text-white py-6 rounded-2xl font-black uppercase text-sm tracking-[0.2em] shadow-2xl hover:bg-rose-500 hover:scale-[1.02] transition-all disabled:opacity-50 disabled:hover:scale-100">
+              <button disabled={uploading || (!profile?.stripe_account_id && condition !== 'Regalo' && condition !== 'Baratto')} type="submit" className="w-full bg-stone-900 text-white py-6 rounded-2xl font-black uppercase text-sm tracking-[0.2em] shadow-lg hover:bg-rose-500 transition-all disabled:opacity-50">
                 {uploading ? 'Pubblicazione in corso...' : 'Pubblica il tuo annuncio 🚀'}
               </button>
               <p className="text-center mt-6 text-[10px] font-bold uppercase text-stone-400 tracking-widest">
@@ -368,7 +332,7 @@ function AddAnnouncementForm() {
 
 export default function AddPage() {
   return (
-    <Suspense fallback={<div className="min-h-screen bg-stone-50 flex items-center justify-center font-black uppercase text-stone-400 tracking-widest text-xs animate-pulse">Re-love sta arrivando...</div>}>
+    <Suspense fallback={<div className="min-h-screen bg-white"></div>}>
       <AddAnnouncementForm />
     </Suspense>
   )
