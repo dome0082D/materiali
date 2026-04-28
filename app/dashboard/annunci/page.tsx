@@ -127,7 +127,7 @@ function DashboardContent() {
                   </div>
                   {!ad.is_sponsored && (
                     <button onClick={() => handleSponsor(ad.id)} disabled={payLoading === ad.id} className="w-full bg-stone-900 text-orange-400 text-[9px] font-bold uppercase py-3 rounded-lg hover:bg-rose-500 hover:text-white transition-all shadow-sm border border-orange-400/30">
-                      {payLoading === ad.id ? 'Apertura cassa...' : '🚀 Sponsorizza (2€)'}
+                      {payLoading === ad.id ? 'Apertura cassa...' : '🚀 Sponsorizza (2.99€)'}
                     </button>
                   )}
                 </div>
