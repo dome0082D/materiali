@@ -11,7 +11,7 @@ const icon = L.icon({
   iconAnchor: [12, 41]
 })
 
-export default function ItalyMap({ announcements }: { announcements: any[] }) {
+export default function italymap({ announcements }: { announcements: any[] }) {
   return (
     <MapContainer center={[41.8719, 12.5674]} zoom={6} className="h-full w-full">
       <TileLayer url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" />

@@ -7,8 +7,8 @@ import { useRouter } from 'next/navigation'
 import { supabase } from '@/lib/supabase'
 import { useCartStore } from '@/store/cartStore'
 
-// CARICAMENTO MAPPA CON LA "i" MINUSCOLA PER RISOLVERE L'ERRORE
-const italymap = dynamic(() => import('./italymap'), { 
+// CARICAMENTO MAPPA: file in minuscolo './italymap', ma variabile Maiuscola 'ItalyMap' per React
+const ItalyMap = dynamic(() => import('./italymap'), { 
   ssr: false,
   loading: () => (
     <div className="h-full w-full bg-stone-100 flex flex-col items-center justify-center p-4">
@@ -443,7 +443,7 @@ export default function Navbar() {
             </button>
           </div>
           <div className="flex-1 relative z-0">
-             <italymap announcements={announcements} />
+             <ItalyMap announcements={announcements} />
           </div>
         </div>
       )}
