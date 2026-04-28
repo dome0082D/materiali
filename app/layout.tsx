@@ -23,12 +23,12 @@ export default function RootLayout({
   return (
     <html lang="it">
       <head>
-        {/* Registrazione Service Worker per PWA */}
+        {/* Registrazione Service Worker per PWA CORRETTA */}
         <Script id="register-sw" strategy="afterInteractive">
           {`
             if ('serviceWorker' in navigator) {
               window.addEventListener('load', function() {
-                navigator.worker.register('/sw.js').then(function(registration) {
+                navigator.serviceWorker.register('/sw.js').then(function(registration) {
                   console.log('Re-love: Service Worker registrato');
                 }, function(err) {
                   console.log('Re-love: Errore Service Worker', err);
@@ -48,7 +48,6 @@ export default function RootLayout({
             alt="Sfondo Globale Re-love"
             className="w-full h-full object-cover object-center"
           />
-          {/* Velo rimosso come richiesto! */}
         </div>
 
         <Navbar />
