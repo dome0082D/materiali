@@ -201,7 +201,9 @@ function AnnouncementContent() {
       setShowOfferModal(false)
       checkExistingOffer(user.id, ann.id)
     } else {
-      alert("Errore nell'invio della proposta.")
+      // ECCO LA MODIFICA: Ora l'errore ti dirà ESATTAMENTE qual è il problema!
+      alert("Errore database: " + error.message)
+      console.error("Dettaglio errore:", error)
     }
     setSubmittingOffer(false)
   }
