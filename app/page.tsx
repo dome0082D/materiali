@@ -113,7 +113,6 @@ function HomePageContent() {
     return titleMatch && categoryMatch && conditionMatch && typeMatch && availableMatch
   })
 
-  // LOGICA AGGIUNTA: Gli sponsorizzati sorpassano tutti gli altri!
   const sortedData = [...filteredData].sort((a, b) => {
     if (a.is_sponsored && !b.is_sponsored) return -1;
     if (!a.is_sponsored && b.is_sponsored) return 1;
@@ -124,11 +123,11 @@ function HomePageContent() {
   const regularItems = sortedData.filter(i => !topItems.find(t => t.id === i.id))
 
   if (loading) {
-    return <div className="min-h-screen bg-stone-50 flex items-center justify-center font-bold uppercase tracking-widest text-stone-400 text-xs">Caricamento Vetrina...</div>
+    return <div className="min-h-screen bg-transparent flex items-center justify-center font-bold uppercase tracking-widest text-stone-400 text-xs">Caricamento Vetrina...</div>
   }
 
   return (
-    <div className="min-h-screen bg-stone-50 font-sans text-stone-900 pb-20">
+    <div className="min-h-screen bg-transparent font-sans text-stone-900 pb-20">
       
       {IS_STAFF && (
         <Link href="/staff" className="fixed bottom-8 right-8 z-[99] bg-stone-900 text-rose-400 w-16 h-16 rounded-full shadow-lg font-bold flex items-center justify-center border-2 border-rose-400 hover:scale-105 active:scale-95 transition-all text-2xl">
@@ -136,31 +135,37 @@ function HomePageContent() {
         </Link>
       )}
 
-      {/* --- HERO SECTION: Niente sfumatura, foto 3D visibile --- */}
-      <div className="relative w-full h-[400px] md:h-[650px] flex flex-col items-center overflow-hidden border-b border-rose-100 bg-[#f6f5f2]">
-          <div className="absolute inset-0 z-0 flex items-center justify-center p-4">
+      {/* --- HERO SECTION: SOSTITUITA CON TEATRO.JPEG --- */}
+      <div className="relative w-full h-[400px] md:h-[650px] flex flex-col items-center overflow-hidden">
+          {/* Immagine Teatro dedicata all'Hero */}
+          <div className="absolute inset-0 z-0">
             <img 
-              src="/uploaded_hero.jpeg" 
+              src="/teatro.jpeg" 
               alt="Re-love Hero"
-              className="w-full h-full object-contain drop-shadow-2xl"
+              className="w-full h-full object-cover"
             />
           </div>
 
           <div className="relative z-10 w-full h-full max-w-4xl px-4 flex flex-col justify-center pb-16 items-center">
-            
-            <div className="relative group w-full max-w-2xl shadow-xl rounded-3xl">
-              <input type="text" placeholder="Cerca vestiti, elettronica, arredamento..." className="w-full p-5 pl-14 rounded-3xl bg-white/95 backdrop-blur-sm border border-stone-200 outline-none text-sm font-medium focus:border-rose-400 focus:bg-white focus:shadow-lg focus:shadow-rose-100 transition-all" onChange={(e) => setMainSearch(e.target.value)} />
-              <span className="absolute left-5 top-5 opacity-40 text-xl">🔍</span>
+            <div className="relative group w-full max-w-2xl shadow-2xl rounded-3xl">
+              <input 
+                type="text" 
+                placeholder="Cerca vestiti, elettronica, arredamento..." 
+                className="w-full p-5 pl-14 rounded-3xl bg-white/60 backdrop-blur-md border border-white/50 outline-none text-sm font-black focus:border-rose-400 focus:bg-white/90 transition-all placeholder:text-stone-600" 
+                onChange={(e) => setMainSearch(e.target.value)} 
+              />
+              <span className="absolute left-5 top-5 text-xl">🔍</span>
             </div>
           </div>
       </div>
 
-      <main className="max-w-7xl mx-auto px-4 md:px-8 -mt-6 relative z-20">
+      <main className="max-w-7xl mx-auto px-4 md:px-8 -mt-16 relative z-20">
         
-        <section className="mb-12 grid grid-cols-1 md:grid-cols-3 gap-6 bg-white p-6 rounded-3xl shadow-md border border-stone-100 items-center">
+        {/* Filtri resi semi-trasparenti */}
+        <section className="mb-12 grid grid-cols-1 md:grid-cols-3 gap-6 bg-white/40 backdrop-blur-xl p-6 rounded-[2.5rem] shadow-xl border border-white/30 items-center">
           <div className="flex flex-col gap-2">
-            <label className="text-[9px] font-bold uppercase text-stone-400 ml-2 tracking-widest">Categoria</label>
-            <select onChange={(e) => setSearchCategory(e.target.value)} className="p-3 bg-stone-50 rounded-xl text-[11px] font-bold uppercase tracking-wide outline-none border border-stone-100 hover:bg-rose-50 hover:border-rose-200 transition-colors cursor-pointer text-stone-700">
+            <label className="text-[9px] font-black uppercase text-stone-900 ml-2 tracking-widest">Categoria</label>
+            <select onChange={(e) => setSearchCategory(e.target.value)} className="p-3 bg-white/50 rounded-xl text-[11px] font-black uppercase tracking-wide outline-none border border-white/50 hover:bg-white transition-colors cursor-pointer text-stone-900">
               <option value="all">Tutte le Categorie</option>
               <option value="Abbigliamento e Accessori">👕 Abbigliamento e Accessori</option>
               <option value="Elettronica e Informatica">💻 Elettronica e Informatica</option>
@@ -174,8 +179,8 @@ function HomePageContent() {
             </select>
           </div>
           <div className="flex flex-col gap-2">
-            <label className="text-[9px] font-bold uppercase text-stone-400 ml-2 tracking-widest">Condizione Oggetto</label>
-            <select onChange={(e) => setSearchCondition(e.target.value)} className="p-3 bg-stone-50 rounded-xl text-[11px] font-bold uppercase tracking-wide outline-none border border-stone-100 hover:bg-rose-50 hover:border-rose-200 transition-colors cursor-pointer text-stone-700">
+            <label className="text-[9px] font-black uppercase text-stone-900 ml-2 tracking-widest">Condizione Oggetto</label>
+            <select onChange={(e) => setSearchCondition(e.target.value)} className="p-3 bg-white/50 rounded-xl text-[11px] font-black uppercase tracking-wide outline-none border border-white/50 hover:bg-white transition-colors cursor-pointer text-stone-900">
               <option value="all">Tutte le Condizioni</option>
               <option value="Nuovo">✨ Nuovo</option>
               <option value="Usato">♻️ Usato</option>
@@ -184,95 +189,72 @@ function HomePageContent() {
             </select>
           </div>
           <div className="flex flex-col gap-2 pt-5">
-            <button onClick={handleNearbySearch} className={`p-3 rounded-xl text-[11px] font-bold uppercase tracking-widest transition-all shadow-sm flex items-center justify-center gap-2 ${distance > 0 ? 'bg-gradient-to-r from-rose-500 to-orange-400 text-white shadow-rose-200' : 'bg-stone-900 text-white hover:bg-stone-800'}`}>
+            <button onClick={handleNearbySearch} className={`p-3 rounded-xl text-[11px] font-black uppercase tracking-widest transition-all shadow-md flex items-center justify-center gap-2 ${distance > 0 ? 'bg-gradient-to-r from-rose-500 to-orange-400 text-white shadow-rose-200' : 'bg-stone-900 text-white hover:bg-rose-500'}`}>
               {distance > 0 ? '📍 Filtro 20km Attivo' : '📍 Cerca Vicino a me'}
             </button>
           </div>
         </section>
 
         {!catFilter && !typeFilter && (
-          <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-16">
-            <Link href="/add?mode=new" className="group flex flex-col rounded-3xl border border-stone-200 overflow-hidden bg-white hover:border-rose-400 transition-all shadow-sm text-center hover:-translate-y-1">
-               <div className="relative h-56 w-full overflow-hidden bg-stone-50">
-                 <img src="/nuovo.png" className="w-full h-full object-contain p-4 group-hover:scale-105 transition-all duration-[0.5s]" alt="Nuovo" />
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-6 mb-16">
+            <Link href="/add?mode=new" className="group flex flex-col rounded-[2.5rem] border border-white/40 overflow-hidden bg-white/30 backdrop-blur-md hover:bg-white/60 transition-all shadow-lg text-center">
+               <div className="relative h-40 w-full overflow-hidden">
+                 <img src="/nuovo.png" className="w-full h-full object-contain p-4 group-hover:scale-110 transition-all duration-[0.5s]" alt="Nuovo" />
                </div>
-               <div className="p-6 bg-white flex-1 flex flex-col justify-center border-t border-stone-100">
-                 <h3 className="text-2xl font-bold uppercase italic text-stone-900 leading-tight">Vendi Nuovo</h3>
-                 <p className="text-[10px] font-medium uppercase mt-2 text-rose-600 tracking-widest">Mai usato o sigillato</p>
-               </div>
-            </Link>
-            
-            <Link href="/add?mode=used" className="group flex flex-col rounded-3xl border border-stone-200 overflow-hidden bg-white hover:border-orange-400 transition-all shadow-sm text-center hover:-translate-y-1">
-               <div className="relative h-56 w-full overflow-hidden bg-stone-50">
-                 <img src="/usato.png" className="w-full h-full object-contain p-4 group-hover:scale-105 transition-all duration-[0.5s]" alt="Usato" />
-               </div>
-               <div className="p-6 bg-white flex-1 flex flex-col justify-center border-t border-stone-100">
-                 <h3 className="text-2xl font-bold uppercase italic text-stone-900 leading-tight">Vendi Usato</h3>
-                 <p className="text-[10px] font-medium uppercase mt-2 text-orange-600 tracking-widest">Dai una seconda vita</p>
+               <div className="p-4 flex-1 flex flex-col justify-center">
+                 <h3 className="text-xl font-black uppercase italic text-stone-900 leading-tight">Vendi Nuovo</h3>
                </div>
             </Link>
             
-            <Link href="/add?mode=gift" className="group flex flex-col rounded-3xl border border-stone-200 overflow-hidden bg-white hover:border-red-400 transition-all shadow-sm text-center hover:-translate-y-1">
-               <div className="relative h-56 w-full overflow-hidden bg-stone-50">
-                 <img src="/regalo.png" className="w-full h-full object-contain p-4 group-hover:scale-105 transition-all duration-[0.5s]" alt="Regalo" />
+            <Link href="/add?mode=used" className="group flex flex-col rounded-[2.5rem] border border-white/40 overflow-hidden bg-white/30 backdrop-blur-md hover:bg-white/60 transition-all shadow-lg text-center">
+               <div className="relative h-40 w-full overflow-hidden">
+                 <img src="/usato.png" className="w-full h-full object-contain p-4 group-hover:scale-110 transition-all duration-[0.5s]" alt="Usato" />
                </div>
-               <div className="p-6 bg-white flex-1 flex flex-col justify-center border-t border-stone-100">
-                 <h3 className="text-2xl font-bold uppercase italic text-stone-900 leading-tight">Regalo Solidale</h3>
-                 <p className="text-[10px] font-medium uppercase mt-2 text-red-500 tracking-widest">Dona a chi ha bisogno</p>
+               <div className="p-4 flex-1 flex flex-col justify-center">
+                 <h3 className="text-xl font-black uppercase italic text-stone-900 leading-tight">Vendi Usato</h3>
+               </div>
+            </Link>
+            
+            <Link href="/add?mode=gift" className="group flex flex-col rounded-[2.5rem] border border-white/40 overflow-hidden bg-white/30 backdrop-blur-md hover:bg-white/60 transition-all shadow-lg text-center">
+               <div className="relative h-40 w-full overflow-hidden">
+                 <img src="/regalo.png" className="w-full h-full object-contain p-4 group-hover:scale-110 transition-all duration-[0.5s]" alt="Regalo" />
+               </div>
+               <div className="p-4 flex-1 flex flex-col justify-center">
+                 <h3 className="text-xl font-black uppercase italic text-stone-900 leading-tight">Regalo</h3>
                </div>
             </Link>
 
-            <Link href="/add?mode=barter" className="group flex flex-col rounded-3xl border border-stone-200 overflow-hidden bg-white hover:border-blue-400 transition-all shadow-sm text-center hover:-translate-y-1">
-               <div className="relative h-56 w-full overflow-hidden bg-stone-50">
-                 <img src="/baratto.png" className="w-full h-full object-contain p-4 group-hover:scale-105 transition-all duration-[0.5s]" alt="Baratto" />
+            <Link href="/add?mode=barter" className="group flex flex-col rounded-[2.5rem] border border-white/40 overflow-hidden bg-white/30 backdrop-blur-md hover:bg-white/60 transition-all shadow-lg text-center">
+               <div className="relative h-40 w-full overflow-hidden">
+                 <img src="/baratto.png" className="w-full h-full object-contain p-4 group-hover:scale-110 transition-all duration-[0.5s]" alt="Baratto" />
                </div>
-               <div className="p-6 bg-white flex-1 flex flex-col justify-center border-t border-stone-100">
-                 <h3 className="text-2xl font-bold uppercase italic text-stone-900 leading-tight">Proponi Baratto</h3>
-                 <p className="text-[10px] font-medium uppercase mt-2 text-blue-500 tracking-widest">Scambia senza denaro</p>
+               <div className="p-4 flex-1 flex flex-col justify-center">
+                 <h3 className="text-xl font-black uppercase italic text-stone-900 leading-tight">Baratto</h3>
                </div>
             </Link>
           </div>
         )}
 
-        <div className="bg-gradient-to-r from-stone-900 to-stone-800 rounded-3xl p-6 mb-16 flex flex-col md:flex-row items-center justify-between shadow-xl border border-stone-800">
-          <div className="flex items-center gap-6 mb-4 md:mb-0">
-            <span className="text-5xl drop-shadow-md">🚀</span>
-            <div>
-              <h4 className="text-[12px] font-bold uppercase tracking-widest text-orange-400">Spazio Pubblicitario</h4>
-              <p className="text-[11px] text-stone-300 font-medium mt-1 uppercase tracking-wider">Metti in evidenza i tuoi annunci Re-love. Sponsorizzati qui!</p>
-            </div>
-          </div>
-          <a href="mailto:dome0082@gmail.com" className="bg-gradient-to-r from-rose-500 to-orange-400 text-white px-6 py-3 rounded-xl text-[11px] font-bold uppercase tracking-widest hover:shadow-lg hover:scale-105 transition-all w-full md:w-auto text-center border border-rose-400">
-            Contattaci per info
-          </a>
-        </div>
-
         <section className="mb-20">
-          <div className="flex justify-between items-end mb-8 border-b border-stone-200 pb-4">
-            <h2 className="text-[14px] font-bold uppercase tracking-[0.4em] text-stone-900">Vetrina Top Nuovo</h2>
-            <Link href="/?condition=Nuovo" className="text-[10px] font-bold uppercase text-rose-600 hover:text-rose-800 transition-colors">Vedi tutti →</Link>
+          <div className="flex justify-between items-end mb-8 border-b border-stone-900/10 pb-4">
+            <h2 className="text-[14px] font-black uppercase tracking-[0.4em] text-stone-900">Vetrina Top Nuovo</h2>
+            <Link href="/?condition=Nuovo" className="text-[10px] font-black uppercase text-rose-600 hover:text-stone-900 transition-colors">Vedi tutti →</Link>
           </div>
           <div className="grid grid-cols-2 lg:grid-cols-5 gap-6">
             {topItems.map(item => (
-              <div key={item.id} className={`group bg-white p-4 rounded-3xl shadow-sm border ${item.is_sponsored ? 'border-orange-400 shadow-orange-100 shadow-md ring-1 ring-orange-400/30' : 'border-stone-100'} hover:shadow-md transition-all relative overflow-hidden`}>
-                
+              <div key={item.id} className={`group bg-white/80 backdrop-blur-sm p-4 rounded-[2rem] shadow-lg border ${item.is_sponsored ? 'border-orange-400 ring-2 ring-orange-400/20' : 'border-white/50'} hover:bg-white transition-all relative overflow-hidden`}>
                 {item.is_sponsored && (
-                  <div className="absolute top-0 left-0 bg-gradient-to-r from-rose-500 to-orange-400 text-white text-[8px] font-bold uppercase px-3 py-1.5 rounded-br-2xl z-40 tracking-widest shadow-sm">
-                    In Evidenza ✨
+                  <div className="absolute top-0 left-0 bg-gradient-to-r from-rose-500 to-orange-400 text-white text-[8px] font-black uppercase px-3 py-1.5 rounded-br-2xl z-40 tracking-widest shadow-md">
+                    TOP ✨
                   </div>
                 )}
-
-                <button onClick={(e) => handleToggleFavorite(e, item.id)} className="absolute top-6 right-6 z-30 bg-white/90 w-8 h-8 flex items-center justify-center rounded-full shadow-sm text-lg hover:scale-110 transition-all">{favorites.includes(item.id) ? '❤️' : '🤍'}</button>
+                <button onClick={(e) => handleToggleFavorite(e, item.id)} className="absolute top-6 right-6 z-30 bg-white/90 w-8 h-8 flex items-center justify-center rounded-full shadow-md text-lg hover:scale-110 transition-all">{favorites.includes(item.id) ? '❤️' : '🤍'}</button>
                 <Link href={`/announcement/${item.id}`}>
-                  <div className="aspect-square rounded-2xl overflow-hidden bg-stone-50 mb-4 relative border-2 border-white shadow-inner">
-                    <img src={item.image_url || "/nuovo.png"} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-[0.8s]" alt={item.title} />
+                  <div className="aspect-square rounded-2xl overflow-hidden bg-stone-100 mb-4 relative border border-stone-200">
+                    <img src={item.image_url || "/nuovo.png"} className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-[0.8s]" alt={item.title} />
                   </div>
-                  <h4 className="text-[12px] font-medium uppercase truncate text-stone-900 mb-1 px-1">{item.title}</h4>
-                  <div className="flex justify-between items-center px-1 mb-3">
-                    <p className="text-xl font-bold text-rose-600 tracking-tight">€ {item.price}</p>
-                    <p className="text-[9px] text-stone-400 font-medium tracking-tighter">Disp: {item.quantity}</p>
-                  </div>
-                  <button className="mt-2 w-full bg-stone-100 text-stone-800 text-[10px] font-bold uppercase py-3 rounded-xl group-hover:bg-rose-500 group-hover:text-white transition-all">Vedi Dettagli</button>
+                  <h4 className="text-[12px] font-black uppercase truncate text-stone-900 mb-1">{item.title}</h4>
+                  <p className="text-xl font-black text-rose-600 italic">€ {item.price}</p>
                 </Link>
               </div>
             ))}
@@ -280,36 +262,31 @@ function HomePageContent() {
         </section>
 
         <section>
-          <div className="flex justify-between items-end mb-8 border-b border-stone-200 pb-4">
-            <h2 className="text-[14px] font-bold uppercase tracking-[0.4em] text-stone-400">Tutti gli Annunci</h2>
-            <p className="text-[10px] font-medium uppercase text-stone-400 tracking-[0.2em]">{regularItems.length} Inserzioni</p>
+          <div className="flex justify-between items-end mb-8 border-b border-stone-900/10 pb-4">
+            <h2 className="text-[14px] font-black uppercase tracking-[0.4em] text-stone-900 opacity-50">Tutti gli Annunci</h2>
           </div>
           
           <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-5">
             {regularItems.slice(0, visibleCount).map(item => (
-              <div key={item.id} className={`group bg-white rounded-2xl overflow-hidden shadow-sm border ${item.is_sponsored ? 'border-orange-400 ring-1 ring-orange-400/30' : 'border-stone-100'} hover:shadow-md hover:border-rose-300 transition-all flex flex-col relative`}>
-                
+              <div key={item.id} className={`group bg-white/70 backdrop-blur-sm rounded-3xl overflow-hidden shadow-md border ${item.is_sponsored ? 'border-orange-400' : 'border-white/40'} hover:bg-white transition-all flex flex-col relative`}>
                 {item.is_sponsored && (
-                  <div className="absolute top-0 left-0 bg-gradient-to-r from-rose-500 to-orange-400 text-white text-[7px] font-bold uppercase px-2 py-1 rounded-br-xl z-40 tracking-widest">
-                    Top 🌟
+                  <div className="absolute top-0 left-0 bg-gradient-to-r from-rose-500 to-orange-400 text-white text-[7px] font-black uppercase px-2 py-1 rounded-br-xl z-40 tracking-widest shadow-sm">
+                    TOP 🌟
                   </div>
                 )}
-                
-                <Link href={`/announcement/${item.id}`} className="aspect-square bg-stone-50 relative block overflow-hidden">
+                <Link href={`/announcement/${item.id}`} className="aspect-square bg-stone-100 relative block overflow-hidden">
                   <button onClick={(e) => handleToggleFavorite(e, item.id)} className="absolute top-2 right-2 z-30 bg-white/80 w-6 h-6 flex items-center justify-center rounded-full shadow-sm text-xs hover:scale-110 transition-all">{favorites.includes(item.id) ? '❤️' : '🤍'}</button>
-                  <img src={item.image_url || "/usato.png"} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-[0.8s]" alt={item.title} />
-                  <div className="absolute bottom-2 left-2 bg-white/90 backdrop-blur-sm px-2 py-0.5 rounded text-[8px] font-bold uppercase tracking-widest text-stone-600 shadow-sm">{item.condition}</div>
+                  <img src={item.image_url || "/usato.png"} className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-[0.8s]" alt={item.title} />
                 </Link>
                 <div className="p-3 flex flex-col justify-between flex-grow">
-                  <Link href={`/announcement/${item.id}`} className="block">
-                    <h4 className="text-[10px] font-bold uppercase line-clamp-2 text-stone-800 leading-tight mb-1">{item.title}</h4>
-                    <p className="text-[14px] font-black text-rose-600 mt-1">
+                  <div>
+                    <h4 className="text-[10px] font-black uppercase line-clamp-2 text-stone-800 leading-tight mb-1">{item.title}</h4>
+                    <p className="text-[14px] font-black text-rose-600 italic">
                       {item.condition === 'Regalo' || item.condition === 'Baratto' ? '€ 0' : `€ ${item.price}`}
                     </p>
-                  </Link>
-                  <Link href={`/announcement/${item.id}`} className="mt-3 block text-center w-full bg-stone-50 text-stone-600 text-[9px] font-bold uppercase py-2 rounded-lg hover:bg-stone-900 hover:text-white transition-colors">
-                    {/* ECCO LA MODIFICA DINAMICA PER I TASTINI */}
-                    {item.condition === 'Baratto' ? 'Baratta' : item.condition === 'Regalo' ? 'Ricevi Regalo' : 'Acquista'}
+                  </div>
+                  <Link href={`/announcement/${item.id}`} className="mt-3 block text-center w-full bg-stone-900 text-white text-[9px] font-black uppercase py-2 rounded-xl hover:bg-rose-500 transition-all">
+                    {item.condition === 'Baratto' ? 'Baratta' : item.condition === 'Regalo' ? 'Ricevi' : 'Acquista'}
                   </Link>
                 </div>
               </div>
@@ -320,13 +297,12 @@ function HomePageContent() {
             <div className="mt-12 flex justify-center w-full">
               <button 
                 onClick={() => setVisibleCount(prev => prev + 12)}
-                className="bg-white border-2 border-rose-200 text-rose-600 px-8 py-4 rounded-full text-[11px] font-bold uppercase tracking-widest hover:bg-rose-50 hover:border-rose-400 transition-all shadow-sm"
+                className="bg-stone-900 text-white px-10 py-4 rounded-full text-[11px] font-black uppercase tracking-widest hover:bg-rose-500 transition-all shadow-xl"
               >
-                ↓ Carica altri annunci ({regularItems.length - visibleCount} rimanenti)
+                ↓ Carica Altri ({regularItems.length - visibleCount})
               </button>
             </div>
           )}
-
         </section>
 
       </main>
@@ -336,7 +312,7 @@ function HomePageContent() {
 
 export default function HomePage() {
   return (
-    <Suspense fallback={<div className="min-h-screen bg-stone-50 flex items-center justify-center font-bold uppercase tracking-widest text-stone-400 text-xs">Caricamento Vetrina...</div>}>
+    <Suspense fallback={<div className="min-h-screen bg-transparent flex items-center justify-center font-bold uppercase tracking-widest text-stone-400 text-xs">Caricamento Vetrina...</div>}>
       <HomePageContent />
     </Suspense>
   )
