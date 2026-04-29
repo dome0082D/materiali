@@ -3,7 +3,6 @@
 import { useState, useEffect } from 'react'
 import { supabase } from '@/lib/supabase'
 import { useRouter } from 'next/navigation'
-import Link from 'next/link'
 
 export default function SupportoPage() {
   const [user, setUser] = useState<any>(null)
@@ -12,6 +11,8 @@ export default function SupportoPage() {
   const [loading, setLoading] = useState(false)
   const [success, setSuccess] = useState(false)
   const router = useRouter()
+
+  const ADMIN_EMAIL = 'dome0082@gmail.com'
 
   useEffect(() => {
     async function checkUser() {
@@ -30,10 +31,9 @@ export default function SupportoPage() {
     if (!message.trim()) return
     setLoading(true)
 
-    // Usiamo la tabella 'disputes' come Help Desk centralizzato per lo Staff
+    // 1. Invia la richiesta al database
     const { error } = await supabase.from('disputes').insert([{
       buyer_id: user.id,
-      // Nessun venditore e nessuna transazione, è una richiesta generica allo staff
       seller_id: null, 
       transaction_id: null,
       reason: `SUPPORTO: ${reason}`,
@@ -42,6 +42,16 @@ export default function SupportoPage() {
     }])
 
     if (!error) {
+      // 2. NOTIFICA ALL'ADMIN! Cerchiamo l'ID dell'Admin
+      const { data: adminData } = await supabase.from('profiles').select('id').eq('email', ADMIN_EMAIL).single()
+      if (adminData) {
+        await supabase.from('notifications').insert([{
+          user_id: adminData.id,
+          message: `💬 SUPPORTO: Nuovo messaggio da ${user.email} - Argomento: ${reason}`,
+          is_read: false
+        }])
+      }
+
       setSuccess(true)
       setMessage('')
     } else {
@@ -50,11 +60,10 @@ export default function SupportoPage() {
     setLoading(false)
   }
 
-  if (!user) return null // Il redirect a /login lo gestisce l'useEffect
+  if (!user) return null
 
   return (
     <div className="min-h-screen bg-white font-sans text-stone-900 pb-32">
-      {/* HEADER */}
       <div className="w-full py-16 bg-stone-50 border-b border-stone-100 flex items-center justify-center relative overflow-hidden">
          <div className="absolute top-0 right-0 p-8 opacity-10 text-8xl">💬</div>
          <div className="text-center max-w-2xl px-6 relative z-10">

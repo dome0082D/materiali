@@ -1,4 +1,5 @@
 'use client'
+export const dynamic = 'force-dynamic'
 
 import { useEffect, useState } from 'react'
 import { supabase } from '@/lib/supabase'
@@ -6,26 +7,100 @@ import Link from 'next/link'
 
 export default function ControversiePage() {
   const [disputes, setDisputes] = useState<any[]>([])
+  const [purchases, setPurchases] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
+  const [user, setUser] = useState<any>(null)
+
+  // STATI PER IL MODULO NUOVA SEGNALAZIONE
+  const [showModal, setShowModal] = useState(false)
+  const [selectedTx, setSelectedTx] = useState('')
+  const [reason, setReason] = useState('Oggetto non ricevuto')
+  const [description, setDescription] = useState('')
+  const [submitting, setSubmitting] = useState(false)
+
+  const ADMIN_EMAIL = 'dome0082@gmail.com'
 
   useEffect(() => {
-    async function fetchDisputes() {
-      const { data: { user } } = await supabase.auth.getUser()
-      if (!user) return
+    fetchData()
+  }, [])
 
-      // Cerchiamo le controversie in cui l'utente è coinvolto (come venditore o compratore)
-      const { data } = await supabase
-        .from('disputes')
-        .select('*')
-        .or(`buyer_id.eq.${user.id},seller_id.eq.${user.id}`)
-        .order('created_at', { ascending: false })
+  async function fetchData() {
+    setLoading(true)
+    const { data: { user: currentUser } } = await supabase.auth.getUser()
+    if (!currentUser) return
+    setUser(currentUser)
 
-      if (data) setDisputes(data)
-      setLoading(false)
+    const { data: dispData } = await supabase
+      .from('disputes')
+      .select('*, transaction:transactions(*, announcements(*))')
+      .or(`buyer_id.eq.${currentUser.id},seller_id.eq.${currentUser.id}`)
+      .order('created_at', { ascending: false })
+
+    if (dispData) setDisputes(dispData)
+
+    const { data: purchData } = await supabase
+      .from('transactions')
+      .select('*, announcements(*)')
+      .eq('buyer_id', currentUser.id)
+      .order('created_at', { ascending: false })
+
+    if (purchData) {
+      setPurchases(purchData)
+      if (purchData.length > 0) setSelectedTx(purchData[0].id)
     }
 
-    fetchDisputes()
-  }, [])
+    setLoading(false)
+  }
+
+  const handleSubmit = async () => {
+    if (!description.trim()) {
+      alert("Descrivi il problema per favore.")
+      return
+    }
+    setSubmitting(true)
+
+    const tx = purchases.find(p => p.id === selectedTx)
+    const sellerId = tx?.announcements?.user_id || null
+
+    const { error } = await supabase.from('disputes').insert([{
+      transaction_id: selectedTx || null,
+      buyer_id: user.id,
+      seller_id: sellerId,
+      reason: reason,
+      description: description,
+      status: 'Aperta'
+    }])
+
+    if (!error) {
+      alert("Segnalazione inviata allo Staff con successo! I fondi sono stati congelati.")
+      
+      // 1. Notifica al Venditore
+      if (sellerId) {
+        await supabase.from('notifications').insert([{
+          user_id: sellerId,
+          message: `⚠️ L'acquirente ha aperto una controversia. Lo Staff interverrà a breve.`,
+          is_read: false
+        }])
+      }
+
+      // 2. NOTIFICA ALL'ADMIN!
+      const { data: adminData } = await supabase.from('profiles').select('id').eq('email', ADMIN_EMAIL).single()
+      if (adminData) {
+        await supabase.from('notifications').insert([{
+          user_id: adminData.id,
+          message: `🚨 TRIBUNALE: Nuova controversia aperta da ${user.email}.`,
+          is_read: false
+        }])
+      }
+
+      setShowModal(false)
+      setDescription('')
+      fetchData() 
+    } else {
+      alert("Errore nell'invio: " + error.message)
+    }
+    setSubmitting(false)
+  }
 
   return (
     <div className="min-h-screen bg-white font-sans text-stone-900 pb-32">
@@ -38,9 +113,9 @@ export default function ControversiePage() {
       </div>
 
       <div className="max-w-5xl mx-auto px-4 mt-12">
-        <div className="flex justify-between items-end mb-8 border-b border-stone-100 pb-4">
+        <div className="flex flex-col md:flex-row justify-between items-center mb-8 border-b border-stone-100 pb-4 gap-4">
           <h2 className="text-sm font-black uppercase text-stone-400 tracking-widest">Le tue pratiche attive</h2>
-          <button className="bg-stone-900 text-white px-4 py-2 rounded-xl font-black uppercase text-[10px] tracking-widest hover:bg-rose-500 transition-all">
+          <button onClick={() => setShowModal(true)} className="bg-stone-900 text-white px-6 py-3 rounded-xl font-black uppercase text-[10px] tracking-widest hover:bg-rose-500 transition-all shadow-md">
             + Apri Segnalazione
           </button>
         </div>
@@ -59,22 +134,78 @@ export default function ControversiePage() {
         ) : (
           <div className="grid gap-4">
             {disputes.map(dispute => (
-              <div key={dispute.id} className="p-6 bg-white border border-stone-200 rounded-3xl shadow-sm flex justify-between items-center">
+              <div key={dispute.id} className="p-6 bg-white border border-stone-200 rounded-3xl shadow-sm flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
                 <div>
                   <span className={`px-3 py-1 rounded-md text-[9px] font-black uppercase tracking-widest ${dispute.status === 'Aperta' ? 'bg-orange-100 text-orange-600' : 'bg-emerald-100 text-emerald-600'}`}>
                     {dispute.status}
                   </span>
                   <h4 className="text-sm font-black text-stone-900 mt-2 uppercase">{dispute.reason}</h4>
-                  <p className="text-[10px] font-bold text-stone-500 mt-1 uppercase tracking-widest">ID Pratica: {dispute.id.slice(0, 8)}</p>
+                  <p className="text-[10px] font-bold text-stone-500 mt-1 uppercase tracking-widest">
+                    Ordine: {dispute.transaction?.announcements?.title || 'Segnalazione Generica'}
+                  </p>
                 </div>
-                <button className="bg-stone-100 text-stone-600 px-4 py-2 rounded-xl font-black uppercase text-[10px] tracking-widest hover:bg-stone-900 hover:text-white transition-all">
-                  Vedi Dettagli
-                </button>
+                <div className="bg-stone-50 px-4 py-3 rounded-xl border border-stone-100 text-[10px] font-bold text-stone-400 uppercase tracking-widest">
+                  In attesa dello Staff
+                </div>
               </div>
             ))}
           </div>
         )}
       </div>
+
+      {showModal && (
+        <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4 bg-stone-900/80 backdrop-blur-sm">
+          <div className="bg-white rounded-3xl shadow-2xl p-8 max-w-md w-full relative animate-in zoom-in duration-200">
+            <button onClick={() => setShowModal(false)} className="absolute top-4 right-4 text-stone-400 hover:text-stone-800 text-xl font-bold">✕</button>
+            <div className="text-center mb-6">
+              <span className="text-6xl block mb-2">📝</span>
+              <h2 className="text-2xl font-black uppercase italic text-stone-900">Nuova Segnalazione</h2>
+              <p className="text-[10px] uppercase font-bold text-stone-400 tracking-widest mt-1">Invia il modulo allo Staff</p>
+            </div>
+            
+            <div className="space-y-4">
+              <div>
+                <label className="text-[10px] font-black uppercase text-stone-400 tracking-widest ml-2">Quale ordine ha un problema?</label>
+                <select value={selectedTx} onChange={(e) => setSelectedTx(e.target.value)} className="w-full p-4 bg-stone-50 border border-stone-200 rounded-xl font-bold text-sm outline-none mt-1 focus:border-rose-400">
+                  {purchases.length === 0 ? (
+                    <option value="">Nessun ordine (Segnalazione Generica)</option>
+                  ) : (
+                    purchases.map(p => (
+                      <option key={p.id} value={p.id}>{p.announcements?.title} (€{p.amount})</option>
+                    ))
+                  )}
+                </select>
+              </div>
+
+              <div>
+                <label className="text-[10px] font-black uppercase text-stone-400 tracking-widest ml-2">Motivo della segnalazione</label>
+                <select value={reason} onChange={(e) => setReason(e.target.value)} className="w-full p-4 bg-stone-50 border border-stone-200 rounded-xl font-bold text-sm outline-none mt-1 focus:border-rose-400">
+                  <option>Oggetto non ricevuto</option>
+                  <option>Oggetto danneggiato / Diverso</option>
+                  <option>Sospetto Oggetto Falso</option>
+                  <option>Venditore non risponde</option>
+                  <option>Altro problema generico</option>
+                </select>
+              </div>
+
+              <div>
+                <label className="text-[10px] font-black uppercase text-stone-400 tracking-widest ml-2">Spiega la situazione allo Staff</label>
+                <textarea 
+                  rows={4} 
+                  placeholder="Scrivi qui i dettagli per aiutarci a giudicare..." 
+                  value={description}
+                  onChange={(e) => setDescription(e.target.value)}
+                  className="w-full p-4 bg-stone-50 border border-stone-200 rounded-xl font-medium text-sm outline-none mt-1 resize-none focus:border-rose-400"
+                />
+              </div>
+
+              <button onClick={handleSubmit} disabled={submitting} className="w-full bg-rose-600 text-white py-4 rounded-xl font-black uppercase tracking-widest text-xs hover:bg-stone-900 transition-all disabled:opacity-50 mt-4 shadow-md">
+                {submitting ? 'Invio in corso...' : 'Invia allo Staff'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }
