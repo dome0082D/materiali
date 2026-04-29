@@ -252,6 +252,7 @@ export default function Navbar() {
 
         <div className="flex items-center gap-2 md:gap-4">
           
+          {/* I 4 NUOVI TASTI IN BELLA VISTA NELLA BARRA (SOLO PC E TABLET) */}
           <div className="hidden lg:flex items-center gap-1 border-r border-stone-200 pr-4 mr-2">
             <button onClick={() => setDarkMode(!darkMode)} title={darkMode ? "Modalità Chiara" : "Modalità Notte"} className="p-2 text-xl hover:scale-110 transition-transform">
               {darkMode ? '☀️' : '🌙'}
@@ -386,6 +387,29 @@ export default function Navbar() {
                 ) : (
                   <Link href="/login" onClick={() => setIsSidebarOpen(false)} className="w-full block text-center p-4 text-xs font-bold text-rose-500 border-2 border-rose-100 hover:border-rose-500 hover:bg-rose-50 rounded-xl mt-2 uppercase tracking-widest transition-all">Accedi / Registrati</Link>
                 )}
+              </div>
+            </section>
+
+            {/* ECCO LA MAGIA: LA SEZIONE DEGLI STRUMENTI VISIBILE SOLO DA CELLULARE! */}
+            <section className="lg:hidden">
+              <h3 className="text-[10px] font-bold uppercase text-stone-400 mb-4 tracking-[0.2em] border-b pb-2 border-stone-100">Strumenti Re-love</h3>
+              <div className="grid grid-cols-2 gap-3">
+                <button onClick={() => { setDarkMode(!darkMode); setIsSidebarOpen(false); }} className="p-3 text-xs font-bold text-stone-600 bg-stone-50 rounded-xl hover:bg-rose-50 transition-colors flex flex-col items-center justify-center gap-1 shadow-sm border border-stone-100">
+                  <span className="text-xl">{darkMode ? '☀️' : '🌙'}</span>
+                  {darkMode ? 'Chiaro' : 'Scuro'}
+                </button>
+                <button onClick={() => { setShowSecurityModal(true); setIsSidebarOpen(false); }} className="p-3 text-xs font-bold text-stone-600 bg-stone-50 rounded-xl hover:bg-rose-50 transition-colors flex flex-col items-center justify-center gap-1 shadow-sm border border-stone-100">
+                  <span className="text-xl">🛡️</span>
+                  Scudo
+                </button>
+                <button onClick={() => { setShowAiModal(true); setIsSidebarOpen(false); }} className="p-3 text-xs font-bold text-stone-600 bg-stone-50 rounded-xl hover:bg-rose-50 transition-colors flex flex-col items-center justify-center gap-1 shadow-sm border border-stone-100">
+                  <span className="text-xl">🤖</span>
+                  Valuta
+                </button>
+                <button onClick={handleRadar} className="p-3 text-xs font-bold text-stone-600 bg-stone-50 rounded-xl hover:bg-rose-50 transition-colors flex flex-col items-center justify-center gap-1 shadow-sm border border-stone-100">
+                  <span className="text-xl">📡</span>
+                  Radar
+                </button>
               </div>
             </section>
 
