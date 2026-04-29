@@ -46,25 +46,27 @@ export default function ControversiePage() {
 
     if (purchData) {
       setPurchases(purchData)
-      if (purchData.length > 0) setSelectedTx(purchData[0].id) // Seleziona il primo di default
+      if (purchData.length > 0) {
+        setSelectedTx(purchData[0].id) // Seleziona il primo di default
+      }
     }
 
     setLoading(false)
   }
 
   const handleSubmit = async () => {
-    if (!selectedTx || !description.trim()) {
-      alert("Seleziona un ordine e descrivi il problema.")
+    if (!description.trim()) {
+      alert("Descrivi il problema per favore.")
       return
     }
     setSubmitting(true)
 
-    // Troviamo il venditore di quell'ordine
+    // Troviamo il venditore di quell'ordine (se l'ordine esiste)
     const tx = purchases.find(p => p.id === selectedTx)
-    const sellerId = tx?.announcements?.user_id
+    const sellerId = tx?.announcements?.user_id || null
 
     const { error } = await supabase.from('disputes').insert([{
-      transaction_id: selectedTx,
+      transaction_id: selectedTx || null, // Se non c'è, sarà null (segnalazione generica)
       buyer_id: user.id,
       seller_id: sellerId,
       reason: reason,
@@ -75,11 +77,11 @@ export default function ControversiePage() {
     if (!error) {
       alert("Segnalazione inviata allo Staff con successo! I fondi sono stati congelati.")
       
-      // Notifica al venditore
+      // Notifica al venditore (se esiste)
       if (sellerId) {
         await supabase.from('notifications').insert([{
           user_id: sellerId,
-          message: `⚠️ L'acquirente ha aperto una controversia per "${tx.announcements?.title}". Lo Staff interverrà a breve.`,
+          message: `⚠️ L'acquirente ha aperto una controversia per "${tx?.announcements?.title || 'un ordine'} ". Lo Staff interverrà a breve.`,
           is_read: false
         }])
       }
@@ -107,7 +109,7 @@ export default function ControversiePage() {
         <div className="flex flex-col md:flex-row justify-between items-center mb-8 border-b border-stone-100 pb-4 gap-4">
           <h2 className="text-sm font-black uppercase text-stone-400 tracking-widest">Le tue pratiche attive</h2>
           
-          {/* BOTTONE ORA ATTIVO */}
+          {/* BOTTONE CHE APRE IL MODULO */}
           <button 
             onClick={() => setShowModal(true)} 
             className="bg-stone-900 text-white px-6 py-3 rounded-xl font-black uppercase text-[10px] tracking-widest hover:bg-rose-500 transition-all shadow-md"
@@ -136,7 +138,9 @@ export default function ControversiePage() {
                     {dispute.status}
                   </span>
                   <h4 className="text-sm font-black text-stone-900 mt-2 uppercase">{dispute.reason}</h4>
-                  <p className="text-[10px] font-bold text-stone-500 mt-1 uppercase tracking-widest">Ordine: {dispute.transaction?.announcements?.title || 'Sconosciuto'}</p>
+                  <p className="text-[10px] font-bold text-stone-500 mt-1 uppercase tracking-widest">
+                    Ordine: {dispute.transaction?.announcements?.title || 'Segnalazione Generica'}
+                  </p>
                 </div>
                 <div className="bg-stone-50 px-4 py-3 rounded-xl border border-stone-100 text-[10px] font-bold text-stone-400 uppercase tracking-widest">
                   In attesa dello Staff
@@ -147,10 +151,10 @@ export default function ControversiePage() {
         )}
       </div>
 
-      {/* MODULO REALE PER LA SEGNALAZIONE */}
+      {/* MODULO REALE PER LA SEGNALAZIONE (Ora appare sempre) */}
       {showModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-stone-900/80 backdrop-blur-sm">
-          <div className="bg-white rounded-3xl shadow-2xl p-8 max-w-md w-full relative">
+        <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4 bg-stone-900/80 backdrop-blur-sm">
+          <div className="bg-white rounded-3xl shadow-2xl p-8 max-w-md w-full relative animate-in zoom-in duration-200">
             <button onClick={() => setShowModal(false)} className="absolute top-4 right-4 text-stone-400 hover:text-stone-800 text-xl font-bold">✕</button>
             <div className="text-center mb-6">
               <span className="text-6xl block mb-2">📝</span>
@@ -159,45 +163,46 @@ export default function ControversiePage() {
             </div>
             
             <div className="space-y-4">
-              {purchases.length === 0 ? (
-                <p className="text-xs font-bold text-rose-500 bg-rose-50 p-4 rounded-xl text-center">Non hai acquisti su cui aprire una segnalazione.</p>
-              ) : (
-                <>
-                  <div>
-                    <label className="text-[10px] font-black uppercase text-stone-400 tracking-widest ml-2">Quale ordine ha un problema?</label>
-                    <select value={selectedTx} onChange={(e) => setSelectedTx(e.target.value)} className="w-full p-4 bg-stone-50 border border-stone-200 rounded-xl font-bold text-sm outline-none mt-1 focus:border-rose-400">
-                      {purchases.map(p => (
-                        <option key={p.id} value={p.id}>{p.announcements?.title} (€{p.amount})</option>
-                      ))}
-                    </select>
-                  </div>
+              
+              <div>
+                <label className="text-[10px] font-black uppercase text-stone-400 tracking-widest ml-2">Quale ordine ha un problema?</label>
+                <select value={selectedTx} onChange={(e) => setSelectedTx(e.target.value)} className="w-full p-4 bg-stone-50 border border-stone-200 rounded-xl font-bold text-sm outline-none mt-1 focus:border-rose-400">
+                  {purchases.length === 0 ? (
+                    <option value="">Nessun ordine (Segnalazione Generica)</option>
+                  ) : (
+                    purchases.map(p => (
+                      <option key={p.id} value={p.id}>{p.announcements?.title} (€{p.amount})</option>
+                    ))
+                  )}
+                </select>
+              </div>
 
-                  <div>
-                    <label className="text-[10px] font-black uppercase text-stone-400 tracking-widest ml-2">Motivo della segnalazione</label>
-                    <select value={reason} onChange={(e) => setReason(e.target.value)} className="w-full p-4 bg-stone-50 border border-stone-200 rounded-xl font-bold text-sm outline-none mt-1 focus:border-rose-400">
-                      <option>Oggetto non ricevuto</option>
-                      <option>Oggetto danneggiato / Diverso</option>
-                      <option>Sospetto Oggetto Falso</option>
-                      <option>Venditore non risponde</option>
-                    </select>
-                  </div>
+              <div>
+                <label className="text-[10px] font-black uppercase text-stone-400 tracking-widest ml-2">Motivo della segnalazione</label>
+                <select value={reason} onChange={(e) => setReason(e.target.value)} className="w-full p-4 bg-stone-50 border border-stone-200 rounded-xl font-bold text-sm outline-none mt-1 focus:border-rose-400">
+                  <option>Oggetto non ricevuto</option>
+                  <option>Oggetto danneggiato / Diverso</option>
+                  <option>Sospetto Oggetto Falso</option>
+                  <option>Venditore non risponde</option>
+                  <option>Altro problema generico</option>
+                </select>
+              </div>
 
-                  <div>
-                    <label className="text-[10px] font-black uppercase text-stone-400 tracking-widest ml-2">Spiega la situazione allo Staff</label>
-                    <textarea 
-                      rows={4} 
-                      placeholder="Scrivi qui i dettagli per aiutarci a giudicare..." 
-                      value={description}
-                      onChange={(e) => setDescription(e.target.value)}
-                      className="w-full p-4 bg-stone-50 border border-stone-200 rounded-xl font-medium text-sm outline-none mt-1 resize-none focus:border-rose-400"
-                    />
-                  </div>
+              <div>
+                <label className="text-[10px] font-black uppercase text-stone-400 tracking-widest ml-2">Spiega la situazione allo Staff</label>
+                <textarea 
+                  rows={4} 
+                  placeholder="Scrivi qui i dettagli per aiutarci a giudicare..." 
+                  value={description}
+                  onChange={(e) => setDescription(e.target.value)}
+                  className="w-full p-4 bg-stone-50 border border-stone-200 rounded-xl font-medium text-sm outline-none mt-1 resize-none focus:border-rose-400"
+                />
+              </div>
 
-                  <button onClick={handleSubmit} disabled={submitting} className="w-full bg-rose-600 text-white py-4 rounded-xl font-black uppercase tracking-widest text-xs hover:bg-stone-900 transition-all disabled:opacity-50 mt-4 shadow-md">
-                    {submitting ? 'Invio in corso...' : 'Invia allo Staff'}
-                  </button>
-                </>
-              )}
+              <button onClick={handleSubmit} disabled={submitting} className="w-full bg-rose-600 text-white py-4 rounded-xl font-black uppercase tracking-widest text-xs hover:bg-stone-900 transition-all disabled:opacity-50 mt-4 shadow-md">
+                {submitting ? 'Invio in corso...' : 'Invia allo Staff'}
+              </button>
+              
             </div>
           </div>
         </div>

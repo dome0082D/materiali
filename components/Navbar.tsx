@@ -53,6 +53,7 @@ export default function Navbar() {
       if (!styleEl) {
         styleEl = document.createElement('style');
         styleEl.id = 'dark-mode-hack';
+        // Inverte i colori del sito, ma "re-inverte" immagini e video così non sembrano negativi fotografici!
         styleEl.innerHTML = `
           html { filter: invert(1) hue-rotate(180deg); background: #fff; transition: filter 0.5s ease; }
           img, video, iframe, .leaflet-container { filter: invert(1) hue-rotate(180deg); }
@@ -318,10 +319,10 @@ export default function Navbar() {
               <div className="absolute right-0 mt-2 w-48 bg-white border border-stone-100 shadow-xl rounded-xl p-2 z-[6000]">
                 <Link href="/profile" className="block p-3 text-xs font-medium text-stone-700 hover:bg-rose-50 hover:text-rose-600 rounded-lg transition-all">⚙️ Impostazioni</Link>
                 {user && (
-                  // --- LINK SELLER HUB AGGIUNTO AL QUICK MENU PC ---
                   <Link href="/dashboard/analitiche" className="block p-3 text-xs font-bold text-stone-700 hover:bg-rose-50 hover:text-rose-600 rounded-lg transition-all">📈 Seller Hub</Link>
                 )}
-                <Link href="/come-funziona" className="block p-3 text-xs font-medium text-stone-700 hover:bg-rose-50 hover:text-rose-600 rounded-lg transition-all">❓ Aiuto</Link>
+                {/* --- MODIFICA LINK AIUTO PER IL PC --- */}
+                <Link href="/supporto" className="block p-3 text-xs font-medium text-stone-700 hover:bg-rose-50 hover:text-rose-600 rounded-lg transition-all">❓ Aiuto</Link>
                 {user && (
                   <>
                     <button onClick={handleLogout} className="w-full text-left p-3 text-xs font-medium text-stone-700 hover:bg-stone-50 rounded-lg transition-all">Esci</button>
@@ -370,13 +371,14 @@ export default function Navbar() {
                 {user ? (
                   <>
                     <Link href="/profile" onClick={() => setIsSidebarOpen(false)} className="flex items-center gap-4 p-3 text-sm font-medium text-stone-700 hover:text-rose-600 hover:bg-rose-50 rounded-xl transition-all">👤 Profilo</Link>
-                    {/* --- LINK SELLER HUB AGGIUNTO AL MENU LATERALE --- */}
                     <Link href="/dashboard/analitiche" onClick={() => setIsSidebarOpen(false)} className="flex justify-between items-center p-3 text-sm font-medium text-stone-700 hover:text-rose-600 hover:bg-rose-50 rounded-xl transition-all">📈 Seller Hub <span className="bg-orange-100 text-orange-600 text-[9px] px-2 py-0.5 rounded-full font-bold">PRO</span></Link>
                     
                     <Link href="/dashboard/annunci" onClick={() => setIsSidebarOpen(false)} className="p-3 text-sm font-medium text-stone-700 hover:text-rose-600 hover:bg-rose-50 rounded-xl transition-all">📝 Gestione Annunci</Link>
                     <Link href="/dashboard/acquisti" onClick={() => setIsSidebarOpen(false)} className="p-3 text-sm font-medium text-stone-700 hover:text-rose-600 hover:bg-rose-50 rounded-xl transition-all flex justify-between items-center">📦 Ordini <span className="bg-rose-500 text-white text-[9px] px-2 py-0.5 rounded-full font-bold">SECURE</span></Link>
                     <Link href="/chat" onClick={() => setIsSidebarOpen(false)} className="p-3 text-sm font-medium text-stone-700 hover:text-rose-600 hover:bg-rose-50 rounded-xl transition-all flex justify-between">💬 Messaggi</Link>
                     <Link href="/dashboard/preferiti" onClick={() => setIsSidebarOpen(false)} className="p-3 text-sm font-medium text-stone-700 hover:text-rose-600 hover:bg-rose-50 rounded-xl transition-all">❤️ Preferiti</Link>
+                    {/* --- MODIFICA LINK AIUTO PER IL MOBILE --- */}
+                    <Link href="/supporto" onClick={() => setIsSidebarOpen(false)} className="p-3 text-sm font-medium text-stone-700 hover:text-rose-600 hover:bg-rose-50 rounded-xl transition-all">❓ Aiuto</Link>
                     <button onClick={handleLogout} className="w-full text-left p-3 text-xs font-bold text-red-500 hover:bg-red-50 rounded-xl mt-4 uppercase tracking-widest transition-all">← Esci</button>
                   </>
                 ) : (
