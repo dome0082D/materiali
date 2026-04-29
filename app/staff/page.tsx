@@ -1,7 +1,9 @@
 'use client'
+export const dynamic = 'force-dynamic'
 
 import { useEffect, useState } from 'react'
 import { supabase } from '@/lib/supabase'
+import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 
 // --- INTERFACCE DATI ---
@@ -37,9 +39,9 @@ interface Profile {
   created_at: string;
   stripe_account_id?: string;
   role?: string;
+  nickname?: string;
 }
 
-// CORRETTO: Aggiunti i campi _id per fare il collegamento manuale
 interface Review {
   id: string;
   rating: number;
@@ -54,7 +56,12 @@ export default function AdminDashboard() {
   const [transactions, setTransactions] = useState<Transaction[]>([])
   const [profiles, setProfiles] = useState<Profile[]>([])
   const [reviews, setReviews] = useState<Review[]>([])
+  
+  // STATO PER IL TRIBUNALE E SUPPORTO
+  const [disputes, setDisputes] = useState<any[]>([])
+
   const [loading, setLoading] = useState(true)
+  const [actionLoading, setActionLoading] = useState(false)
   
   // Stati per la modale di ispezione
   const [selectedUser, setSelectedUser] = useState<Profile | null>(null)
@@ -89,11 +96,19 @@ export default function AdminDashboard() {
       const { data: profs, error: profsError } = await supabase.from('profiles').select('*')
       if (profsError) console.error("Errore profili:", profsError)
 
-      // 3. FIX ERRORE 400: Recuperiamo SOLO i dati base senza fare Join pericolose
+      // 3. Recupero Recensioni
       const { data: revs, error: revsError } = await supabase
         .from('reviews')
         .select('*')
       if (revsError) console.error("Errore reviews:", revsError)
+
+      // 4. Recupero Controversie e Supporto (Il Tribunale)
+      const { data: dispData, error: dispError } = await supabase
+        .from('disputes')
+        .select('*, transaction:transactions(*, announcements(*))')
+        .order('created_at', { ascending: false })
+      if (dispError) console.error("Errore controversie:", dispError)
+      else if (dispData) setDisputes(dispData)
 
       let loadedProfiles: Profile[] = []
       if (profs) {
@@ -111,7 +126,7 @@ export default function AdminDashboard() {
         setTransactions(enrichedTxs as unknown as Transaction[])
       }
 
-      // FIX: Abbiniamo le email alle recensioni MANUALMENTE
+      // Abbiniamo le email alle recensioni MANUALMENTE
       if (revs && loadedProfiles.length > 0) {
         const enrichedRevs = revs.map(r => ({
           ...r,
@@ -221,15 +236,61 @@ export default function AdminDashboard() {
     }
   }
 
+  // --- LOGICA DEL TRIBUNALE ---
+  const resolveDispute = async (disputeId: string, resolution: 'Rimborso Acquirente' | 'Fondi al Venditore', buyerId: string, sellerId: string) => {
+    const confirmMessage = resolution === 'Rimborso Acquirente' 
+      ? "⚠️ Sicuro di voler RIMBORSARE il compratore? L'azione è irreversibile." 
+      : "⚠️ Sicuro di voler sbloccare i fondi e PAGARE il venditore?";
+
+    if (!confirm(confirmMessage)) return;
+    setActionLoading(true)
+
+    const { error } = await supabase.from('disputes').update({ status: `Risolta (${resolution})` }).eq('id', disputeId)
+
+    if (!error) {
+      alert(`Pratica chiusa con successo: ${resolution}!`);
+      
+      const sentenzaMsg = resolution === 'Rimborso Acquirente'
+        ? `⚖️ Lo Staff ha chiuso la controversia a favore dell'Acquirente. È stato emesso un rimborso.`
+        : `⚖️ Lo Staff ha chiuso la controversia a favore del Venditore. I fondi sono stati sbloccati.`;
+
+      if (buyerId) await supabase.from('notifications').insert([{ user_id: buyerId, message: sentenzaMsg, is_read: false }]);
+      if (sellerId) await supabase.from('notifications').insert([{ user_id: sellerId, message: sentenzaMsg, is_read: false }]);
+
+      checkAdminAndFetchData()
+    } else {
+      alert("Errore: " + error.message)
+    }
+    setActionLoading(false)
+  }
+
+  const closeSupportTicket = async (disputeId: string, userId: string) => {
+    const risposta = prompt("Scrivi la risposta da inviare all'utente (Riceverà una notifica nel sito):");
+    if (!risposta) return;
+
+    setActionLoading(true)
+    const { error } = await supabase.from('disputes').update({ status: 'Risolta (Risposto)' }).eq('id', disputeId)
+
+    if (!error) {
+      alert("Risposta inviata con successo!");
+      await supabase.from('notifications').insert([{ user_id: userId, message: `💬 Risposta Supporto: ${risposta}`, is_read: false }]);
+      checkAdminAndFetchData()
+    } else {
+       alert("Errore durante l'invio della risposta.")
+    }
+    setActionLoading(false)
+  }
+
+
   // --- CALCOLI DASHBOARD ---
   const earnings = transactions
     .filter(t => t.status === 'Ricevuto' || t.status === 'Concluso')
-    .reduce((acc, t) => acc + (t.announcements?.price * 0.1 || 0), 0)
+    .reduce((acc, t) => acc + ((t.announcements?.price || 0) * 0.10), 0)
 
   if (loading && transactions.length === 0) return <div className="min-h-screen bg-stone-900 flex items-center justify-center font-black uppercase text-rose-500 tracking-widest animate-pulse">Caricamento Hub Re-love Staff...</div>
 
   return (
-    <div className="min-h-screen bg-stone-900 p-6 md:p-12 font-sans text-stone-200">
+    <div className="min-h-screen bg-[#1c1c1c] p-6 md:p-12 font-sans text-stone-200">
       <div className="max-w-7xl mx-auto">
         
         {/* HEADER */}
@@ -256,6 +317,72 @@ export default function AdminDashboard() {
             <p className="text-5xl font-black text-white italic">{profiles.length}</p>
           </div>
         </div>
+
+        {/* ---------------- NUOVA SEZIONE: TRIBUNALE E SUPPORTO ---------------- */}
+        <div className="bg-stone-800/40 p-8 rounded-[2.5rem] border border-rose-900/50 mb-12 shadow-2xl">
+          <div className="flex justify-between items-center mb-8 border-b border-stone-800 pb-4">
+            <h2 className="text-lg font-black uppercase italic text-rose-500 tracking-tighter flex items-center gap-3">
+              <span className="text-2xl">⚖️</span> Tribunale & Supporto Clienti
+            </h2>
+          </div>
+          
+          {disputes.length === 0 ? (
+            <p className="text-center text-xs font-bold text-stone-500 uppercase py-10">Nessuna segnalazione attiva. Tutto tranquillo.</p>
+          ) : (
+            <div className="space-y-4">
+              {disputes.map(dispute => {
+                const isClosed = dispute.status.includes('Risolta');
+                const isSupport = !dispute.seller_id; // Se non c'è venditore, è supporto
+                
+                return (
+                  <div key={dispute.id} className={`p-6 rounded-3xl border ${isClosed ? 'border-[#333] bg-[#1f1f1f] opacity-60' : isSupport ? 'border-blue-900/50 bg-[#1c2433]' : 'border-rose-900/50 bg-[#331c1c]'} flex flex-col md:flex-row justify-between items-start md:items-center gap-6`}>
+                    <div className="flex-1">
+                      <span className={`px-3 py-1 rounded-md text-[9px] font-black uppercase tracking-widest ${isClosed ? 'bg-[#333] text-stone-400' : isSupport ? 'bg-blue-500 text-white' : 'bg-rose-500 text-white'}`}>
+                        {dispute.status}
+                      </span>
+                      <h4 className="text-white font-black mt-3 uppercase text-sm">{dispute.reason}</h4>
+                      <p className="text-xs text-stone-300 mt-2 italic font-medium">"{dispute.description}"</p>
+                      
+                      {!isSupport && dispute.transaction && (
+                        <p className="text-[10px] font-bold text-stone-400 mt-3 uppercase tracking-widest bg-black/20 p-2 rounded-lg inline-block border border-black/10">
+                          📦 Ordine: {dispute.transaction.announcements?.title} (€{dispute.transaction.amount})
+                        </p>
+                      )}
+                      
+                      <div className="flex gap-4 mt-3">
+                        <p className="text-[9px] font-bold text-stone-500 uppercase tracking-widest">Da Utente: <span className="text-stone-300">{dispute.buyer_id.slice(0,8)}</span></p>
+                        {!isSupport && dispute.seller_id && (
+                          <p className="text-[9px] font-bold text-stone-500 uppercase tracking-widest">Vs Utente: <span className="text-stone-300">{dispute.seller_id.slice(0,8)}</span></p>
+                        )}
+                      </div>
+                    </div>
+
+                    {/* AZIONI GIUDICE */}
+                    {!isClosed && (
+                      <div className="flex flex-col gap-2 w-full md:w-56 min-w-[200px]">
+                        {isSupport ? (
+                          <button onClick={() => closeSupportTicket(dispute.id, dispute.buyer_id)} disabled={actionLoading} className="bg-blue-600 text-white py-3 px-4 rounded-xl text-[10px] font-black uppercase tracking-widest hover:bg-blue-500 transition-all shadow-lg">
+                            💬 Rispondi all'utente
+                          </button>
+                        ) : (
+                          <>
+                            <button onClick={() => resolveDispute(dispute.id, 'Rimborso Acquirente', dispute.buyer_id, dispute.seller_id)} disabled={actionLoading} className="bg-rose-600 text-white py-3 px-4 rounded-xl text-[10px] font-black uppercase tracking-widest hover:bg-rose-500 transition-all shadow-lg">
+                              💸 Rimborsa Acquirente
+                            </button>
+                            <button onClick={() => resolveDispute(dispute.id, 'Fondi al Venditore', dispute.buyer_id, dispute.seller_id)} disabled={actionLoading} className="bg-emerald-600 text-white py-3 px-4 rounded-xl text-[10px] font-black uppercase tracking-widest hover:bg-emerald-500 transition-all shadow-lg">
+                              ✅ Paga Venditore
+                            </button>
+                          </>
+                        )}
+                      </div>
+                    )}
+                  </div>
+                )
+              })}
+            </div>
+          )}
+        </div>
+
 
         {/* TABELLA TRANSAZIONI */}
         <div className="bg-stone-800/40 rounded-[2.5rem] border border-stone-800 overflow-hidden mb-12 backdrop-blur-sm shadow-2xl">
