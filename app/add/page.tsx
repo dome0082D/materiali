@@ -34,11 +34,9 @@ function AddAnnouncementForm() {
 
   const router = useRouter()
   const searchParams = useSearchParams()
-  const mode = searchParams.get('mode') || 'used' 
+  const modeParam = searchParams.get('mode') 
 
-  // --- LOGICA SFONDI RIMOSSA ---
-
-  const initialCondition = mode === 'new' ? 'Nuovo' : mode === 'gift' ? 'Regalo' : mode === 'barter' ? 'Baratto' : 'Usato'
+  const initialCondition = modeParam === 'new' ? 'Nuovo' : modeParam === 'gift' ? 'Regalo' : modeParam === 'barter' ? 'Baratto' : 'Usato'
   
   const [title, setTitle] = useState('')
   const [description, setDescription] = useState('')
@@ -54,6 +52,7 @@ function AddAnnouncementForm() {
   const [imageUrls, setImageUrls] = useState<string[]>([])
   const [uploading, setUploading] = useState(false)
 
+  // Controllo utente
   useEffect(() => {
     async function checkUser() {
       const { data: { user } } = await supabase.auth.getUser()
@@ -70,12 +69,24 @@ function AddAnnouncementForm() {
     checkUser()
   }, [router])
 
+  // Reset del modulo se l'utente torna alla scelta delle 4 categorie
   useEffect(() => {
-    setCondition(mode === 'new' ? 'Nuovo' : mode === 'gift' ? 'Regalo' : mode === 'barter' ? 'Baratto' : 'Usato')
-    if (mode === 'gift' || mode === 'barter') {
-      setPrice('0')
+    if (!modeParam) {
+      setTitle('')
+      setDescription('')
+      setPrice('')
+      setShippingCost('0')
+      setQuantity('1')
+      setImages([])
+      setImageUrls([])
+      setExchangeItem('')
+    } else {
+      setCondition(modeParam === 'new' ? 'Nuovo' : modeParam === 'gift' ? 'Regalo' : modeParam === 'barter' ? 'Baratto' : 'Usato')
+      if (modeParam === 'gift' || modeParam === 'barter') {
+        setPrice('0')
+      }
     }
-  }, [mode])
+  }, [modeParam])
 
   const handleImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files) {
@@ -169,32 +180,63 @@ function AddAnnouncementForm() {
 
   if (loadingUser) return <div className="min-h-screen bg-white flex items-center justify-center font-black uppercase text-stone-400 tracking-widest text-xs">Accesso in corso...</div>
 
+  // --- SCHERMATA INTERMEDIA SE NON C'È UNA TIPOLOGIA SELEZIONATA ---
+  if (!modeParam) {
+    return (
+      <div className="min-h-screen bg-white flex flex-col items-center justify-center py-20 px-4 pb-32">
+        <h1 className="text-4xl md:text-5xl font-black uppercase italic text-stone-900 mb-4 text-center tracking-tighter">Cosa vuoi proporre?</h1>
+        <p className="text-stone-400 font-bold text-xs uppercase tracking-widest mb-12 text-center">Scegli la tipologia del tuo annuncio</p>
+        
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6 max-w-3xl w-full">
+          <Link href="/add?mode=new" className="p-10 border border-stone-200 rounded-[2.5rem] text-center hover:border-rose-400 hover:shadow-xl transition-all group">
+             <div className="text-5xl mb-4 group-hover:scale-110 transition-transform">✨</div>
+             <h3 className="text-2xl font-black uppercase text-stone-900">Nuovo</h3>
+             <p className="text-[10px] font-bold text-stone-400 mt-2 uppercase tracking-widest">Sigillato o mai usato</p>
+          </Link>
+          <Link href="/add?mode=used" className="p-10 border border-stone-200 rounded-[2.5rem] text-center hover:border-orange-400 hover:shadow-xl transition-all group">
+             <div className="text-5xl mb-4 group-hover:scale-110 transition-transform">♻️</div>
+             <h3 className="text-2xl font-black uppercase text-stone-900">Usato</h3>
+             <p className="text-[10px] font-bold text-stone-400 mt-2 uppercase tracking-widest">Dai una seconda vita</p>
+          </Link>
+          <Link href="/add?mode=gift" className="p-10 border border-stone-200 rounded-[2.5rem] text-center hover:border-red-400 hover:shadow-xl transition-all group">
+             <div className="text-5xl mb-4 group-hover:scale-110 transition-transform">🎁</div>
+             <h3 className="text-2xl font-black uppercase text-stone-900">Regalo</h3>
+             <p className="text-[10px] font-bold text-stone-400 mt-2 uppercase tracking-widest">Dona a chi ha bisogno</p>
+          </Link>
+          <Link href="/add?mode=barter" className="p-10 border border-stone-200 rounded-[2.5rem] text-center hover:border-blue-400 hover:shadow-xl transition-all group">
+             <div className="text-5xl mb-4 group-hover:scale-110 transition-transform">🤝</div>
+             <h3 className="text-2xl font-black uppercase text-stone-900">Baratto</h3>
+             <p className="text-[10px] font-bold text-stone-400 mt-2 uppercase tracking-widest">Scambia senza soldi</p>
+          </Link>
+        </div>
+      </div>
+    )
+  }
+
+  // --- MODULO DI INSERIMENTO ANNUNCIO BIANCO ---
   return (
-    /* PAGINA ORA COMPLETAMENTE BIANCA */
     <div className="min-h-screen bg-white font-sans text-stone-900 pb-32">
-      
       <div className="relative z-10">
-        {/* HEADER PULITO SENZA IMMAGINI */}
         <div className="w-full py-16 md:py-24 flex items-center justify-center border-b border-stone-100 bg-stone-50/50">
            <div className="text-center max-w-2xl px-6">
               <h1 className="text-4xl md:text-5xl font-black uppercase italic text-stone-900 tracking-tighter mb-4">
-                 {mode === 'new' && 'Vendi il tuo Nuovo'}
-                 {mode === 'used' && 'Dai una Seconda Vita'}
-                 {mode === 'gift' && 'Regalo Solidale'}
-                 {mode === 'barter' && 'Inizia il Baratto'}
+                 {modeParam === 'new' && 'Vendi il tuo Nuovo'}
+                 {modeParam === 'used' && 'Dai una Seconda Vita'}
+                 {modeParam === 'gift' && 'Regalo Solidale'}
+                 {modeParam === 'barter' && 'Inizia il Baratto'}
               </h1>
               <p className="text-stone-400 font-bold text-[10px] md:text-xs uppercase tracking-[0.3em]">
-                 {mode === 'new' && 'Sigillato, intatto, mai aperto. Trasformalo in guadagno.'}
-                 {mode === 'used' && 'Vendi ciò che non usi più, proteggi il pianeta.'}
-                 {mode === 'gift' && 'Un piccolo gesto che può significare molto per qualcuno.'}
-                 {mode === 'barter' && 'Scambia i tuoi oggetti senza bisogno di denaro.'}
+                 {modeParam === 'new' && 'Sigillato, intatto, mai aperto. Trasformalo in guadagno.'}
+                 {modeParam === 'used' && 'Vendi ciò che non usi più, proteggi il pianeta.'}
+                 {modeParam === 'gift' && 'Un piccolo gesto che può significare molto per qualcuno.'}
+                 {modeParam === 'barter' && 'Scambia i tuoi oggetti senza bisogno di denaro.'}
               </p>
            </div>
         </div>
 
         <div className="max-w-3xl mx-auto px-4 mt-12 relative z-20">
           
-          {(!profile?.stripe_account_id && mode !== 'gift' && mode !== 'barter') && (
+          {(!profile?.stripe_account_id && modeParam !== 'gift' && modeParam !== 'barter') && (
             <div className="bg-orange-50 border border-orange-200 p-6 rounded-3xl mb-8 text-center shadow-sm">
               <h3 className="font-black uppercase text-orange-600 mb-2 text-sm">Attenzione</h3>
               <p className="text-[10px] font-bold text-orange-500 mb-6 uppercase tracking-widest leading-relaxed">Devi collegare Stripe prima di poter incassare i pagamenti degli annunci in vendita.</p>

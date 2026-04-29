@@ -25,7 +25,10 @@ export default function Navbar() {
   const [user, setUser] = useState<any>(null)
   const [categories, setCategories] = useState<any[]>([])
   const [loading, setLoading] = useState(false)
-  const [notifications, setNotifications] = useState(0)
+  
+  // STATI NOTIFICHE AGGIORNATI
+  const [notifications, setNotifications] = useState(0) // Contatore pallino rosso
+  const [notifList, setNotifList] = useState<any[]>([]) // Lista dei messaggi reali
 
   // STATI PER I NUOVI STRUMENTI E LA MAPPA
   const [darkMode, setDarkMode] = useState(false)
@@ -120,21 +123,51 @@ export default function Navbar() {
     }
   }, [])
 
+  // --- LETTURA DELLE NOTIFICHE REALI ---
   const fetchNotifications = async (userId: string) => {
     try {
-      const { count, error } = await supabase.from('notifications').select('*', { count: 'exact', head: true }).eq('user_id', userId).eq('is_read', false)
-      if (!error && count !== null) {
-        setNotifications(count)
+      const { data, error } = await supabase
+        .from('notifications')
+        .select('*')
+        .eq('user_id', userId)
+        .order('created_at', { ascending: false })
+        .limit(10); // Prendiamo le ultime 10 notifiche
+
+      if (!error && data) {
+        setNotifList(data);
+        // Il pallino rosso conta solo quelle "is_read" = false
+        setNotifications(data.filter(n => !n.is_read).length);
       }
     } catch (e) {}
   }
+
+  // --- APERTURA MENU NOTIFICHE E AZZERAMENTO PALLINO ---
+  const handleOpenNotifs = async () => {
+    setIsNotifOpen(!isNotifOpen);
+    setIsQuickMenuOpen(false);
+
+    // Se apriamo la tendina e abbiamo notifiche da leggere...
+    if (!isNotifOpen && notifications > 0 && user) {
+      // 1. Le segniamo come lette nel database
+      await supabase
+        .from('notifications')
+        .update({ is_read: true })
+        .eq('user_id', user.id)
+        .eq('is_read', false);
+      
+      // 2. Togliamo il pallino rosso visivamente
+      setNotifications(0);
+      
+      // 3. Aggiorniamo la lista locale per sbiadire i messaggi
+      setNotifList(prev => prev.map(n => ({...n, is_read: true})));
+    }
+  };
 
   const handleLogout = async () => {
     await supabase.auth.signOut()
     window.location.href = '/'
   }
 
-  // --- NUOVA FUNZIONE: CANCELLAZIONE DEFINITIVA PROFILO ---
   const handleDeleteAccount = async () => {
     const firstConfirm = window.confirm("⚠️ ATTENZIONE: Sei sicuro di voler cancellare il tuo profilo? Questa azione eliminerà i tuoi dati. Non potrai tornare indietro.");
     
@@ -144,15 +177,8 @@ export default function Navbar() {
       if (secondConfirm && user) {
         setLoading(true);
         try {
-          // 1. Eliminiamo il profilo dal database
-          const { error } = await supabase
-            .from('profiles')
-            .delete()
-            .eq('id', user.id);
-
+          const { error } = await supabase.from('profiles').delete().eq('id', user.id);
           if (error) throw error;
-
-          // 2. Logout e redirect
           await supabase.auth.signOut();
           alert("Profilo eliminato con successo. Ci dispiace vederti andare via! 🌹");
           window.location.href = '/';
@@ -187,9 +213,6 @@ export default function Navbar() {
     }
   };
 
-  // --- LOGICA NUOVI STRUMENTI ---
-  
-  // LOGICA RADAR CHE APRE LA MAPPA DELL'ITALIA
   const handleRadar = () => {
     setIsSidebarOpen(false);
     setIsRadarScanning(true);
@@ -229,7 +252,6 @@ export default function Navbar() {
 
         <div className="flex items-center gap-2 md:gap-4">
           
-          {/* I 4 NUOVI TASTI IN BELLA VISTA NELLA BARRA */}
           <div className="hidden lg:flex items-center gap-1 border-r border-stone-200 pr-4 mr-2">
             <button onClick={() => setDarkMode(!darkMode)} title={darkMode ? "Modalità Chiara" : "Modalità Notte"} className="p-2 text-xl hover:scale-110 transition-transform">
               {darkMode ? '☀️' : '🌙'}
@@ -256,11 +278,9 @@ export default function Navbar() {
           </Link>
 
           <div className="relative">
+            {/* PULSANTE NOTIFICHE SOSTITUITO CON LA NUOVA FUNZIONE */}
             <button 
-              onClick={() => {
-                setIsNotifOpen(!isNotifOpen);
-                setIsQuickMenuOpen(false);
-              }} 
+              onClick={handleOpenNotifs} 
               className="relative p-2 text-xl text-stone-500 hover:bg-rose-50 hover:text-rose-500 rounded-full transition-all"
             >
               🔔
@@ -272,16 +292,28 @@ export default function Navbar() {
             </button>
             
             {isNotifOpen && (
-              <div className="absolute right-0 mt-2 w-64 bg-white border border-stone-200 rounded-2xl shadow-xl p-4 z-[6000]">
-                <div className="flex justify-between items-center border-b border-stone-100 pb-2 mb-2">
+              <div className="absolute right-0 mt-2 w-72 bg-white border border-stone-200 rounded-2xl shadow-xl p-4 z-[6000]">
+                <div className="flex justify-between items-center border-b border-stone-100 pb-2 mb-3">
                   <h4 className="text-[10px] font-bold uppercase tracking-widest text-stone-400">Notifiche</h4>
                   <button onClick={() => setIsNotifOpen(false)} className="text-stone-400 hover:text-stone-800 text-xs font-bold">✕</button>
                 </div>
-                <div className="py-6 text-center">
-                  <span className="text-4xl block mb-3">📭</span>
-                  <p className="text-[10px] text-stone-500 font-bold uppercase tracking-widest">Tutto tace</p>
-                  <p className="text-[9px] text-stone-400 font-medium mt-1">Nessuna nuova notifica.</p>
-                </div>
+                
+                {/* LISTA REALE DELLE NOTIFICHE */}
+                {notifList.length === 0 ? (
+                  <div className="py-6 text-center">
+                    <span className="text-4xl block mb-3">📭</span>
+                    <p className="text-[10px] text-stone-500 font-bold uppercase tracking-widest">Tutto tace</p>
+                    <p className="text-[9px] text-stone-400 font-medium mt-1">Nessuna nuova notifica.</p>
+                  </div>
+                ) : (
+                  <div className="max-h-64 overflow-y-auto space-y-2 pr-1 custom-scrollbar">
+                    {notifList.map(n => (
+                      <div key={n.id} className={`p-3 rounded-xl border text-xs transition-all ${n.is_read ? 'bg-stone-50 border-stone-100 text-stone-500' : 'bg-rose-50 border-rose-200 text-stone-900 font-bold shadow-sm'}`}>
+                        {n.message}
+                      </div>
+                    ))}
+                  </div>
+                )}
               </div>
             )}
           </div>
