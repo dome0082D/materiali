@@ -12,7 +12,8 @@ export default function AnalyticsDashboard() {
     totalValue: 0,
     potentialEarnings: 0,
     barters: 0,
-    gifts: 0
+    gifts: 0,
+    totalViews: 0 // <-- NUOVO: STATO PER LE VISUALIZZAZIONI
   })
   const router = useRouter()
 
@@ -24,16 +25,19 @@ export default function AnalyticsDashboard() {
         return
       }
 
-      // Recuperiamo tutti gli annunci dell'utente
+      // 1. Recuperiamo tutti gli annunci dell'utente
       const { data: ads } = await supabase
         .from('announcements')
-        .select('*')
+        .select('id, price, quantity, condition')
         .eq('user_id', user.id)
 
-      if (ads) {
+      if (ads && ads.length > 0) {
         let value = 0;
         let bCount = 0;
         let gCount = 0;
+        
+        // Estraiamo gli ID degli annunci per cercare le loro visualizzazioni
+        const adIds = ads.map(ad => ad.id);
 
         ads.forEach(ad => {
           value += (Number(ad.price) * Number(ad.quantity));
@@ -41,12 +45,19 @@ export default function AnalyticsDashboard() {
           if (ad.condition === 'Regalo') gCount++;
         });
 
+        // 2. Recuperiamo il numero totale di visualizzazioni (Traffico)
+        const { count: viewCount } = await supabase
+          .from('page_views')
+          .select('*', { count: 'exact', head: true })
+          .in('announcement_id', adIds);
+
         setStats({
           activeListings: ads.length,
           totalValue: value,
-          potentialEarnings: value * 0.90, // Togliamo il 10% di commissione stimata
+          potentialEarnings: value * 0.90, // Togliamo il 10% di commissione
           barters: bCount,
-          gifts: gCount
+          gifts: gCount,
+          totalViews: viewCount || 0
         });
       }
       setLoading(false)
@@ -60,7 +71,6 @@ export default function AnalyticsDashboard() {
   return (
     <div className="min-h-screen bg-white font-sans text-stone-900 pb-32">
       
-      {/* HEADER */}
       <div className="w-full py-16 bg-stone-50 border-b border-stone-100 flex items-center justify-center">
          <div className="text-center max-w-2xl px-6">
             <h1 className="text-4xl font-black uppercase italic text-stone-900 tracking-tighter mb-2">Seller Hub</h1>
@@ -70,9 +80,7 @@ export default function AnalyticsDashboard() {
 
       <div className="max-w-5xl mx-auto px-4 mt-12">
         
-        {/* GRIGLIA STATISTICHE PRINCIPALI */}
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-10">
-          
           <div className="bg-white p-8 rounded-[2.5rem] border border-stone-200 shadow-sm hover:shadow-md transition-all">
             <p className="text-[10px] font-black uppercase text-stone-400 tracking-widest mb-4">Valore Magazzino</p>
             <h2 className="text-4xl font-black text-stone-900">€ {stats.totalValue.toFixed(2)}</h2>
@@ -88,32 +96,32 @@ export default function AnalyticsDashboard() {
             </p>
           </div>
 
-          <div className="bg-white p-8 rounded-[2.5rem] border border-stone-200 shadow-sm hover:shadow-md transition-all relative overflow-hidden">
+          <div className="bg-white p-8 rounded-[2.5rem] border border-emerald-100 shadow-sm hover:shadow-md transition-all relative overflow-hidden bg-gradient-to-br from-white to-emerald-50">
             <div className="absolute top-0 right-0 p-4 opacity-10 text-6xl">📈</div>
-            <p className="text-[10px] font-black uppercase text-stone-400 tracking-widest mb-4">Traffico Totale</p>
-            <h2 className="text-4xl font-black text-stone-900">--</h2>
-            <p className="text-[10px] font-bold text-orange-400 uppercase mt-2 tracking-widest">In elaborazione</p>
+            <p className="text-[10px] font-black uppercase text-emerald-600 tracking-widest mb-4">Traffico Totale</p>
+            <h2 className="text-4xl font-black text-stone-900">{stats.totalViews}</h2>
+            <p className="text-[10px] font-bold text-emerald-500 uppercase mt-2 tracking-widest">Visite agli annunci</p>
           </div>
-
         </div>
 
-        {/* SEZIONE PRO: TRIBUNALE E SPEDIZIONI (IN ARRIVO) */}
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-          <div className="bg-rose-50 p-8 rounded-[2.5rem] border border-rose-100 flex flex-col justify-center items-center text-center">
-            <span className="text-4xl mb-4">⚖️</span>
+          <div className="bg-rose-50 p-8 rounded-[2.5rem] border border-rose-100 flex flex-col justify-center items-center text-center group hover:bg-rose-100 transition-colors">
+            <span className="text-4xl mb-4 group-hover:scale-110 transition-transform">⚖️</span>
             <h3 className="text-xl font-black uppercase text-stone-900 mb-2">Centro Controversie</h3>
             <p className="text-xs font-medium text-stone-600 mb-6">Gestisci i rimborsi, i resi e i problemi con gli acquirenti in totale sicurezza.</p>
-            <button disabled className="bg-rose-200 text-rose-500 px-6 py-3 rounded-xl font-black uppercase text-[10px] tracking-widest opacity-70 cursor-not-allowed">
-              In Arrivo...
-            </button>
+            
+            {/* BOTTONE ORA ATTIVO CHE PORTA AL TRIBUNALE */}
+            <Link href="/dashboard/controversie" className="bg-rose-500 text-white px-6 py-3 rounded-xl font-black uppercase text-[10px] tracking-widest shadow-md hover:bg-stone-900 transition-all">
+              Entra nel Tribunale
+            </Link>
           </div>
 
-          <div className="bg-blue-50 p-8 rounded-[2.5rem] border border-blue-100 flex flex-col justify-center items-center text-center">
-            <span className="text-4xl mb-4">📦</span>
+          <div className="bg-blue-50 p-8 rounded-[2.5rem] border border-blue-100 flex flex-col justify-center items-center text-center group hover:bg-blue-100 transition-colors">
+            <span className="text-4xl mb-4 group-hover:scale-110 transition-transform">📦</span>
             <h3 className="text-xl font-black uppercase text-stone-900 mb-2">Etichette Spedizione</h3>
             <p className="text-xs font-medium text-stone-600 mb-6">Genera e stampa automaticamente le lettere di vettura per i tuoi pacchi.</p>
-            <button disabled className="bg-blue-200 text-blue-500 px-6 py-3 rounded-xl font-black uppercase text-[10px] tracking-widest opacity-70 cursor-not-allowed">
-              In Arrivo...
+            <button className="bg-blue-600 text-white px-6 py-3 rounded-xl font-black uppercase text-[10px] tracking-widest shadow-md hover:bg-stone-900 transition-all">
+              Configura Corriere
             </button>
           </div>
         </div>

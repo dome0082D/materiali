@@ -44,6 +44,12 @@ function AnnouncementContent() {
           checkIfPurchased(currentUser.id, data.id)
           checkExistingOffer(currentUser.id, data.id) 
         }
+
+        // --- REGISTRA LA VISUALIZZAZIONE PER IL SELLER HUB! ---
+        await supabase.from('page_views').insert([{ 
+          announcement_id: data.id, 
+          viewer_id: currentUser?.id || null 
+        }]);
       }
       setLoading(false)
     }
@@ -179,6 +185,7 @@ function AnnouncementContent() {
     if (data.url) window.location.href = data.url
   }
 
+  // --- SUBMIT OFFER RESTAURATA CON NOTIFICHE E EMAIL! ---
   const submitOffer = async () => {
     if (!offerPrice || isNaN(Number(offerPrice)) || Number(offerPrice) <= 0) {
       alert("Inserisci una cifra valida."); return;
@@ -188,6 +195,8 @@ function AnnouncementContent() {
     }
 
     setSubmittingOffer(true)
+    
+    // 1. Inserisce l'offerta nel Database
     const { error } = await supabase.from('offers').insert([{
       announcement_id: ann.id,
       buyer_id: user.id,
@@ -200,8 +209,30 @@ function AnnouncementContent() {
       alert("Proposta inviata al venditore! Incrocia le dita 🤞")
       setShowOfferModal(false)
       checkExistingOffer(user.id, ann.id)
+
+      // 2. Crea la Notifica in Tempo Reale
+      await supabase.from('notifications').insert([{
+        user_id: ann.user_id,
+        message: `Hai ricevuto una nuova proposta di €${offerPrice} per il tuo annuncio "${ann.title}"!`,
+        is_read: false
+      }]);
+
+      // 3. Invio della Email Automatica
+      try {
+        await fetch('/api/email', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            sellerId: ann.user_id,
+            title: ann.title,
+            offerPrice: offerPrice
+          })
+        });
+      } catch (e) {
+        console.error("Errore chiamata email", e)
+      }
+
     } else {
-      // ECCO LA MODIFICA: Ora l'errore ti dirà ESATTAMENTE qual è il problema!
       alert("Errore database: " + error.message)
       console.error("Dettaglio errore:", error)
     }
@@ -239,13 +270,11 @@ function AnnouncementContent() {
   const mapUrl = `https://maps.google.com/maps?q=${encodeURIComponent(ann.city || 'Italia')}&t=&z=13&ie=UTF8&iwloc=&output=embed`;
 
   return (
-    /* SFONDO PAGINA RESO TRASPARENTE */
     <div className="min-h-screen bg-transparent p-4 md:p-10 font-sans pb-32">
       <div className="max-w-6xl mx-auto grid grid-cols-1 lg:grid-cols-12 gap-8">
         
         {/* COLONNA SINISTRA */}
         <div className="lg:col-span-7 space-y-6">
-          {/* BOX IMMAGINE RESO SEMI-TRASPARENTE */}
           <div className="bg-white/20 backdrop-blur-md p-3 rounded-[2.5rem] shadow-xl border border-white/30 relative">
              {ann.is_sponsored && (
                <div className="absolute top-8 left-8 z-20 bg-gradient-to-r from-rose-500 to-orange-400 text-white px-4 py-2 rounded-xl text-xs font-black uppercase tracking-widest shadow-xl">
@@ -264,7 +293,6 @@ function AnnouncementContent() {
              )}
           </div>
 
-          {/* BOX MAPPA RESO SEMI-TRASPARENTE */}
           <div className="bg-white/20 backdrop-blur-md p-8 rounded-[2.5rem] border border-white/30 shadow-xl overflow-hidden">
             <h3 className="text-xs font-black uppercase text-stone-900 tracking-widest mb-4 flex items-center gap-2">
               <span className="w-2 h-2 bg-rose-500 rounded-full animate-pulse"></span> Posizione
@@ -278,7 +306,6 @@ function AnnouncementContent() {
 
         {/* COLONNA DESTRA */}
         <div className="lg:col-span-5 space-y-6">
-          {/* BOX INFO PRINCIPALE RESO SEMI-TRASPARENTE */}
           <div className="bg-white/20 backdrop-blur-md p-8 rounded-[3rem] shadow-2xl border border-white/30 relative overflow-hidden">
             <div className="flex justify-between items-start mb-6">
                <div className="space-y-1">
@@ -408,7 +435,6 @@ function AnnouncementContent() {
             </div>
           </div>
           
-          {/* BOX STATO SPEDIZIONE RESO SEMI-TRASPARENTE */}
           <div className="bg-stone-900/90 backdrop-blur-md p-8 rounded-[3rem] text-white shadow-2xl relative overflow-hidden">
              <div className="absolute top-0 right-0 p-6 opacity-20 text-5xl">🚚</div>
              <h3 className="text-xs font-black uppercase text-rose-400 tracking-[0.3em] mb-6">Stato Spedizione</h3>
@@ -426,7 +452,6 @@ function AnnouncementContent() {
              </div>
           </div>
 
-          {/* BOX FEEDBACK RESO SEMI-TRASPARENTE */}
           <div className="bg-white/20 backdrop-blur-md rounded-[2.5rem] p-8 border border-white/30 shadow-xl">
             <h3 className="text-sm font-black uppercase italic text-stone-900 mb-6">Feedback della Community</h3>
             {hasPurchased && (
@@ -460,7 +485,6 @@ function AnnouncementContent() {
         </div>
       </div>
 
-      {/* MODALE PER FARE UNA PROPOSTA */}
       {showOfferModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-stone-900/80 backdrop-blur-md">
           <div className="bg-white max-w-sm w-full rounded-[3rem] p-10 shadow-2xl text-center border-t-8 border-rose-500 animate-in zoom-in">
