@@ -26,7 +26,7 @@ export default function Navbar() {
   const [categories, setCategories] = useState<any[]>([])
   const [loading, setLoading] = useState(false)
   
-  // STATI NOTIFICHE AGGIORNATI
+  // STATI NOTIFICHE
   const [notifications, setNotifications] = useState(0) // Contatore pallino rosso
   const [notifList, setNotifList] = useState<any[]>([]) // Lista dei messaggi reali
 
@@ -53,7 +53,6 @@ export default function Navbar() {
       if (!styleEl) {
         styleEl = document.createElement('style');
         styleEl.id = 'dark-mode-hack';
-        // Inverte i colori del sito, ma "re-inverte" immagini e video così non sembrano negativi fotografici!
         styleEl.innerHTML = `
           html { filter: invert(1) hue-rotate(180deg); background: #fff; transition: filter 0.5s ease; }
           img, video, iframe, .leaflet-container { filter: invert(1) hue-rotate(180deg); }
@@ -131,11 +130,10 @@ export default function Navbar() {
         .select('*')
         .eq('user_id', userId)
         .order('created_at', { ascending: false })
-        .limit(10); // Prendiamo le ultime 10 notifiche
+        .limit(10);
 
       if (!error && data) {
         setNotifList(data);
-        // Il pallino rosso conta solo quelle "is_read" = false
         setNotifications(data.filter(n => !n.is_read).length);
       }
     } catch (e) {}
@@ -146,19 +144,14 @@ export default function Navbar() {
     setIsNotifOpen(!isNotifOpen);
     setIsQuickMenuOpen(false);
 
-    // Se apriamo la tendina e abbiamo notifiche da leggere...
     if (!isNotifOpen && notifications > 0 && user) {
-      // 1. Le segniamo come lette nel database
       await supabase
         .from('notifications')
         .update({ is_read: true })
         .eq('user_id', user.id)
         .eq('is_read', false);
       
-      // 2. Togliamo il pallino rosso visivamente
       setNotifications(0);
-      
-      // 3. Aggiorniamo la lista locale per sbiadire i messaggi
       setNotifList(prev => prev.map(n => ({...n, is_read: true})));
     }
   };
@@ -170,10 +163,8 @@ export default function Navbar() {
 
   const handleDeleteAccount = async () => {
     const firstConfirm = window.confirm("⚠️ ATTENZIONE: Sei sicuro di voler cancellare il tuo profilo? Questa azione eliminerà i tuoi dati. Non potrai tornare indietro.");
-    
     if (firstConfirm) {
       const secondConfirm = window.confirm("Sei PROPRIO sicuro? Dovrai registrarti di nuovo se vorrai tornare su Re-love.");
-      
       if (secondConfirm && user) {
         setLoading(true);
         try {
@@ -252,7 +243,6 @@ export default function Navbar() {
 
         <div className="flex items-center gap-2 md:gap-4">
           
-          {/* I 4 NUOVI TASTI IN BELLA VISTA NELLA BARRA (SOLO PC E TABLET) */}
           <div className="hidden lg:flex items-center gap-1 border-r border-stone-200 pr-4 mr-2">
             <button onClick={() => setDarkMode(!darkMode)} title={darkMode ? "Modalità Chiara" : "Modalità Notte"} className="p-2 text-xl hover:scale-110 transition-transform">
               {darkMode ? '☀️' : '🌙'}
@@ -279,7 +269,6 @@ export default function Navbar() {
           </Link>
 
           <div className="relative">
-            {/* PULSANTE NOTIFICHE SOSTITUITO CON LA NUOVA FUNZIONE */}
             <button 
               onClick={handleOpenNotifs} 
               className="relative p-2 text-xl text-stone-500 hover:bg-rose-50 hover:text-rose-500 rounded-full transition-all"
@@ -299,7 +288,6 @@ export default function Navbar() {
                   <button onClick={() => setIsNotifOpen(false)} className="text-stone-400 hover:text-stone-800 text-xs font-bold">✕</button>
                 </div>
                 
-                {/* LISTA REALE DELLE NOTIFICHE */}
                 {notifList.length === 0 ? (
                   <div className="py-6 text-center">
                     <span className="text-4xl block mb-3">📭</span>
@@ -329,6 +317,10 @@ export default function Navbar() {
             {isQuickMenuOpen && (
               <div className="absolute right-0 mt-2 w-48 bg-white border border-stone-100 shadow-xl rounded-xl p-2 z-[6000]">
                 <Link href="/profile" className="block p-3 text-xs font-medium text-stone-700 hover:bg-rose-50 hover:text-rose-600 rounded-lg transition-all">⚙️ Impostazioni</Link>
+                {user && (
+                  // --- LINK SELLER HUB AGGIUNTO AL QUICK MENU PC ---
+                  <Link href="/dashboard/analitiche" className="block p-3 text-xs font-bold text-stone-700 hover:bg-rose-50 hover:text-rose-600 rounded-lg transition-all">📈 Seller Hub</Link>
+                )}
                 <Link href="/come-funziona" className="block p-3 text-xs font-medium text-stone-700 hover:bg-rose-50 hover:text-rose-600 rounded-lg transition-all">❓ Aiuto</Link>
                 {user && (
                   <>
@@ -378,6 +370,9 @@ export default function Navbar() {
                 {user ? (
                   <>
                     <Link href="/profile" onClick={() => setIsSidebarOpen(false)} className="flex items-center gap-4 p-3 text-sm font-medium text-stone-700 hover:text-rose-600 hover:bg-rose-50 rounded-xl transition-all">👤 Profilo</Link>
+                    {/* --- LINK SELLER HUB AGGIUNTO AL MENU LATERALE --- */}
+                    <Link href="/dashboard/analitiche" onClick={() => setIsSidebarOpen(false)} className="flex justify-between items-center p-3 text-sm font-medium text-stone-700 hover:text-rose-600 hover:bg-rose-50 rounded-xl transition-all">📈 Seller Hub <span className="bg-orange-100 text-orange-600 text-[9px] px-2 py-0.5 rounded-full font-bold">PRO</span></Link>
+                    
                     <Link href="/dashboard/annunci" onClick={() => setIsSidebarOpen(false)} className="p-3 text-sm font-medium text-stone-700 hover:text-rose-600 hover:bg-rose-50 rounded-xl transition-all">📝 Gestione Annunci</Link>
                     <Link href="/dashboard/acquisti" onClick={() => setIsSidebarOpen(false)} className="p-3 text-sm font-medium text-stone-700 hover:text-rose-600 hover:bg-rose-50 rounded-xl transition-all flex justify-between items-center">📦 Ordini <span className="bg-rose-500 text-white text-[9px] px-2 py-0.5 rounded-full font-bold">SECURE</span></Link>
                     <Link href="/chat" onClick={() => setIsSidebarOpen(false)} className="p-3 text-sm font-medium text-stone-700 hover:text-rose-600 hover:bg-rose-50 rounded-xl transition-all flex justify-between">💬 Messaggi</Link>
@@ -390,7 +385,6 @@ export default function Navbar() {
               </div>
             </section>
 
-            {/* ECCO LA MAGIA: LA SEZIONE DEGLI STRUMENTI VISIBILE SOLO DA CELLULARE! */}
             <section className="lg:hidden">
               <h3 className="text-[10px] font-bold uppercase text-stone-400 mb-4 tracking-[0.2em] border-b pb-2 border-stone-100">Strumenti Re-love</h3>
               <div className="grid grid-cols-2 gap-3">
