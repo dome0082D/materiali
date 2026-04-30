@@ -46,6 +46,7 @@ function AddAnnouncementForm() {
   const [shippingCost, setShippingCost] = useState('0')
   const [quantity, setQuantity] = useState('1')
   const [allowLocalPickup, setAllowLocalPickup] = useState(false)
+  const [acceptsReturns, setAcceptsReturns] = useState(false) // NUOVO STATO: ACCETTA RESI
   const [exchangeItem, setExchangeItem] = useState('')
 
   const [images, setImages] = useState<File[]>([])
@@ -80,6 +81,7 @@ function AddAnnouncementForm() {
       setImages([])
       setImageUrls([])
       setExchangeItem('')
+      setAcceptsReturns(false) // Reset
     } else {
       setCondition(modeParam === 'new' ? 'Nuovo' : modeParam === 'gift' ? 'Regalo' : modeParam === 'barter' ? 'Baratto' : 'Usato')
       if (modeParam === 'gift' || modeParam === 'barter') {
@@ -161,6 +163,7 @@ function AddAnnouncementForm() {
           shipping_cost: numShipping,
           quantity: qty,
           allow_local_pickup: allowLocalPickup,
+          accepts_returns: acceptsReturns, // INSERIMENTO NEL DATABASE
           exchange_item: condition === 'Baratto' ? exchangeItem : null,
           latitude: profile?.latitude || null,
           longitude: profile?.longitude || null
@@ -348,13 +351,27 @@ function AddAnnouncementForm() {
                   </div>
                </div>
 
-               <label className="flex items-center gap-4 p-5 bg-stone-50 border border-stone-100 rounded-2xl cursor-pointer hover:bg-stone-100 transition-colors">
-                 <input type="checkbox" checked={allowLocalPickup} onChange={(e) => setAllowLocalPickup(e.target.checked)} className="w-6 h-6 accent-rose-500 rounded" />
-                 <div className="flex flex-col">
-                   <span className="text-xs font-black uppercase text-stone-800">Consenti Ritiro a Mano</span>
-                   <span className="text-[9px] font-bold uppercase text-stone-400">Gli acquirenti vicini potranno non pagare la spedizione</span>
-                 </div>
-               </label>
+               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  {/* SPUNTA RITIRO A MANO */}
+                  <label className="flex items-center gap-4 p-5 bg-stone-50 border border-stone-100 rounded-2xl cursor-pointer hover:bg-stone-100 transition-colors">
+                    <input type="checkbox" checked={allowLocalPickup} onChange={(e) => setAllowLocalPickup(e.target.checked)} className="w-6 h-6 accent-rose-500 rounded" />
+                    <div className="flex flex-col">
+                      <span className="text-xs font-black uppercase text-stone-800">Consenti Ritiro</span>
+                      <span className="text-[9px] font-bold uppercase text-stone-400">Gli utenti vicini non pagheranno la spedizione</span>
+                    </div>
+                  </label>
+
+                  {/* NUOVA SPUNTA: ACCETTA RESI (Non applicabile a Baratto e Regalo) */}
+                  {condition !== 'Regalo' && condition !== 'Baratto' && (
+                    <label className="flex items-center gap-4 p-5 bg-blue-50 border border-blue-100 rounded-2xl cursor-pointer hover:bg-blue-100 transition-colors">
+                      <input type="checkbox" checked={acceptsReturns} onChange={(e) => setAcceptsReturns(e.target.checked)} className="w-6 h-6 accent-blue-600 rounded" />
+                      <div className="flex flex-col">
+                        <span className="text-xs font-black uppercase text-blue-900">Accetto i Resi</span>
+                        <span className="text-[9px] font-bold uppercase text-blue-500">I clienti comprano più volentieri se c'è il reso</span>
+                      </div>
+                    </label>
+                  )}
+               </div>
             </div>
 
             <div className="pt-8">
