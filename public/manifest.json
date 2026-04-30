@@ -12,19 +12,19 @@
   "categories": ["shopping", "lifestyle"],
   "icons": [
     {
-      "src": "icon-192.png",
+      "src": "/icon-192.png",
       "sizes": "192x192",
       "type": "image/png",
       "purpose": "any"
     },
     {
-      "src": "icon-512.png",
+      "src": "/icon-512.png",
       "sizes": "512x512",
       "type": "image/png",
       "purpose": "any"
     },
     {
-      "src": "icon-192.png",
+      "src": "/icon-192.png",
       "sizes": "192x192",
       "type": "image/png",
       "purpose": "maskable"
@@ -32,21 +32,21 @@
   ],
   "screenshots": [
     {
-      "src": "screen1.png",
+      "src": "/screen1.png",
       "sizes": "1080x1920",
       "type": "image/png",
       "form_factor": "narrow",
       "label": "Scopri Re-love"
     },
     {
-      "src": "screen2.png",
+      "src": "/screen2.png",
       "sizes": "1080x1920",
       "type": "image/png",
       "form_factor": "narrow",
       "label": "Dettaglio Articolo"
     },
     {
-      "src": "screen3.png",
+      "src": "/screen3.png",
       "sizes": "1080x1920",
       "type": "image/png",
       "form_factor": "narrow",
