@@ -46,6 +46,36 @@ export default function Navbar() {
   const { items, isCartOpen, openCart, closeCart, removeItem, updateQuantity } = useCartStore()
   const total = items.reduce((acc, i) => acc + (Number(i.price) * i.quantity), 0)
 
+  // --- RICHIESTA PERMESSO NOTIFICHE NATIVE ---
+  useEffect(() => {
+    if (typeof window !== "undefined" && "Notification" in window) {
+      if (Notification.permission === "default") {
+        Notification.requestPermission();
+      }
+    }
+  }, [])
+
+  // --- FUNZIONE PER LANCIARE LA NOTIFICA SUL TELEFONO ---
+  const triggerNativePush = (message: string) => {
+    if (!("Notification" in window)) return;
+    if (Notification.permission === "granted") {
+      // Prova a usare il Service Worker (migliore su Android) o la notifica web standard (PC)
+      navigator.serviceWorker?.getRegistration().then(function(reg) {
+        if (reg) {
+          reg.showNotification('🔔 Re-love', { 
+            body: message, 
+            vibrate: [200, 100, 200], // Vibrazione per Android
+            icon: '/usato.png' 
+          });
+        } else {
+          new Notification('🔔 Re-love', { body: message });
+        }
+      }).catch(() => {
+        new Notification('🔔 Re-love', { body: message });
+      });
+    }
+  }
+
   // --- EFFETTO MODALITÀ NOTTE (TRUCCO CSS UNIVERSALE) ---
   useEffect(() => {
     let styleEl = document.getElementById('dark-mode-hack') as HTMLStyleElement;
@@ -96,8 +126,14 @@ export default function Navbar() {
           
           try {
             const channel = supabase.channel('realtime-notifications')
-              .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'notifications', filter: `user_id=eq.${currentUser.id}` }, () => {
+              .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'notifications', filter: `user_id=eq.${currentUser.id}` }, (payload) => {
+                
+                // 1. Aggiorna il pallino rosso sul sito
                 fetchNotifications(currentUser.id)
+                
+                // 2. MAGIA: LANCIA LA NOTIFICA PUSH NATIVA SUL TELEFONO/PC!
+                triggerNativePush(payload.new.message)
+
               }).subscribe()
               
             return () => { supabase.removeChannel(channel) }
@@ -543,12 +579,9 @@ export default function Navbar() {
       {isRadarScanning && (
         <div className="fixed inset-0 z-[20000] bg-stone-900/95 backdrop-blur-md flex items-center justify-center p-4">
           <div className="text-center flex flex-col items-center">
-            {/* Cerchio del Radar */}
             <div className="w-40 h-40 md:w-48 md:h-48 rounded-full border-4 border-emerald-500/20 flex items-center justify-center relative overflow-hidden mb-6 md:mb-8 shadow-[0_0_80px_rgba(16,185,129,0.2)]">
-              {/* Onde concentriche */}
               <div className="absolute inset-0 rounded-full border border-emerald-500/40 animate-ping" style={{ animationDuration: '2s' }}></div>
               <div className="absolute inset-4 rounded-full border border-emerald-500/30 animate-ping" style={{ animationDuration: '2.5s' }}></div>
-              {/* Raggio verde che gira */}
               <div className="w-[50%] h-1 bg-gradient-to-r from-transparent to-emerald-400 absolute top-1/2 left-1/2 origin-left animate-spin" style={{ animationDuration: '1.5s', transform: 'translateY(-50%)' }}></div>
               <span className="text-4xl md:text-5xl relative z-10">📡</span>
             </div>
