@@ -6,7 +6,6 @@ import Link from 'next/link'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { User } from '@supabase/supabase-js'
 
-// 1. Definiamo l'interfaccia per gli annunci
 interface Announcement {
   id: string;
   title: string;
@@ -30,13 +29,14 @@ function HomePageContent() {
   const [favorites, setFavorites] = useState<string[]>([])
   const [loading, setLoading] = useState(true)
   
-  // STATI PER LA RICERCA
+  // STATI PER LA RICERCA AVANZATA (FILTRI GRANULARI)
   const [mainSearch, setMainSearch] = useState('') 
   const [searchCategory, setSearchCategory] = useState('all')
   const [condition, setSearchCondition] = useState('all')
+  const [minPrice, setMinPrice] = useState('') // Filtro prezzo minimo
+  const [maxPrice, setMaxPrice] = useState('') // Filtro prezzo massimo
   const [distance, setDistance] = useState(0) 
   
-  // STATO PER LA PAGINAZIONE
   const [visibleCount, setVisibleCount] = useState(12)
   
   const router = useRouter()
@@ -47,7 +47,6 @@ function HomePageContent() {
 
   useEffect(() => { 
     fetchInitialData() 
-  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
   async function fetchInitialData() {
@@ -104,13 +103,26 @@ function HomePageContent() {
     }
   }
 
+  // --- MOTORE DI RICERCA A FACCETTE MULTIPLE ---
   const filteredData = announcements.filter(item => {
+    // 1. Filtro Testo
     const titleMatch = item.title.toLowerCase().includes(mainSearch.toLowerCase())
+    // 2. Filtro Categoria
     const categoryMatch = catFilter ? item.category_id?.toString() === catFilter : (searchCategory === 'all' || item.category === searchCategory)
+    // 3. Filtro Condizione (Nuovo/Usato)
     const conditionMatch = condition === 'all' || item.condition === condition
+    // 4. Filtro Tipologia (Da URL)
     const typeMatch = !typeFilter || item.type === typeFilter
+    // 5. Disponibilità
     const availableMatch = item.quantity > 0 
-    return titleMatch && categoryMatch && conditionMatch && typeMatch && availableMatch
+    
+    // 6. FILTRI PREZZO GRANULARI
+    const itemPrice = Number(item.price);
+    const minP = minPrice ? Number(minPrice) : 0;
+    const maxP = maxPrice ? Number(maxPrice) : Infinity;
+    const priceMatch = itemPrice >= minP && itemPrice <= maxP;
+
+    return titleMatch && categoryMatch && conditionMatch && typeMatch && availableMatch && priceMatch;
   })
 
   const sortedData = [...filteredData].sort((a, b) => {
@@ -135,14 +147,12 @@ function HomePageContent() {
         </Link>
       )}
 
-      {/* --- HERO SECTION: IMMAGINE INTERA --- */}
+      {/* --- HERO SECTION: IMMAGINE INTERA INTATTA --- */}
       <div className="relative w-full h-[300px] md:h-[480px] flex flex-col items-center overflow-hidden bg-transparent">
-          {/* Immagine Teatro dedicata all'Hero */}
           <div className="absolute inset-0 z-0">
             <img 
               src="/teatro.jpeg" 
               alt="Re-love Hero"
-              /* MODIFICATO: object-contain per vedere l'immagine INTERA senza ritagli */
               className="w-full h-full object-contain"
             />
           </div>
@@ -162,37 +172,64 @@ function HomePageContent() {
 
       <main className="max-w-7xl mx-auto px-4 md:px-8 -mt-16 relative z-20">
         
-        {/* Filtri resi semi-trasparenti */}
-        <section className="mb-12 grid grid-cols-1 md:grid-cols-3 gap-6 bg-white/40 backdrop-blur-xl p-6 rounded-[2.5rem] shadow-xl border border-white/30 items-center">
-          <div className="flex flex-col gap-2">
-            <label className="text-[9px] font-black uppercase text-stone-900 ml-2 tracking-widest">Categoria</label>
-            <select onChange={(e) => setSearchCategory(e.target.value)} className="p-3 bg-white/50 rounded-xl text-[11px] font-black uppercase tracking-wide outline-none border border-white/50 hover:bg-white transition-colors cursor-pointer text-stone-900">
-              <option value="all">Tutte le Categorie</option>
-              <option value="Abbigliamento e Accessori">👕 Abbigliamento e Accessori</option>
-              <option value="Elettronica e Informatica">💻 Elettronica e Informatica</option>
-              <option value="Casa, Arredamento e Giardino">🛋️ Casa, Arredo, Giardino</option>
-              <option value="Alimentari e Bevande">🍎 Alimentari e Bevande</option>
-              <option value="Libri, Film e Musica">📚 Libri, Film e Musica</option>
-              <option value="Salute e Bellezza">💄 Salute e Bellezza</option>
-              <option value="Sport e Tempo Libero">⚽ Sport e Tempo Libero</option>
-              <option value="Motori e Veicoli">🚗 Motori e Veicoli</option>
-              <option value="Altro / Varie">📦 Altro / Varie</option>
-            </select>
-          </div>
-          <div className="flex flex-col gap-2">
-            <label className="text-[9px] font-black uppercase text-stone-900 ml-2 tracking-widest">Condizione Oggetto</label>
-            <select onChange={(e) => setSearchCondition(e.target.value)} className="p-3 bg-white/50 rounded-xl text-[11px] font-black uppercase tracking-wide outline-none border border-white/50 hover:bg-white transition-colors cursor-pointer text-stone-900">
-              <option value="all">Tutte le Condizioni</option>
-              <option value="Nuovo">✨ Nuovo</option>
-              <option value="Usato">♻️ Usato</option>
-              <option value="Regalo">🎁 In Regalo</option>
-              <option value="Baratto">🤝 Baratto</option>
-            </select>
-          </div>
-          <div className="flex flex-col gap-2 pt-5">
-            <button onClick={handleNearbySearch} className={`p-3 rounded-xl text-[11px] font-black uppercase tracking-widest transition-all shadow-md flex items-center justify-center gap-2 ${distance > 0 ? 'bg-gradient-to-r from-rose-500 to-orange-400 text-white shadow-rose-200' : 'bg-stone-900 text-white hover:bg-rose-500'}`}>
-              {distance > 0 ? '📍 Filtro 20km Attivo' : '📍 Cerca Vicino a me'}
-            </button>
+        {/* FILTRI GRANULARI (Senza rovinare l'estetica) */}
+        <section className="mb-12 bg-white/40 backdrop-blur-xl p-6 rounded-[2.5rem] shadow-xl border border-white/30">
+          <div className="grid grid-cols-1 md:grid-cols-4 gap-4 items-end">
+            
+            <div className="flex flex-col gap-2">
+              <label className="text-[9px] font-black uppercase text-stone-900 ml-2 tracking-widest">Categoria</label>
+              <select onChange={(e) => setSearchCategory(e.target.value)} className="p-3 bg-white/50 rounded-xl text-[11px] font-black uppercase tracking-wide outline-none border border-white/50 hover:bg-white transition-colors cursor-pointer text-stone-900">
+                <option value="all">Tutte le Categorie</option>
+                <option value="Abbigliamento e Accessori">👕 Abbigliamento e Accessori</option>
+                <option value="Elettronica e Informatica">💻 Elettronica e Informatica</option>
+                <option value="Casa, Arredamento e Giardino">🛋️ Casa, Arredo, Giardino</option>
+                <option value="Alimentari e Bevande">🍎 Alimentari e Bevande</option>
+                <option value="Libri, Film e Musica">📚 Libri, Film e Musica</option>
+                <option value="Salute e Bellezza">💄 Salute e Bellezza</option>
+                <option value="Sport e Tempo Libero">⚽ Sport e Tempo Libero</option>
+                <option value="Motori e Veicoli">🚗 Motori e Veicoli</option>
+                <option value="Altro / Varie">📦 Altro / Varie</option>
+              </select>
+            </div>
+
+            <div className="flex flex-col gap-2">
+              <label className="text-[9px] font-black uppercase text-stone-900 ml-2 tracking-widest">Condizione</label>
+              <select onChange={(e) => setSearchCondition(e.target.value)} className="p-3 bg-white/50 rounded-xl text-[11px] font-black uppercase tracking-wide outline-none border border-white/50 hover:bg-white transition-colors cursor-pointer text-stone-900">
+                <option value="all">Tutte</option>
+                <option value="Nuovo">✨ Nuovo</option>
+                <option value="Usato">♻️ Usato</option>
+                <option value="Regalo">🎁 In Regalo</option>
+                <option value="Baratto">🤝 Baratto</option>
+              </select>
+            </div>
+
+            <div className="flex flex-col gap-2">
+              <label className="text-[9px] font-black uppercase text-stone-900 ml-2 tracking-widest">Fascia di Prezzo (€)</label>
+              <div className="flex gap-2 items-center">
+                <input 
+                  type="number" 
+                  placeholder="Min" 
+                  value={minPrice}
+                  onChange={(e) => setMinPrice(e.target.value)}
+                  className="w-full p-3 bg-white/50 rounded-xl text-[11px] font-black outline-none border border-white/50 hover:bg-white focus:bg-white focus:border-rose-400 transition-colors"
+                />
+                <span className="text-stone-400 font-black">-</span>
+                <input 
+                  type="number" 
+                  placeholder="Max" 
+                  value={maxPrice}
+                  onChange={(e) => setMaxPrice(e.target.value)}
+                  className="w-full p-3 bg-white/50 rounded-xl text-[11px] font-black outline-none border border-white/50 hover:bg-white focus:bg-white focus:border-rose-400 transition-colors"
+                />
+              </div>
+            </div>
+
+            <div className="flex flex-col gap-2">
+              <button onClick={handleNearbySearch} className={`p-3 rounded-xl text-[11px] font-black uppercase tracking-widest transition-all shadow-md flex items-center justify-center gap-2 ${distance > 0 ? 'bg-gradient-to-r from-rose-500 to-orange-400 text-white shadow-rose-200' : 'bg-stone-900 text-white hover:bg-rose-500'}`}>
+                {distance > 0 ? '📍 Filtro 20km Attivo' : '📍 Radar Zona'}
+              </button>
+            </div>
+
           </div>
         </section>
 
@@ -241,25 +278,29 @@ function HomePageContent() {
             <h2 className="text-[14px] font-black uppercase tracking-[0.4em] text-stone-900">Vetrina Top Nuovo</h2>
             <Link href="/?condition=Nuovo" className="text-[10px] font-black uppercase text-rose-600 hover:text-stone-900 transition-colors">Vedi tutti →</Link>
           </div>
-          <div className="grid grid-cols-2 lg:grid-cols-5 gap-6">
-            {topItems.map(item => (
-              <div key={item.id} className={`group bg-white/80 backdrop-blur-sm p-4 rounded-[2rem] shadow-lg border ${item.is_sponsored ? 'border-orange-400 ring-2 ring-orange-400/20' : 'border-white/50'} hover:bg-white transition-all relative overflow-hidden`}>
-                {item.is_sponsored && (
-                  <div className="absolute top-0 left-0 bg-gradient-to-r from-rose-500 to-orange-400 text-white text-[8px] font-black uppercase px-3 py-1.5 rounded-br-2xl z-40 tracking-widest shadow-md">
-                    TOP ✨
-                  </div>
-                )}
-                <button onClick={(e) => handleToggleFavorite(e, item.id)} className="absolute top-6 right-6 z-30 bg-white/90 w-8 h-8 flex items-center justify-center rounded-full shadow-md text-lg hover:scale-110 transition-all">{favorites.includes(item.id) ? '❤️' : '🤍'}</button>
-                <Link href={`/announcement/${item.id}`}>
-                  <div className="aspect-square rounded-2xl overflow-hidden bg-stone-100 mb-4 relative border border-stone-200">
-                    <img src={item.image_url || "/nuovo.png"} className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-[0.8s]" alt={item.title} />
-                  </div>
-                  <h4 className="text-[12px] font-black uppercase truncate text-stone-900 mb-1">{item.title}</h4>
-                  <p className="text-xl font-black text-rose-600 italic">€ {item.price}</p>
-                </Link>
-              </div>
-            ))}
-          </div>
+          {topItems.length === 0 ? (
+             <p className="text-[10px] font-black text-stone-400 uppercase tracking-widest text-center my-10">Nessun oggetto TOP trovato con questi filtri.</p>
+          ) : (
+            <div className="grid grid-cols-2 lg:grid-cols-5 gap-6">
+              {topItems.map(item => (
+                <div key={item.id} className={`group bg-white/80 backdrop-blur-sm p-4 rounded-[2rem] shadow-lg border ${item.is_sponsored ? 'border-orange-400 ring-2 ring-orange-400/20' : 'border-white/50'} hover:bg-white transition-all relative overflow-hidden`}>
+                  {item.is_sponsored && (
+                    <div className="absolute top-0 left-0 bg-gradient-to-r from-rose-500 to-orange-400 text-white text-[8px] font-black uppercase px-3 py-1.5 rounded-br-2xl z-40 tracking-widest shadow-md">
+                      TOP ✨
+                    </div>
+                  )}
+                  <button onClick={(e) => handleToggleFavorite(e, item.id)} className="absolute top-6 right-6 z-30 bg-white/90 w-8 h-8 flex items-center justify-center rounded-full shadow-md text-lg hover:scale-110 transition-all">{favorites.includes(item.id) ? '❤️' : '🤍'}</button>
+                  <Link href={`/announcement/${item.id}`}>
+                    <div className="aspect-square rounded-2xl overflow-hidden bg-stone-100 mb-4 relative border border-stone-200">
+                      <img src={item.image_url || "/nuovo.png"} className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-[0.8s]" alt={item.title} />
+                    </div>
+                    <h4 className="text-[12px] font-black uppercase truncate text-stone-900 mb-1">{item.title}</h4>
+                    <p className="text-xl font-black text-rose-600 italic">€ {item.price}</p>
+                  </Link>
+                </div>
+              ))}
+            </div>
+          )}
         </section>
 
         <section>
@@ -267,32 +308,40 @@ function HomePageContent() {
             <h2 className="text-[14px] font-black uppercase tracking-[0.4em] text-stone-900 opacity-50">Tutti gli Annunci</h2>
           </div>
           
-          <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-5">
-            {regularItems.slice(0, visibleCount).map(item => (
-              <div key={item.id} className={`group bg-white/70 backdrop-blur-sm rounded-3xl overflow-hidden shadow-md border ${item.is_sponsored ? 'border-orange-400' : 'border-white/40'} hover:bg-white transition-all flex flex-col relative`}>
-                {item.is_sponsored && (
-                  <div className="absolute top-0 left-0 bg-gradient-to-r from-rose-500 to-orange-400 text-white text-[7px] font-black uppercase px-2 py-1 rounded-br-xl z-40 tracking-widest shadow-sm">
-                    TOP 🌟
-                  </div>
-                )}
-                <Link href={`/announcement/${item.id}`} className="aspect-square bg-stone-100 relative block overflow-hidden">
-                  <button onClick={(e) => handleToggleFavorite(e, item.id)} className="absolute top-2 right-2 z-30 bg-white/80 w-6 h-6 flex items-center justify-center rounded-full shadow-sm text-xs hover:scale-110 transition-all">{favorites.includes(item.id) ? '❤️' : '🤍'}</button>
-                  <img src={item.image_url || "/usato.png"} className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-[0.8s]" alt={item.title} />
-                </Link>
-                <div className="p-3 flex flex-col justify-between flex-grow">
-                  <div>
-                    <h4 className="text-[10px] font-black uppercase line-clamp-2 text-stone-800 leading-tight mb-1">{item.title}</h4>
-                    <p className="text-[14px] font-black text-rose-600 italic">
-                      {item.condition === 'Regalo' || item.condition === 'Baratto' ? '€ 0' : `€ ${item.price}`}
-                    </p>
-                  </div>
-                  <Link href={`/announcement/${item.id}`} className="mt-3 block text-center w-full bg-stone-900 text-white text-[9px] font-black uppercase py-2 rounded-xl hover:bg-rose-500 transition-all">
-                    {item.condition === 'Baratto' ? 'Baratta' : item.condition === 'Regalo' ? 'Ricevi' : 'Acquista'}
+          {regularItems.length === 0 ? (
+            <div className="text-center py-20 bg-white/40 rounded-3xl border border-white/50">
+               <span className="text-6xl mb-4 block">🔍</span>
+               <p className="text-sm font-black text-stone-900 uppercase tracking-widest">Nessun risultato</p>
+               <p className="text-[10px] font-bold text-stone-500 uppercase mt-2">Prova ad allargare i filtri di ricerca o la fascia di prezzo.</p>
+            </div>
+          ) : (
+            <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-5">
+              {regularItems.slice(0, visibleCount).map(item => (
+                <div key={item.id} className={`group bg-white/70 backdrop-blur-sm rounded-3xl overflow-hidden shadow-md border ${item.is_sponsored ? 'border-orange-400' : 'border-white/40'} hover:bg-white transition-all flex flex-col relative`}>
+                  {item.is_sponsored && (
+                    <div className="absolute top-0 left-0 bg-gradient-to-r from-rose-500 to-orange-400 text-white text-[7px] font-black uppercase px-2 py-1 rounded-br-xl z-40 tracking-widest shadow-sm">
+                      TOP 🌟
+                    </div>
+                  )}
+                  <Link href={`/announcement/${item.id}`} className="aspect-square bg-stone-100 relative block overflow-hidden">
+                    <button onClick={(e) => handleToggleFavorite(e, item.id)} className="absolute top-2 right-2 z-30 bg-white/80 w-6 h-6 flex items-center justify-center rounded-full shadow-sm text-xs hover:scale-110 transition-all">{favorites.includes(item.id) ? '❤️' : '🤍'}</button>
+                    <img src={item.image_url || "/usato.png"} className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-[0.8s]" alt={item.title} />
                   </Link>
+                  <div className="p-3 flex flex-col justify-between flex-grow">
+                    <div>
+                      <h4 className="text-[10px] font-black uppercase line-clamp-2 text-stone-800 leading-tight mb-1">{item.title}</h4>
+                      <p className="text-[14px] font-black text-rose-600 italic">
+                        {item.condition === 'Regalo' || item.condition === 'Baratto' ? '€ 0' : `€ ${item.price}`}
+                      </p>
+                    </div>
+                    <Link href={`/announcement/${item.id}`} className="mt-3 block text-center w-full bg-stone-900 text-white text-[9px] font-black uppercase py-2 rounded-xl hover:bg-rose-500 transition-all">
+                      {item.condition === 'Baratto' ? 'Baratta' : item.condition === 'Regalo' ? 'Ricevi' : 'Acquista'}
+                    </Link>
+                  </div>
                 </div>
-              </div>
-            ))}
-          </div>
+              ))}
+            </div>
+          )}
 
           {regularItems.length > visibleCount && (
             <div className="mt-12 flex justify-center w-full">
