@@ -46,25 +46,15 @@ export default function Navbar() {
   const { items, isCartOpen, openCart, closeCart, removeItem, updateQuantity } = useCartStore()
   const total = items.reduce((acc, i) => acc + (Number(i.price) * i.quantity), 0)
 
-  // --- RICHIESTA PERMESSO NOTIFICHE NATIVE ---
-  useEffect(() => {
-    if (typeof window !== "undefined" && "Notification" in window) {
-      if (Notification.permission === "default") {
-        Notification.requestPermission();
-      }
-    }
-  }, [])
-
   // --- FUNZIONE PER LANCIARE LA NOTIFICA SUL TELEFONO ---
   const triggerNativePush = (message: string) => {
     if (!("Notification" in window)) return;
     if (Notification.permission === "granted") {
-      // Prova a usare il Service Worker (migliore su Android) o la notifica web standard (PC)
       navigator.serviceWorker?.getRegistration().then(function(reg) {
         if (reg) {
           reg.showNotification('🔔 Re-love', { 
             body: message, 
-            vibrate: [200, 100, 200], // Vibrazione per Android
+            vibrate: [200, 100, 200], 
             icon: '/usato.png' 
           });
         } else {
@@ -76,16 +66,16 @@ export default function Navbar() {
     }
   }
 
-  // --- EFFETTO MODALITÀ NOTTE (TRUCCO CSS UNIVERSALE) ---
+  // --- EFFETTO MODALITÀ NOTTE (OTTIMIZZATO PER PERFORMANCE MOBILE) ---
   useEffect(() => {
     let styleEl = document.getElementById('dark-mode-hack') as HTMLStyleElement;
     if (darkMode) {
       if (!styleEl) {
         styleEl = document.createElement('style');
         styleEl.id = 'dark-mode-hack';
-        // Inverte i colori del sito, ma "re-inverte" immagini e video così non sembrano negativi fotografici!
+        // Aggiunto will-change per sfruttare la GPU su Android/iOS
         styleEl.innerHTML = `
-          html { filter: invert(1) hue-rotate(180deg); background: #fff; transition: filter 0.5s ease; }
+          html { filter: invert(1) hue-rotate(180deg); background: #fff; transition: filter 0.5s ease; will-change: filter; }
           img, video, iframe, .leaflet-container { filter: invert(1) hue-rotate(180deg); }
         `;
         document.head.appendChild(styleEl);
@@ -95,7 +85,10 @@ export default function Navbar() {
     }
   }, [darkMode])
 
+  // --- EFFETTO DATI E SUPABASE CHANNEL (CORRETTO MEMORY LEAK) ---
   useEffect(() => {
+    let myChannel: any = null; // ✅ Variabile dichiarata fuori per permettere la pulizia
+
     const getData = async () => {
       try {
         const { data: { session } } = await supabase.auth.getSession()
@@ -103,47 +96,30 @@ export default function Navbar() {
         setUser(currentUser)
         
         try {
-          const { data: cats, error: catsError } = await supabase.from('categories').select('*').order('name')
-          if (!catsError && cats) {
-            setCategories(cats)
-          }
-        } catch (catErr) {
-          console.warn("Nessuna tabella categorie trovata", catErr)
-        }
+          const { data: cats } = await supabase.from('categories').select('*').order('name')
+          if (cats) setCategories(cats)
+        } catch (catErr) {}
 
-        // CARICAMENTO ANNUNCI PER LA MAPPA
         try {
-          const { data: anns, error: annsError } = await supabase.from('announcements').select('*')
-          if (!annsError && anns) {
-            setAnnouncements(anns)
-          }
-        } catch (annsErr) {
-          console.warn("Nessuna tabella annunci trovata", annsErr)
-        }
+          const { data: anns } = await supabase.from('announcements').select('*')
+          if (anns) setAnnouncements(anns)
+        } catch (annsErr) {}
 
         if (currentUser) {
           await fetchNotifications(currentUser.id)
           
           try {
-            const channel = supabase.channel('realtime-notifications')
+            // ✅ Creazione canale assegnata alla variabile esterna
+            myChannel = supabase.channel('realtime-notifications')
               .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'notifications', filter: `user_id=eq.${currentUser.id}` }, (payload) => {
-                
-                // 1. Aggiorna il pallino rosso sul sito
                 fetchNotifications(currentUser.id)
-                
-                // 2. MAGIA: LANCIA LA NOTIFICA PUSH NATIVA SUL TELEFONO/PC!
                 triggerNativePush(payload.new.message)
-
               }).subscribe()
-              
-            return () => { supabase.removeChannel(channel) }
           } catch (channelErr) {
             console.warn("Canale notifiche non avviato")
           }
         }
-      } catch (mainErr) {
-        console.error("Errore Navbar:", mainErr)
-      }
+      } catch (mainErr) {}
     }
     
     getData()
@@ -152,14 +128,17 @@ export default function Navbar() {
       setUser(session?.user || null)
     })
     
+    // ✅ PULIZIA REALE QUANDO IL COMPONENTE VIENE SMONTATO
     return () => {
+      if (myChannel) {
+        supabase.removeChannel(myChannel);
+      }
       if (authListener?.subscription) {
         authListener.subscription.unsubscribe()
       }
     }
   }, [])
 
-  // --- LETTURA DELLE NOTIFICHE REALI ---
   const fetchNotifications = async (userId: string) => {
     try {
       const { data, error } = await supabase
@@ -178,6 +157,13 @@ export default function Navbar() {
 
   // --- APERTURA MENU NOTIFICHE E AZZERAMENTO PALLINO ---
   const handleOpenNotifs = async () => {
+    // ✅ RICHIESTA PERMESSO NOTIFICHE SU AZIONE UTENTE (Così Chrome/Safari non lo bloccano)
+    if (typeof window !== "undefined" && "Notification" in window) {
+      if (Notification.permission === "default") {
+        Notification.requestPermission();
+      }
+    }
+
     setIsNotifOpen(!isNotifOpen);
     setIsQuickMenuOpen(false);
 
@@ -280,7 +266,6 @@ export default function Navbar() {
 
         <div className="flex items-center gap-1 md:gap-4">
           
-          {/* I 4 NUOVI TASTI IN BELLA VISTA NELLA BARRA (SOLO PC E TABLET) */}
           <div className="hidden lg:flex items-center gap-1 border-r border-stone-200 pr-4 mr-2">
             <button onClick={() => setDarkMode(!darkMode)} title={darkMode ? "Modalità Chiara" : "Modalità Notte"} className="p-2 text-xl hover:scale-110 transition-transform">
               {darkMode ? '☀️' : '🌙'}
@@ -307,7 +292,6 @@ export default function Navbar() {
           </Link>
 
           <div className="relative">
-            {/* PULSANTE NOTIFICHE SOSTITUITO CON LA NUOVA FUNZIONE */}
             <button 
               onClick={handleOpenNotifs} 
               className="relative p-2 text-lg md:text-xl text-stone-500 hover:bg-rose-50 hover:text-rose-500 rounded-full transition-all"
@@ -359,7 +343,6 @@ export default function Navbar() {
                 {user && (
                   <Link href="/dashboard/analitiche" className="block p-2.5 md:p-3 text-[10px] md:text-xs font-bold text-stone-700 hover:bg-rose-50 hover:text-rose-600 rounded-lg transition-all">📈 Seller Hub</Link>
                 )}
-                {/* --- MODIFICA LINK AIUTO PER IL PC --- */}
                 <Link href="/supporto" className="block p-2.5 md:p-3 text-[10px] md:text-xs font-medium text-stone-700 hover:bg-rose-50 hover:text-rose-600 rounded-lg transition-all">❓ Aiuto</Link>
                 {user && (
                   <>
@@ -409,9 +392,7 @@ export default function Navbar() {
                 {user ? (
                   <>
                     <Link href="/profile" onClick={() => setIsSidebarOpen(false)} className="flex items-center gap-4 p-2.5 md:p-3 text-xs md:text-sm font-medium text-stone-700 hover:text-rose-600 hover:bg-rose-50 rounded-xl transition-all">👤 Profilo</Link>
-                    {/* --- LINK SELLER HUB AGGIUNTO AL MENU LATERALE --- */}
                     <Link href="/dashboard/analitiche" onClick={() => setIsSidebarOpen(false)} className="flex justify-between items-center p-2.5 md:p-3 text-xs md:text-sm font-medium text-stone-700 hover:text-rose-600 hover:bg-rose-50 rounded-xl transition-all">📈 Seller Hub <span className="bg-orange-100 text-orange-600 text-[8px] md:text-[9px] px-2 py-0.5 rounded-full font-bold">PRO</span></Link>
-                    
                     <Link href="/dashboard/annunci" onClick={() => setIsSidebarOpen(false)} className="p-2.5 md:p-3 text-xs md:text-sm font-medium text-stone-700 hover:text-rose-600 hover:bg-rose-50 rounded-xl transition-all">📝 Gestione Annunci</Link>
                     <Link href="/dashboard/acquisti" onClick={() => setIsSidebarOpen(false)} className="p-2.5 md:p-3 text-xs md:text-sm font-medium text-stone-700 hover:text-rose-600 hover:bg-rose-50 rounded-xl transition-all flex justify-between items-center">📦 Ordini <span className="bg-rose-500 text-white text-[8px] md:text-[9px] px-2 py-0.5 rounded-full font-bold">SECURE</span></Link>
                     <Link href="/chat" onClick={() => setIsSidebarOpen(false)} className="p-2.5 md:p-3 text-xs md:text-sm font-medium text-stone-700 hover:text-rose-600 hover:bg-rose-50 rounded-xl transition-all flex justify-between">💬 Messaggi</Link>
@@ -425,7 +406,6 @@ export default function Navbar() {
               </div>
             </section>
 
-            {/* SEZIONE DEGLI STRUMENTI VISIBILE SOLO DA CELLULARE! */}
             <section className="lg:hidden">
               <h3 className="text-[9px] md:text-[10px] font-bold uppercase text-stone-400 mb-3 md:mb-4 tracking-[0.2em] border-b pb-2 border-stone-100">Strumenti Re-love</h3>
               <div className="grid grid-cols-2 gap-2 md:gap-3">
@@ -509,7 +489,7 @@ export default function Navbar() {
         )}
       </div>
 
-      {/* -------------------- POPUP SCUDO SICUREZZA COMPATTO -------------------- */}
+      {/* -------------------- MODALI -------------------- */}
       {showSecurityModal && (
         <div className="fixed inset-0 z-[10000] flex items-center justify-center p-4">
           <div className="bg-white rounded-2xl md:rounded-3xl shadow-2xl p-6 md:p-8 max-w-md w-full relative">
@@ -529,7 +509,6 @@ export default function Navbar() {
         </div>
       )}
 
-      {/* -------------------- POPUP VALUTATORE MAGICO COMPATTO -------------------- */}
       {showAiModal && (
         <div className="fixed inset-0 z-[10000] flex items-center justify-center p-4">
           <div className="bg-white rounded-2xl md:rounded-3xl shadow-2xl p-6 md:p-8 max-w-md w-full relative">
@@ -558,7 +537,6 @@ export default function Navbar() {
         </div>
       )}
 
-      {/* -------------------- POPUP MAPPA ITALIA DETTAGLIATA -------------------- */}
       {showMapModal && (
         <div className="fixed inset-0 z-[15000] bg-white flex flex-col animate-in slide-in-from-bottom duration-500">
           <div className="p-3 md:p-4 border-b border-stone-100 flex justify-between items-center bg-white shadow-sm z-10">
@@ -575,7 +553,6 @@ export default function Navbar() {
         </div>
       )}
 
-      {/* -------------------- ANIMAZIONE RADAR DI QUARTIERE -------------------- */}
       {isRadarScanning && (
         <div className="fixed inset-0 z-[20000] bg-stone-900/95 backdrop-blur-md flex items-center justify-center p-4">
           <div className="text-center flex flex-col items-center">
