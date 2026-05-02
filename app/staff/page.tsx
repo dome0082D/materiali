@@ -204,7 +204,7 @@ export default function AdminDashboard() {
     if (!confirm("Sei sicuro? Questa azione eliminerà TUTTE le chat (inviate e ricevute) di questo utente in modo irreversibile.")) return
     
     try {
-      const { error } = await supabase.from('messages').delete().or(`sender_id.eq.${userId},receiver_id.eq.${userId}`)
+      const { error } = await supabase.rpc('delete_user_chats', { target_user_id: userId })
       
       if (!error) {
         alert("Tutte le chat dell'utente sono state spazzate via con successo. 🌪️")
@@ -220,19 +220,22 @@ export default function AdminDashboard() {
     }
   }
 
+  // NUOVA VERSIONE: USA LA SUPER-FUNZIONE SQL NUCLEARE POTENZIATA
   const deleteProfile = async (userId: string) => {
-    if (!confirm("AZIONE NUCLEARE: Eliminare profilo, annunci e messaggi? Questa azione distrugge tutto l'account.")) return
+    if (!confirm("AZIONE NUCLEARE: Verranno eliminati messaggi, recensioni, transazioni, annunci, notifiche e l'ACCESSO AL SITO di questo utente. Sicuro di voler distruggere questi dati?")) return
     
     try {
-      await supabase.from('messages').delete().or(`sender_id.eq.${userId},receiver_id.eq.${userId}`)
-      await supabase.from('announcements').delete().eq('user_id', userId)
-      await supabase.from('profiles').delete().eq('id', userId)
+      const { error } = await supabase.rpc('delete_user_cascade', { target_user_id: userId })
       
-      alert("Utente rimosso completamente dal mondo Re-love. 💥")
+      if (error) {
+        throw error
+      }
+      
+      alert("L'utente è stato disintegrato con successo. 💥 Non esiste più nel database e non potrà più fare login.")
       setIsModalOpen(false)
       checkAdminAndFetchData()
     } catch (err: any) {
-      alert("Si è verificato un problema durante la procedura nucleare: " + err.message)
+      alert("Il Database ha bloccato l'eliminazione per questo motivo:\n\n" + err.message + "\n\nAssicurati di aver eseguito l'ultimo script SQL in Supabase!")
     }
   }
 
@@ -465,7 +468,7 @@ export default function AdminDashboard() {
                     <p className="font-black text-white text-sm">{p.email}</p>
                     <p className="text-[10px] text-stone-500 font-bold uppercase tracking-widest">{p.city || 'Città non impostata'}</p>
                   </div>
-                  <button onClick={() => viewUserDetails(p)} className="bg-blue-500/10 border border-blue-500/40 text-blue-400 hover:bg-blue-500 hover:text-white px-4 py-2 rounded-xl text-[9px] font-black uppercase transition-all">Ispeziona</button>
+                  <button onClick={() => viewUserDetails(p)} className="bg-blue-500/10 border border-blue-500/40 text-blue-400 hover:bg-blue-50 hover:text-white px-4 py-2 rounded-xl text-[9px] font-black uppercase transition-all">Ispeziona</button>
                 </div>
               ))}
             </div>
