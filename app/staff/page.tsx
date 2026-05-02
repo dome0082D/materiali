@@ -501,7 +501,7 @@ export default function AdminDashboard() {
             <div className="p-10 border-b border-stone-800 flex justify-between items-center bg-stone-900">
               <div>
                 <h2 className="text-3xl font-black uppercase italic text-white">Profilo Sotto Lente</h2>
-                <p className="text-rose-500 text-xs font-bold uppercase tracking-[0.3em] mt-1">{selectedUser.email}</p>
+                <p className="text-rose-500 text-xs font-bold uppercase tracking-[0.3em] mt-1">{selectedUser.email || 'Nessuna Email'}</p>
               </div>
               <button onClick={() => setIsModalOpen(false)} className="text-stone-500 hover:text-white text-5xl transition-colors leading-none">&times;</button>
             </div>
@@ -510,7 +510,7 @@ export default function AdminDashboard() {
               
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                 {[
-                  { l: '📧 Indirizzo Email', v: selectedUser.email },
+                  { l: '📧 Indirizzo Email', v: selectedUser.email || '⚠️ Vuota (Inseriscila da Supabase)' },
                   { l: '👤 Nome', v: selectedUser.first_name || 'Non inserito' },
                   { l: '👥 Cognome', v: selectedUser.last_name || 'Non inserito' },
                   { l: '🏙️ Città', v: selectedUser.city || 'Non inserito' },
@@ -522,7 +522,7 @@ export default function AdminDashboard() {
                 ].map((item, idx) => (
                   <div key={idx} className="bg-stone-800 p-5 rounded-2xl border border-stone-700/50">
                     <p className="text-[9px] font-black uppercase text-stone-500 tracking-widest mb-2">{item.l}</p>
-                    <p className="text-sm font-bold text-white truncate">{item.v}</p>
+                    <p className="text-sm font-bold text-white truncate" title={item.v}>{item.v}</p>
                   </div>
                 ))}
               </div>
