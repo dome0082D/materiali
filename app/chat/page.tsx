@@ -1,4 +1,6 @@
 'use client'
+export const dynamic = 'force-dynamic'
+
 import { useEffect, useState, useRef } from 'react'
 import { supabase } from '@/lib/supabase'
 import { useRouter } from 'next/navigation'
@@ -63,7 +65,7 @@ export default function ChatPage() {
       setUser(currentUser)
 
       // Caricamento Profili protetto
-      const { data: profs, error: profsError } = await supabase.from('profiles').select('id, first_name, user_serial_id')
+      const { data: profs, error: profsError } = await supabase.from('profiles').select('id, first_name, user_serial_id, email')
       const pMap: Record<string, any> = {}
       if (profs) profs.forEach(p => pMap[p.id] = p)
       setProfilesMap(pMap)
@@ -114,17 +116,32 @@ export default function ChatPage() {
 
     const usersInChat = activeChatPair.split('_')
     const receiverId = usersInChat.find(u => u !== user.id) || usersInChat[0]
+    
+    const messageContent = newMessage; // Salvo il testo prima di svuotarlo
+    setNewMessage('')
+    setShowEmojis(false) 
 
     try {
+      // INSERISCE IL MESSAGGIO NEL DB
       await supabase.from('messages').insert([{ 
-          content: newMessage, 
+          content: messageContent, 
           sender_id: user.id, 
           receiver_id: receiverId 
       }])
-      setNewMessage('')
-      setShowEmojis(false) // Nasconde il menu dopo l'invio
+      
+      // INVIA NOTIFICA PUSH AL DESTINATARIO (solo se non sta scrivendo a se stesso)
+      if (receiverId !== user.id) {
+        const senderName = profilesMap[user.id]?.first_name || 'Un utente';
+        await supabase.from('notifications').insert([{
+          user_id: receiverId,
+          message: `💬 Nuovo messaggio da ${senderName}: "${messageContent.length > 20 ? messageContent.substring(0, 20) + '...' : messageContent}"`,
+          is_read: false
+        }])
+      }
+
     } catch (e) {
       console.error("Errore invio:", e)
+      alert("Si è verificato un errore durante l'invio del messaggio.")
     }
   }
 
