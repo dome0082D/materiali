@@ -124,6 +124,31 @@ function AddAnnouncementForm() {
     setImageUrls(newUrls)
   }
 
+  // --- LOGICA REALE GENERAZIONE IA ---
+  const handleGenerateDescription = async () => {
+    if (!title) {
+      toast.error("Scrivi prima il titolo dell'oggetto!");
+      return;
+    }
+    const toastId = toast.loading("🪄 L'IA sta scrivendo per te...");
+    try {
+      const res = await fetch('/api/generate-description', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ title, condition, category })
+      });
+      const data = await res.json();
+      if (data.description) {
+        setDescription(data.description);
+        toast.success("Magia completata! ✨", { id: toastId });
+      } else {
+        toast.error(data.error || "Errore con l'IA", { id: toastId });
+      }
+    } catch (err) {
+      toast.error("Errore di connessione all'IA", { id: toastId });
+    }
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     if (!user) return
@@ -187,7 +212,7 @@ function AddAnnouncementForm() {
           // CAMPI ASTA
           is_auction: isAuction,
           auction_end: auctionEndTime,
-          current_bid: isAuction ? numPrice : 0 // Se è un'asta, il prezzo base è la prima bid
+          current_bid: isAuction ? numPrice : 0 
         }
       ]).select()
 
@@ -204,7 +229,7 @@ function AddAnnouncementForm() {
 
   if (loadingUser) return <div className="min-h-screen bg-white flex items-center justify-center font-black uppercase text-stone-400 tracking-widest text-xs animate-pulse">Accesso in corso...</div>
 
-  // --- SCHERMATA INTERMEDIA SE NON C'È UNA TIPOLOGIA SELEZIONATA ---
+  // --- SCHERMATA INTERMEDIA ---
   if (!modeParam) {
     return (
       <div className="min-h-screen bg-white flex flex-col items-center justify-center py-20 px-4 pb-32">
@@ -308,8 +333,19 @@ function AddAnnouncementForm() {
                  <input required type="text" placeholder="Es. Giacca Vintage anni 80" value={title} onChange={(e) => setTitle(e.target.value)} className="w-full p-5 bg-stone-50 border border-stone-100 rounded-2xl font-bold outline-none focus:bg-white focus:border-rose-400 transition-all" />
                </div>
 
-               <div className="space-y-2">
-                 <label className="text-[10px] font-black uppercase text-stone-400 tracking-widest ml-2">Descrizione (Sii sincero sui difetti)</label>
+               {/* --- IL BOTTONE MAGICO DELL'IA --- */}
+               <div className="space-y-2 relative">
+                 <div className="flex justify-between items-end ml-2 mb-1">
+                   <label className="text-[10px] font-black uppercase text-stone-400 tracking-widest">Descrizione (Sii sincero sui difetti)</label>
+                   <button 
+                     type="button" 
+                     onClick={handleGenerateDescription}
+                     disabled={!title || uploading}
+                     className="bg-purple-100 text-purple-700 hover:bg-purple-600 hover:text-white px-3 py-1.5 rounded-lg text-[9px] font-black uppercase tracking-widest transition-all flex items-center gap-1 disabled:opacity-50"
+                   >
+                     ✨ Scrivi con IA
+                   </button>
+                 </div>
                  <textarea required rows={4} placeholder="Descrivi taglia, marca, eventuali segni d'usura..." value={description} onChange={(e) => setDescription(e.target.value)} className="w-full p-5 bg-stone-50 border border-stone-100 rounded-2xl font-bold outline-none focus:bg-white focus:border-rose-400 transition-all resize-none" />
                </div>
 
