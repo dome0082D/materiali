@@ -1,10 +1,13 @@
 'use client'
+export const dynamic = 'force-dynamic'
 
 import { useState, useEffect, Suspense } from 'react'
 import { supabase } from '@/lib/supabase'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { User } from '@supabase/supabase-js'
 import Link from 'next/link'
+import { Timer, Tag } from 'lucide-react'
+import { toast } from 'sonner'
 
 interface ProfileData {
   stripe_account_id?: string;
@@ -46,8 +49,12 @@ function AddAnnouncementForm() {
   const [shippingCost, setShippingCost] = useState('0')
   const [quantity, setQuantity] = useState('1')
   const [allowLocalPickup, setAllowLocalPickup] = useState(false)
-  const [acceptsReturns, setAcceptsReturns] = useState(false) // NUOVO STATO: ACCETTA RESI
+  const [acceptsReturns, setAcceptsReturns] = useState(false)
   const [exchangeItem, setExchangeItem] = useState('')
+
+  // --- STATI PER LE ASTE ---
+  const [isAuction, setIsAuction] = useState(false)
+  const [auctionDurationDays, setAuctionDurationDays] = useState('3') // 1, 3 o 7 giorni
 
   const [images, setImages] = useState<File[]>([])
   const [imageUrls, setImageUrls] = useState<string[]>([])
@@ -81,11 +88,13 @@ function AddAnnouncementForm() {
       setImages([])
       setImageUrls([])
       setExchangeItem('')
-      setAcceptsReturns(false) // Reset
+      setAcceptsReturns(false)
+      setIsAuction(false)
     } else {
       setCondition(modeParam === 'new' ? 'Nuovo' : modeParam === 'gift' ? 'Regalo' : modeParam === 'barter' ? 'Baratto' : 'Usato')
       if (modeParam === 'gift' || modeParam === 'barter') {
         setPrice('0')
+        setIsAuction(false) // Niente aste per regali e baratti
       }
     }
   }, [modeParam])
@@ -94,7 +103,7 @@ function AddAnnouncementForm() {
     if (e.target.files) {
       const selectedFiles = Array.from(e.target.files)
       if (images.length + selectedFiles.length > 5) {
-         alert("Massimo 5 foto consentite.")
+         toast.error("Massimo 5 foto consentite.")
          return
       }
       setImages([...images, ...selectedFiles])
@@ -120,13 +129,13 @@ function AddAnnouncementForm() {
     if (!user) return
 
     if (!profile?.stripe_account_id && condition !== 'Regalo' && condition !== 'Baratto') {
-      alert("Per vendere oggetti e ricevere pagamenti, devi prima collegare il tuo conto Stripe dal tuo Profilo.")
+      toast.error("Collega il tuo account Stripe per ricevere i pagamenti.")
       router.push('/profile')
       return
     }
 
     if (images.length === 0) {
-      alert('Carica almeno una foto!')
+      toast.error('Carica almeno una foto!')
       return
     }
 
@@ -148,7 +157,15 @@ function AddAnnouncementForm() {
 
       const numPrice = condition === 'Regalo' || condition === 'Baratto' ? 0 : parseFloat(price)
       const numShipping = parseFloat(shippingCost) || 0
-      const qty = parseInt(quantity) || 1
+      const qty = isAuction ? 1 : (parseInt(quantity) || 1) // Le aste hanno sempre qty=1
+
+      // Calcolo fine asta se selezionato
+      let auctionEndTime = null
+      if (isAuction) {
+         const endDate = new Date()
+         endDate.setDate(endDate.getDate() + parseInt(auctionDurationDays))
+         auctionEndTime = endDate.toISOString()
+      }
 
       const { data: insertedData, error } = await supabase.from('announcements').insert([
         {
@@ -163,25 +180,29 @@ function AddAnnouncementForm() {
           shipping_cost: numShipping,
           quantity: qty,
           allow_local_pickup: allowLocalPickup,
-          accepts_returns: acceptsReturns, // INSERIMENTO NEL DATABASE
+          accepts_returns: acceptsReturns,
           exchange_item: condition === 'Baratto' ? exchangeItem : null,
           latitude: profile?.latitude || null,
-          longitude: profile?.longitude || null
+          longitude: profile?.longitude || null,
+          // CAMPI ASTA
+          is_auction: isAuction,
+          auction_end: auctionEndTime,
+          current_bid: isAuction ? numPrice : 0 // Se è un'asta, il prezzo base è la prima bid
         }
       ]).select()
 
       if (error) throw error
 
-      alert('Annuncio creato con successo! 🚀 Apparirà automaticamente sulla Mappa Italia.')
+      toast.success(isAuction ? 'Asta creata con successo! ⏳' : 'Annuncio pubblicato! 🚀')
       router.push(`/announcement/${insertedData[0].id}`)
     } catch (error: any) {
-      alert('Errore: ' + error.message)
+      toast.error('Errore durante la pubblicazione: ' + error.message)
     } finally {
       setUploading(false)
     }
   }
 
-  if (loadingUser) return <div className="min-h-screen bg-white flex items-center justify-center font-black uppercase text-stone-400 tracking-widest text-xs">Accesso in corso...</div>
+  if (loadingUser) return <div className="min-h-screen bg-white flex items-center justify-center font-black uppercase text-stone-400 tracking-widest text-xs animate-pulse">Accesso in corso...</div>
 
   // --- SCHERMATA INTERMEDIA SE NON C'È UNA TIPOLOGIA SELEZIONATA ---
   if (!modeParam) {
@@ -216,7 +237,7 @@ function AddAnnouncementForm() {
     )
   }
 
-  // --- MODULO DI INSERIMENTO ANNUNCIO BIANCO ---
+  // --- MODULO DI INSERIMENTO ANNUNCIO ---
   return (
     <div className="min-h-screen bg-white font-sans text-stone-900 pb-32">
       <div className="relative z-10">
@@ -251,6 +272,7 @@ function AddAnnouncementForm() {
 
           <form onSubmit={handleSubmit} className="bg-white p-8 md:p-12 rounded-[3rem] shadow-sm border border-stone-200 space-y-10">
             
+            {/* SEZIONE FOTO */}
             <div className="space-y-4">
               <div className="flex justify-between items-end">
                 <div>
@@ -260,7 +282,7 @@ function AddAnnouncementForm() {
                 <span className="text-[10px] font-black text-rose-500 bg-rose-50 px-2 py-1 rounded">{images.length}/5</span>
               </div>
               
-              <div className="flex gap-4 overflow-x-auto pb-2">
+              <div className="flex gap-4 overflow-x-auto pb-2 custom-scrollbar">
                 {imageUrls.map((url, i) => (
                   <div key={i} className="relative w-32 h-32 flex-shrink-0 rounded-2xl overflow-hidden border-2 border-stone-100 group">
                     <img src={url} className="w-full h-full object-cover" alt="Preview" />
@@ -279,6 +301,7 @@ function AddAnnouncementForm() {
               </div>
             </div>
 
+            {/* INFO BASE */}
             <div className="space-y-6 pt-6 border-t border-stone-100">
                <div className="space-y-2">
                  <label className="text-[10px] font-black uppercase text-stone-400 tracking-widest ml-2">Cosa vuoi proporre?</label>
@@ -299,7 +322,7 @@ function AddAnnouncementForm() {
                   </div>
 
                   <div className="space-y-2">
-                    <label className="text-[10px] font-black uppercase text-stone-400 tracking-widest ml-2">Condizione Selezionata</label>
+                    <label className="text-[10px] font-black uppercase text-stone-400 tracking-widest ml-2">Condizione</label>
                     <div className="w-full p-5 bg-stone-100 border border-stone-200 rounded-2xl font-black text-stone-600 uppercase">
                       {condition}
                     </div>
@@ -307,7 +330,9 @@ function AddAnnouncementForm() {
                </div>
             </div>
 
+            {/* PREZZO E MODALITÀ ASTA/COMPRALO SUBITO */}
             <div className="space-y-6 pt-6 border-t border-stone-100">
+               
                {condition === 'Baratto' && (
                <div className="space-y-2 bg-blue-50 p-6 rounded-3xl border border-blue-100">
                    <label className="text-[10px] font-black uppercase text-blue-500 tracking-widest ml-2">Cosa cerchi in cambio?</label>
@@ -316,42 +341,70 @@ function AddAnnouncementForm() {
                )}
 
                {condition !== 'Regalo' && condition !== 'Baratto' && (
-                 <div className="grid grid-cols-2 gap-6">
-                    <div className="space-y-2">
-                      <label className="text-[10px] font-black uppercase text-stone-400 tracking-widest ml-2 flex justify-between">
-                        Prezzo
-                        <span className="text-rose-500 bg-rose-50 px-1 rounded">-10% Comm.</span>
-                      </label>
-                      <div className="relative">
-                        <span className="absolute left-5 top-1/2 -translate-y-1/2 font-black text-stone-400">€</span>
-                        <input required type="number" step="0.01" min="0.50" value={price} onChange={(e) => setPrice(e.target.value)} className="w-full p-5 pl-10 bg-stone-50 border border-stone-100 rounded-2xl font-black outline-none focus:bg-white focus:border-rose-400 transition-all text-xl" placeholder="0.00" />
+                 <>
+                   {/* SELETTORE MODALITÀ DI VENDITA */}
+                   <div className="flex gap-2 p-2 bg-stone-50 border border-stone-200 rounded-[2rem] w-full max-w-sm mx-auto mb-8">
+                     <button type="button" onClick={() => setIsAuction(false)} className={`flex-1 py-3 px-4 rounded-3xl flex items-center justify-center gap-2 text-[10px] font-black uppercase tracking-widest transition-all ${!isAuction ? 'bg-white shadow-md text-stone-900' : 'text-stone-400 hover:text-stone-600'}`}>
+                       <Tag size={16} /> Prezzo Fisso
+                     </button>
+                     <button type="button" onClick={() => setIsAuction(true)} className={`flex-1 py-3 px-4 rounded-3xl flex items-center justify-center gap-2 text-[10px] font-black uppercase tracking-widest transition-all ${isAuction ? 'bg-rose-500 text-white shadow-md shadow-rose-500/30' : 'text-stone-400 hover:text-stone-600'}`}>
+                       <Timer size={16} /> Fai un'Asta
+                     </button>
+                   </div>
+
+                   {/* CONTENUTO PREZZO */}
+                   <div className="grid grid-cols-2 gap-6">
+                      <div className="space-y-2">
+                        <label className="text-[10px] font-black uppercase text-stone-400 tracking-widest ml-2 flex justify-between">
+                          {isAuction ? 'Prezzo di Partenza' : 'Prezzo di Vendita'}
+                          {!isAuction && <span className="text-rose-500 bg-rose-50 px-1 rounded">-10% Comm.</span>}
+                        </label>
+                        <div className="relative">
+                          <span className="absolute left-5 top-1/2 -translate-y-1/2 font-black text-stone-400">€</span>
+                          <input required type="number" step="0.01" min="0.50" value={price} onChange={(e) => setPrice(e.target.value)} className={`w-full p-5 pl-10 border rounded-2xl font-black outline-none transition-all text-xl ${isAuction ? 'bg-rose-50 border-rose-200 focus:bg-white focus:border-rose-400 text-rose-600' : 'bg-stone-50 border-stone-100 focus:bg-white focus:border-stone-400'}`} placeholder="0.00" />
+                        </div>
                       </div>
-                    </div>
-                    <div className="space-y-2">
-                      <label className="text-[10px] font-black uppercase text-emerald-600 tracking-widest ml-2">Tu Guadagni</label>
-                      <div className="w-full p-5 bg-emerald-50 border border-emerald-100 rounded-2xl font-black text-emerald-700 text-xl flex items-center h-[68px]">
-                        € {price ? (parseFloat(price) * 0.90).toFixed(2) : '0.00'}
-                      </div>
-                    </div>
-                 </div>
+                      
+                      {/* CAMPO DINAMICO A DESTRA */}
+                      {isAuction ? (
+                        <div className="space-y-2">
+                          <label className="text-[10px] font-black uppercase text-stone-400 tracking-widest ml-2">Durata Asta</label>
+                          <select value={auctionDurationDays} onChange={(e) => setAuctionDurationDays(e.target.value)} className="w-full p-5 bg-stone-50 border border-stone-100 rounded-2xl font-black outline-none focus:bg-white focus:border-rose-400 transition-all appearance-none cursor-pointer">
+                            <option value="1">24 Ore</option>
+                            <option value="3">3 Giorni</option>
+                            <option value="7">7 Giorni</option>
+                          </select>
+                        </div>
+                      ) : (
+                        <div className="space-y-2">
+                          <label className="text-[10px] font-black uppercase text-emerald-600 tracking-widest ml-2">Tu Guadagni</label>
+                          <div className="w-full p-5 bg-emerald-50 border border-emerald-100 rounded-2xl font-black text-emerald-700 text-xl flex items-center h-[68px]">
+                            € {price ? (parseFloat(price) * 0.90).toFixed(2) : '0.00'}
+                          </div>
+                        </div>
+                      )}
+                   </div>
+                 </>
                )}
 
-               <div className="grid grid-cols-2 gap-6">
-                  <div className="space-y-2">
-                    <label className="text-[10px] font-black uppercase text-stone-400 tracking-widest ml-2">Pezzi disponibili</label>
-                    <input type="number" min="1" value={quantity} onChange={(e) => setQuantity(e.target.value)} className="w-full p-5 bg-stone-50 border border-stone-100 rounded-2xl font-black outline-none focus:bg-white focus:border-rose-400 transition-all" />
-                  </div>
+               <div className="grid grid-cols-2 gap-6 mt-6">
+                  {!isAuction && (
+                    <div className="space-y-2">
+                      <label className="text-[10px] font-black uppercase text-stone-400 tracking-widest ml-2">Pezzi disponibili</label>
+                      <input type="number" min="1" value={quantity} onChange={(e) => setQuantity(e.target.value)} className="w-full p-5 bg-stone-50 border border-stone-100 rounded-2xl font-black outline-none focus:bg-white focus:border-stone-400 transition-all" />
+                    </div>
+                  )}
 
-                  <div className="space-y-2">
-                    <label className="text-[10px] font-black uppercase text-stone-400 tracking-widest ml-2">Spese Spedizione</label>
+                  <div className={`space-y-2 ${isAuction ? 'col-span-2' : ''}`}>
+                    <label className="text-[10px] font-black uppercase text-stone-400 tracking-widest ml-2">Spese Spedizione a carico di chi compra</label>
                     <div className="relative">
                       <span className="absolute left-5 top-1/2 -translate-y-1/2 font-black text-stone-400">€</span>
-                      <input type="number" step="0.10" min="0" value={shippingCost} onChange={(e) => setShippingCost(e.target.value)} className="w-full p-5 pl-10 bg-stone-50 border border-stone-100 rounded-2xl font-black outline-none focus:bg-white focus:border-rose-400 transition-all" placeholder="0.00 (Gratis)" />
+                      <input type="number" step="0.10" min="0" value={shippingCost} onChange={(e) => setShippingCost(e.target.value)} className="w-full p-5 pl-10 bg-stone-50 border border-stone-100 rounded-2xl font-black outline-none focus:bg-white focus:border-stone-400 transition-all" placeholder="0.00 (Gratis)" />
                     </div>
                   </div>
                </div>
 
-               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+               <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-6">
                   {/* SPUNTA RITIRO A MANO */}
                   <label className="flex items-center gap-4 p-5 bg-stone-50 border border-stone-100 rounded-2xl cursor-pointer hover:bg-stone-100 transition-colors">
                     <input type="checkbox" checked={allowLocalPickup} onChange={(e) => setAllowLocalPickup(e.target.checked)} className="w-6 h-6 accent-rose-500 rounded" />
@@ -361,13 +414,13 @@ function AddAnnouncementForm() {
                     </div>
                   </label>
 
-                  {/* NUOVA SPUNTA: ACCETTA RESI (Non applicabile a Baratto e Regalo) */}
+                  {/* SPUNTA ACCETTA RESI */}
                   {condition !== 'Regalo' && condition !== 'Baratto' && (
                     <label className="flex items-center gap-4 p-5 bg-blue-50 border border-blue-100 rounded-2xl cursor-pointer hover:bg-blue-100 transition-colors">
                       <input type="checkbox" checked={acceptsReturns} onChange={(e) => setAcceptsReturns(e.target.checked)} className="w-6 h-6 accent-blue-600 rounded" />
                       <div className="flex flex-col">
                         <span className="text-xs font-black uppercase text-blue-900">Accetto i Resi</span>
-                        <span className="text-[9px] font-bold uppercase text-blue-500">I clienti comprano più volentieri se c'è il reso</span>
+                        <span className="text-[9px] font-bold uppercase text-blue-500">I clienti comprano più volentieri</span>
                       </div>
                     </label>
                   )}
@@ -375,8 +428,8 @@ function AddAnnouncementForm() {
             </div>
 
             <div className="pt-8">
-              <button disabled={uploading || (!profile?.stripe_account_id && condition !== 'Regalo' && condition !== 'Baratto')} type="submit" className="w-full bg-stone-900 text-white py-6 rounded-2xl font-black uppercase text-sm tracking-[0.2em] shadow-lg hover:bg-rose-500 transition-all disabled:opacity-50">
-                {uploading ? 'Pubblicazione in corso...' : 'Pubblica il tuo annuncio 🚀'}
+              <button disabled={uploading || (!profile?.stripe_account_id && condition !== 'Regalo' && condition !== 'Baratto')} type="submit" className={`w-full text-white py-6 rounded-2xl font-black uppercase text-sm tracking-[0.2em] shadow-lg transition-all disabled:opacity-50 ${isAuction ? 'bg-rose-500 hover:bg-rose-600' : 'bg-stone-900 hover:bg-stone-800'}`}>
+                {uploading ? 'Pubblicazione in corso...' : (isAuction ? 'Avvia L\'Asta Ora ⏳' : 'Pubblica il tuo annuncio 🚀')}
               </button>
               <p className="text-center mt-6 text-[10px] font-bold uppercase text-stone-400 tracking-widest">
                 Cliccando accetti il manifesto etico di Re-love.

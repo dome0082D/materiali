@@ -4,6 +4,8 @@ import { Suspense, useEffect, useState } from 'react'
 import { supabase } from '@/lib/supabase'
 import { useParams, useRouter } from 'next/navigation'
 import Link from 'next/link'
+import { toast } from 'sonner'
+import { Timer, Gavel } from 'lucide-react'
 
 function AnnouncementContent() {
   const { id } = useParams()
@@ -24,11 +26,16 @@ function AnnouncementContent() {
   const [submittingReview, setSubmittingReview] = useState(false)
   const [visibleReviews, setVisibleReviews] = useState(3)
 
-  // STATI PER "FAI UNA PROPOSTA"
+  // STATI PER "FAI UNA PROPOSTA" O "RILANCIO ASTA"
   const [showOfferModal, setShowOfferModal] = useState(false)
   const [offerPrice, setOfferPrice] = useState<string>('')
   const [submittingOffer, setSubmittingOffer] = useState(false)
   const [existingOffer, setExistingOffer] = useState<any>(null)
+
+  // STATI ESCLUSIVI PER LE ASTE TEMPORIZZATE ⏳
+  const [timeLeft, setTimeLeft] = useState('')
+  const [isAuctionEnded, setIsAuctionEnded] = useState(false)
+  const [currentBid, setCurrentBid] = useState(0)
 
   useEffect(() => {
     async function fetchData() {
@@ -38,6 +45,10 @@ function AnnouncementContent() {
       const { data } = await supabase.from('announcements').select('*').eq('id', id).single()
       if (data) {
         setAnn(data)
+        if (data.is_auction) {
+          setCurrentBid(data.current_bid || data.price)
+        }
+
         fetchReviews(data.user_id)
         fetchSellerProfile(data.user_id) 
         if (currentUser) {
@@ -45,7 +56,7 @@ function AnnouncementContent() {
           checkExistingOffer(currentUser.id, data.id) 
         }
 
-        // --- REGISTRA LA VISUALIZZAZIONE PER IL SELLER HUB! ---
+        // Registra visualizzazione
         await supabase.from('page_views').insert([{ 
           announcement_id: data.id, 
           viewer_id: currentUser?.id || null 
@@ -55,6 +66,48 @@ function AnnouncementContent() {
     }
     if (id) fetchData()
   }, [id])
+
+  // --- MOTORE IN TEMPO REALE PER L'ASTA ⏳ ---
+  useEffect(() => {
+    if (!ann?.is_auction || !ann?.auction_end) return;
+
+    // 1. Calcolo del Timer (scatta ogni secondo)
+    const interval = setInterval(() => {
+      const now = new Date().getTime()
+      const end = new Date(ann.auction_end).getTime()
+      const distance = end - now
+
+      if (distance < 0) {
+        clearInterval(interval)
+        setTimeLeft('ASTA SCADUTA')
+        setIsAuctionEnded(true)
+      } else {
+        const days = Math.floor(distance / (1000 * 60 * 60 * 24))
+        const hours = Math.floor((distance % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60))
+        const minutes = Math.floor((distance % (1000 * 60 * 60)) / (1000 * 60))
+        const seconds = Math.floor((distance % (1000 * 60)) / 1000)
+        setTimeLeft(`${days > 0 ? days + 'g ' : ''}${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`)
+      }
+    }, 1000)
+
+    // 2. Sincronizzazione Live dei Rilanci
+    const channel = supabase.channel('auction_updates')
+      .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'announcements', filter: `id=eq.${ann.id}` }, (payload) => {
+         if (payload.new.current_bid) {
+           setCurrentBid(payload.new.current_bid)
+           // Se non è l'utente attuale a rilanciare, mostriamo un avviso!
+           if (payload.new.current_bid > currentBid) {
+             toast("⚠️ Qualcuno ha appena rilanciato!", { style: { background: '#f43f5e', color: 'white', border: 'none' } })
+           }
+         }
+      }).subscribe()
+
+    return () => { 
+      clearInterval(interval); 
+      supabase.removeChannel(channel); 
+    }
+  }, [ann, currentBid])
+
 
   async function fetchSellerProfile(sellerId: string) {
     const { data } = await supabase.from('profiles').select('*').eq('id', sellerId).single()
@@ -103,20 +156,19 @@ function AnnouncementContent() {
       });
       const data = await res.json();
       if (data.url) window.location.href = data.url;
-      else alert("Errore durante l'avvio del pagamento.");
+      else toast.error("Errore durante l'avvio del pagamento.");
     } catch (err) {
-      alert("Errore di connessione.");
+      toast.error("Errore di connessione.");
     }
     setActionLoading(false)
   };
 
   const handleContact = () => {
-    if (!user) { alert("Devi accedere per continuare!"); return; }
-    if (user.id === ann.user_id) { alert("Questo è il tuo annuncio."); return; }
+    if (!user) { toast.error("Devi accedere per continuare!"); return; }
+    if (user.id === ann.user_id) { toast.error("Questo è il tuo annuncio."); return; }
 
     if (ann.condition === 'Nuovo' || ann.condition === 'Usato') {
-      alert("Per sbloccare la chat e parlare col venditore, devi prima completare l'acquisto dell'oggetto.");
-      handleSecureBuy();
+      toast.error("Per sbloccare la chat, devi prima completare l'acquisto o vincere l'asta.");
     } else {
       const startChat = async () => {
         setActionLoading(true);
@@ -132,31 +184,15 @@ function AnnouncementContent() {
     }
   }
 
-  const handleBuyCoffee = async () => {
-    setActionLoading(true)
-    const res = await fetch('/api/stripe/coffee', { 
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        announcementId: ann.id,
-        buyerId: user.id
-      })
-    })
-    const data = await res.json()
-    if (data.url) window.location.href = data.url
-    else alert("Errore durante l'avvio del pagamento.")
-    setActionLoading(false)
-  }
-
   const handleSecureBuy = async () => {
-    if (!user) { alert("Devi accedere per acquistare."); return; }
-    if (user.id === ann.user_id) { alert("Non puoi acquistare un tuo stesso oggetto."); return; }
+    if (!user) { toast.error("Devi accedere per acquistare."); return; }
+    if (user.id === ann.user_id) { toast.error("Non puoi acquistare un tuo stesso oggetto."); return; }
     setActionLoading(true)
 
     const { data: sellerProfile } = await supabase.from('profiles').select('stripe_account_id').eq('id', ann.user_id).single()
 
     if (!sellerProfile || !sellerProfile.stripe_account_id) {
-      alert("Il venditore non ha ancora configurato il suo conto per ricevere pagamenti.");
+      toast.error("Il venditore non ha ancora configurato il suo conto per ricevere pagamenti.");
       setActionLoading(false);
       return;
     }
@@ -181,22 +217,20 @@ function AnnouncementContent() {
       })
     })
     const data = await res.json()
-    if (data.error) { alert(data.error); setActionLoading(false); return; }
+    if (data.error) { toast.error(data.error); setActionLoading(false); return; }
     if (data.url) window.location.href = data.url
   }
 
-  // --- SUBMIT OFFER RESTAURATA CON NOTIFICHE E EMAIL! ---
+  // --- LOGICA PROPOSTA NORMALE ---
   const submitOffer = async () => {
     if (!offerPrice || isNaN(Number(offerPrice)) || Number(offerPrice) <= 0) {
-      alert("Inserisci una cifra valida."); return;
+      toast.error("Inserisci una cifra valida."); return;
     }
     if (Number(offerPrice) >= ann.price) {
-      alert(`L'oggetto costa già €${ann.price}. Puoi acquistarlo direttamente!`); return;
+      toast.error(`L'oggetto costa già €${ann.price}. Puoi acquistarlo direttamente!`); return;
     }
 
     setSubmittingOffer(true)
-    
-    // 1. Inserisce l'offerta nel Database
     const { error } = await supabase.from('offers').insert([{
       announcement_id: ann.id,
       buyer_id: user.id,
@@ -206,35 +240,56 @@ function AnnouncementContent() {
     }])
 
     if (!error) {
-      alert("Proposta inviata al venditore! Incrocia le dita 🤞")
+      toast.success("Proposta inviata al venditore! Incrocia le dita 🤞")
       setShowOfferModal(false)
       checkExistingOffer(user.id, ann.id)
 
-      // 2. Crea la Notifica in Tempo Reale
       await supabase.from('notifications').insert([{
         user_id: ann.user_id,
         message: `Hai ricevuto una nuova proposta di €${offerPrice} per il tuo annuncio "${ann.title}"!`,
         is_read: false
       }]);
+    } else {
+      toast.error("Errore database: " + error.message)
+    }
+    setSubmittingOffer(false)
+  }
 
-      // 3. Invio della Email Automatica
-      try {
-        await fetch('/api/email', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            sellerId: ann.user_id,
-            title: ann.title,
-            offerPrice: offerPrice
-          })
-        });
-      } catch (e) {
-        console.error("Errore chiamata email", e)
-      }
+  // --- LOGICA RILANCIO ASTA (NUOVO) ---
+  const submitBid = async () => {
+    if (!offerPrice || isNaN(Number(offerPrice)) || Number(offerPrice) <= currentBid) {
+      toast.error(`Devi rilanciare con una cifra maggiore di €${currentBid.toFixed(2)}!`); return;
+    }
+
+    setSubmittingOffer(true)
+    
+    // 1. Aggiorna il prezzo attuale dell'annuncio
+    const { error: annError } = await supabase.from('announcements')
+      .update({ current_bid: Number(offerPrice) })
+      .eq('id', ann.id)
+
+    // 2. Salva lo storico del rilancio nella tabella bids
+    if (!annError) {
+       await supabase.from('bids').insert([{
+         announcement_id: ann.id,
+         bidder_id: user.id,
+         amount: Number(offerPrice)
+       }])
+       
+       toast.success("Rilancio effettuato con successo! Sei in vantaggio. 🔨")
+       setCurrentBid(Number(offerPrice))
+       setShowOfferModal(false)
+       setOfferPrice('')
+
+       // Avvisa il venditore
+       await supabase.from('notifications').insert([{
+        user_id: ann.user_id,
+        message: `🔥 Nuovo rilancio di €${offerPrice} per la tua asta "${ann.title}"!`,
+        is_read: false
+      }]);
 
     } else {
-      alert("Errore database: " + error.message)
-      console.error("Dettaglio errore:", error)
+       toast.error("Errore durante il rilancio.")
     }
     setSubmittingOffer(false)
   }
@@ -251,17 +306,17 @@ function AnnouncementContent() {
     }])
 
     if (!error) {
-      alert('Recensione pubblicata!')
+      toast.success('Recensione pubblicata con successo! ⭐')
       setNewReview({ rating: 5, comment: '' })
       setHasPurchased(false)
       fetchReviews(ann.user_id)
     } else {
-      alert('Errore: ' + error.message)
+      toast.error('Hai già recensito questo ordine.')
     }
     setSubmittingReview(false)
   }
 
-  if (loading) return <div className="min-h-screen flex items-center justify-center font-black uppercase text-xs tracking-widest text-stone-400">Caricamento Re-love...</div>
+  if (loading) return <div className="min-h-screen flex items-center justify-center font-black uppercase text-xs tracking-widest text-stone-400 animate-pulse">Apertura in corso...</div>
   if (!ann) return <div className="min-h-screen flex items-center justify-center font-black uppercase text-xs text-rose-500">Annuncio non trovato.</div>
 
   const maxQty = ann.quantity !== undefined ? ann.quantity : 1;
@@ -285,7 +340,7 @@ function AnnouncementContent() {
                <img src={ann.image_url || "/usato.png"} className="w-full h-auto object-cover aspect-square" alt={ann.title} />
              </div>
              {ann.image_urls && ann.image_urls.length > 1 && (
-               <div className="flex gap-3 p-4 overflow-x-auto">
+               <div className="flex gap-3 p-4 overflow-x-auto custom-scrollbar">
                  {ann.image_urls.map((img: string, i: number) => (
                     <img key={i} src={img} className="w-24 h-24 rounded-2xl object-cover border-2 border-white/40 hover:border-rose-400 cursor-pointer transition-all flex-shrink-0 shadow-sm" />
                  ))}
@@ -315,9 +370,10 @@ function AnnouncementContent() {
                   <h1 className="text-4xl font-black uppercase italic text-stone-900 leading-none pt-3">{ann.title}</h1>
                </div>
                {ann.type === 'offered' && <span className="bg-rose-500 text-white text-[10px] font-black px-3 py-1 rounded-full uppercase shadow-lg shadow-rose-200">Gift</span>}
+               {ann.is_auction && <span className="bg-rose-600 text-white text-[10px] font-black px-3 py-1 rounded-full uppercase shadow-lg shadow-rose-500/50 animate-pulse">Asta ⏳</span>}
             </div>
 
-            <Link href={`/profile/${ann.user_id}`} className="flex items-center justify-between bg-white/40 p-4 rounded-2xl border border-white/50 hover:bg-white/60 transition-all mb-8 group">
+            <Link href={`/seller/${ann.user_id}`} className="flex items-center justify-between bg-white/40 p-4 rounded-2xl border border-white/50 hover:bg-white/60 transition-all mb-8 group">
                 <div className="flex items-center gap-3">
                   <div className="w-10 h-10 bg-stone-900 rounded-full flex items-center justify-center font-black text-sm text-white uppercase">
                     {seller?.nickname?.[0] || seller?.first_name?.[0] || 'U'}
@@ -325,7 +381,7 @@ function AnnouncementContent() {
                   <div className="flex flex-col">
                     <span className="text-[10px] font-black uppercase text-stone-600">Venditore</span>
                     <span className="text-sm font-black uppercase text-stone-900 group-hover:text-rose-500 transition-colors">
-                      {seller?.nickname || 'Utente Re-love'} →
+                      {seller?.nickname || seller?.first_name || 'Utente Re-love'} →
                     </span>
                   </div>
                 </div>
@@ -336,6 +392,7 @@ function AnnouncementContent() {
                 </div>
             </Link>
 
+            {/* SEZIONE PREZZO O TIMER ASTA */}
             <div className="mb-8">
                {ann.condition === 'Baratto' ? (
                  <div className="bg-blue-500/20 border border-blue-400/30 p-5 rounded-2xl backdrop-blur-sm">
@@ -344,19 +401,39 @@ function AnnouncementContent() {
                       🔄 Cerca: {ann.exchange_item || 'Oggetto da concordare'}
                     </p>
                  </div>
+               ) : ann.is_auction ? (
+                 // BANNER ASTA
+                 <div className={`p-6 rounded-3xl text-white shadow-xl transition-all ${isAuctionEnded ? 'bg-stone-900' : 'bg-gradient-to-br from-red-600 to-rose-500 shadow-rose-500/30 animate-[pulse_3s_ease-in-out_infinite]'}`}>
+                    <div className="flex items-center justify-between mb-2">
+                       <div className="flex items-center gap-2">
+                          <Timer size={24} className={isAuctionEnded ? "text-stone-500" : "text-white"} />
+                          <div>
+                            <p className="text-[9px] font-black uppercase tracking-widest opacity-80">{isAuctionEnded ? 'Stato Asta' : 'Scadenza Asta'}</p>
+                            <p className="text-xl font-black tabular-nums tracking-wider">{timeLeft || 'Calcolo...'}</p>
+                          </div>
+                       </div>
+                       <div className="text-right">
+                          <p className="text-[9px] font-black uppercase tracking-widest opacity-80">Offerta Attuale</p>
+                          <p className="text-3xl font-black italic">€ {currentBid?.toFixed(2)}</p>
+                       </div>
+                    </div>
+                 </div>
                ) : (
+                 // PREZZO FISSO
                  <>
                    <p className="text-5xl font-black text-stone-900 italic drop-shadow-sm">
                       {ann.type === 'offered' || ann.condition === 'Regalo' ? 'GRATIS' : `€ ${(ann.price * selectedQuantity).toFixed(2)}`}
                    </p>
-                   {!usePickup && ann.shipping_cost > 0 && (
-                     <p className="text-xs font-black text-stone-600 uppercase mt-2">+ Spese Spedizione € {ann.shipping_cost}</p>
-                   )}
                  </>
+               )}
+
+               {!usePickup && ann.shipping_cost > 0 && ann.condition !== 'Baratto' && (
+                 <p className="text-xs font-black text-stone-600 uppercase mt-2">+ Spese Spedizione € {ann.shipping_cost}</p>
                )}
             </div>
 
-            {ann.condition !== 'Baratto' && ann.condition !== 'Regalo' && (
+            {/* SELEZIONE QUANTITÀ E SPEDIZIONE (Nascosta se è un'Asta) */}
+            {ann.condition !== 'Baratto' && ann.condition !== 'Regalo' && !ann.is_auction && (
               <div className="space-y-6 mb-10">
                  <div className="space-y-2">
                     <p className="text-[10px] font-black uppercase text-stone-900 tracking-[0.2em]">Quantità (Max: {maxQty})</p>
@@ -389,10 +466,21 @@ function AnnouncementContent() {
               </div>
             )}
 
+            {/* BOTTONI D'AZIONE (COMPRA / RILANCIA) */}
             <div className="space-y-3 pt-6 border-t border-white/20">
                {user?.id !== ann.user_id ? (
                  <>
-                   {ann.condition === 'Nuovo' || ann.condition === 'Usato' ? (
+                   {ann.is_auction ? (
+                     // BOTTONI PER ASTA
+                     <button 
+                       onClick={() => { if(!user){ router.push('/login'); return; } setShowOfferModal(true); }} 
+                       disabled={actionLoading || isAuctionEnded} 
+                       className="w-full bg-stone-900 text-white p-5 rounded-2xl font-black uppercase text-sm tracking-[0.1em] shadow-xl hover:bg-rose-600 transition-all disabled:opacity-50 flex items-center justify-center gap-2"
+                     >
+                        <Gavel size={20} /> {isAuctionEnded ? 'Asta Conclusa' : 'Fai un Rilancio'}
+                     </button>
+                   ) : ann.condition === 'Nuovo' || ann.condition === 'Usato' ? (
+                     // BOTTONI COMPRALO SUBITO
                      <div className="space-y-3 flex flex-col items-center">
                        <button onClick={handleSecureBuy} disabled={actionLoading || maxQty <= 0} className="w-full bg-stone-900 text-white p-5 rounded-2xl font-black uppercase text-sm tracking-[0.1em] shadow-xl hover:bg-rose-500 transition-all disabled:opacity-30">
                           {actionLoading ? 'In corso...' : 'Acquista Ora'}
@@ -485,18 +573,24 @@ function AnnouncementContent() {
         </div>
       </div>
 
+      {/* --- MODALE UNIFICATA (PROPOSTA / RILANCIO ASTA) --- */}
       {showOfferModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-stone-900/80 backdrop-blur-md">
+        <div className="fixed inset-0 z-[15000] flex items-center justify-center p-4 bg-stone-900/80 backdrop-blur-md">
           <div className="bg-white max-w-sm w-full rounded-[3rem] p-10 shadow-2xl text-center border-t-8 border-rose-500 animate-in zoom-in">
-            <h2 className="text-2xl font-black uppercase italic text-stone-900 mb-2">Fai un'offerta</h2>
-            <p className="text-xs font-black uppercase text-stone-400 mb-6 tracking-widest">Prezzo originale: €{ann.price}</p>
+            
+            <h2 className="text-2xl font-black uppercase italic text-stone-900 mb-2">
+              {ann.is_auction ? "Fai un Rilancio" : "Fai un'offerta"}
+            </h2>
+            <p className="text-xs font-black uppercase text-stone-400 mb-6 tracking-widest">
+              {ann.is_auction ? `Devi superare i €${currentBid.toFixed(2)}` : `Prezzo originale: €${ann.price}`}
+            </p>
             
             <div className="relative mb-8 flex items-center justify-center">
               <span className="absolute left-6 text-3xl font-black text-stone-300">€</span>
               <input 
                 type="number" 
-                min="1" 
-                max={ann.price - 1} 
+                min={ann.is_auction ? currentBid + 1 : 1} 
+                max={ann.is_auction ? 99999 : ann.price - 1} 
                 value={offerPrice} 
                 onChange={(e) => setOfferPrice(e.target.value)} 
                 className="w-full text-center text-5xl font-black text-stone-900 p-6 bg-stone-50 rounded-3xl outline-none focus:ring-4 focus:ring-rose-500/20 transition-all" 
@@ -505,8 +599,8 @@ function AnnouncementContent() {
             </div>
             
             <div className="space-y-3">
-               <button onClick={submitOffer} disabled={submittingOffer} className="w-full bg-stone-900 text-white py-5 rounded-2xl font-black uppercase text-xs tracking-widest shadow-xl hover:bg-rose-500 transition-all disabled:opacity-30">
-                 Invia Proposta
+               <button onClick={ann.is_auction ? submitBid : submitOffer} disabled={submittingOffer} className="w-full bg-stone-900 text-white py-5 rounded-2xl font-black uppercase text-xs tracking-widest shadow-xl hover:bg-rose-500 transition-all disabled:opacity-30">
+                 {ann.is_auction ? "Conferma Rilancio 🔨" : "Invia Proposta"}
                </button>
                <button onClick={() => setShowOfferModal(false)} className="w-full text-stone-400 py-4 rounded-2xl font-black uppercase text-[10px] tracking-widest hover:bg-stone-100 transition-all">
                  Annulla
