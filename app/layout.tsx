@@ -2,7 +2,8 @@ import type { Metadata, Viewport } from 'next'
 import './globals.css'
 import Navbar from '@/components/Navbar'
 import Script from 'next/script'
-import RealtimeNotifications from '@/components/RealtimeNotifications' // <-- ECCO L'IMPORTAZIONE!
+import RealtimeNotifications from '@/components/RealtimeNotifications'
+import { Toaster } from 'sonner' // <-- ECCO L'IMPORTAZIONE DEI TOAST ELEGANTI!
 
 export const metadata: Metadata = {
   title: 'Re-love - Dai nuova vita all\'usato',
@@ -42,6 +43,9 @@ export default function RootLayout({
         <main className="flex-grow bg-white">
           {children}
         </main>
+
+        {/* IL COMPONENTE CHE GESTISCE LE NOTIFICHE A SCOMPARSA */}
+        <Toaster position="top-center" richColors />
       </body>
     </html>
   )

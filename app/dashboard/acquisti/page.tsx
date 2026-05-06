@@ -5,6 +5,8 @@ import { useEffect, useState } from 'react'
 import { supabase } from '@/lib/supabase'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
+import { toast } from 'sonner'
+import { Star, Package, CheckCircle2, AlertTriangle, RefreshCcw, Truck } from 'lucide-react'
 
 export default function DashboardOrdini() {
   const [activeTab, setActiveTab] = useState<'acquisti' | 'vendite'>('acquisti')
@@ -18,16 +20,21 @@ export default function DashboardOrdini() {
   // STATI PER MODALI
   const [showDisputeModal, setShowDisputeModal] = useState(false)
   const [showReturnModal, setShowReturnModal] = useState(false)
+  const [showReviewModal, setShowReviewModal] = useState(false) // NUOVO: MODALE RECENSIONI
   const [selectedTransaction, setSelectedTransaction] = useState<any>(null)
   
-  // STATI FORM CONTROVERSIA (Problemi Reali)
+  // STATI FORM CONTROVERSIA 
   const [disputeReason, setDisputeReason] = useState('Oggetto non ricevuto')
   const [disputeDescription, setDisputeDescription] = useState('')
   const [submittingDispute, setSubmittingDispute] = useState(false)
 
-  // STATI FORM RESO (Normale reso)
+  // STATI FORM RESO
   const [returnReason, setReturnReason] = useState('Ho cambiato idea')
   const [returnDescription, setReturnDescription] = useState('')
+
+  // STATI FORM RECENSIONE
+  const [rating, setRating] = useState(5)
+  const [comment, setComment] = useState('')
 
   const router = useRouter()
   const ADMIN_EMAIL = 'dome0082@gmail.com'
@@ -68,7 +75,7 @@ export default function DashboardOrdini() {
   const handleMarkAsShipped = async (transactionId: string) => {
     const tracking = trackingInput[transactionId]
     if (!tracking || tracking.trim() === '') {
-      alert("Inserisci un codice di tracciamento o il nome del corriere valido prima di confermare.")
+      toast.error("Inserisci un codice di tracciamento o il nome del corriere valido prima di confermare.")
       return
     }
 
@@ -79,7 +86,7 @@ export default function DashboardOrdini() {
       .eq('id', transactionId)
 
     if (!error) {
-      alert("Ordine segnato come SPEDITO!")
+      toast.success("Ordine segnato come SPEDITO! 📦")
       
       const tx = sales.find(s => s.id === transactionId);
       if (tx) {
@@ -91,7 +98,7 @@ export default function DashboardOrdini() {
       }
       fetchOrders() 
     } else {
-      alert("Errore durante l'aggiornamento.")
+      toast.error("Errore durante l'aggiornamento.")
     }
     setActionLoading(false)
   }
@@ -107,7 +114,7 @@ export default function DashboardOrdini() {
       .eq('id', transactionId)
 
     if (!error) {
-      alert("Ottimo! Transazione conclusa con successo.")
+      toast.success("Ottimo! Transazione conclusa con successo. I fondi sono stati sbloccati.")
       
       const tx = purchases.find(p => p.id === transactionId);
       const sellerId = tx?.announcements?.user_id;
@@ -120,15 +127,15 @@ export default function DashboardOrdini() {
       }
       fetchOrders() 
     } else {
-      alert("Errore durante l'aggiornamento.")
+      toast.error("Errore durante l'aggiornamento.")
     }
     setActionLoading(false)
   }
 
-  // --- LOGICA SEGNALAZIONE PROBLEMA (CONTROVERSIA PER DANNI/TRUFFE) ---
+  // --- LOGICA SEGNALAZIONE PROBLEMA (CONTROVERSIA) ---
   const submitDispute = async () => {
     if (!disputeDescription.trim()) {
-      alert("Inserisci una breve descrizione del problema.");
+      toast.error("Inserisci una breve descrizione del problema.");
       return;
     }
     setSubmittingDispute(true)
@@ -144,7 +151,7 @@ export default function DashboardOrdini() {
     }])
 
     if (!error) {
-      alert("Problema segnalato allo Staff! I fondi sono stati bloccati.")
+      toast.success("Problema segnalato allo Staff! I fondi sono stati bloccati. 🛡️")
       
       if (sellerId) {
         await supabase.from('notifications').insert([{
@@ -156,25 +163,23 @@ export default function DashboardOrdini() {
       setShowDisputeModal(false)
       setDisputeDescription('')
     } else {
-      alert("Errore nell'apertura della pratica: " + error.message)
+      toast.error("Errore nell'apertura della pratica: " + error.message)
     }
     setSubmittingDispute(false)
   }
 
-  // --- LOGICA RESO NORMALE (CONCORDATO TRA UTENTI) ---
+  // --- LOGICA RESO NORMALE ---
   const submitReturn = async () => {
     setSubmittingDispute(true)
     const sellerId = selectedTransaction.announcements?.user_id
 
     try {
-      // Aggiorniamo SOLO la transazione. Niente controversia in tribunale!
       const { error } = await supabase.from('transactions')
         .update({ status: 'In Reso' })
         .eq('id', selectedTransaction.id)
 
       if (error) throw error;
 
-      // Notifica diretta al Venditore con la motivazione
       if (sellerId) {
         await supabase.from('notifications').insert([{
           user_id: sellerId,
@@ -183,16 +188,41 @@ export default function DashboardOrdini() {
         }]);
       }
 
-      alert("Reso avviato! Contatta il venditore in chat per accordarvi sulla spedizione di ritorno.")
+      toast.success("Reso avviato! Contatta il venditore in chat per accordarvi. 🤝")
       setShowReturnModal(false)
       setReturnDescription('')
       fetchOrders()
 
     } catch (err: any) {
-      alert("Errore nell'avvio del reso: " + err.message)
+      toast.error("Errore nell'avvio del reso: " + err.message)
     } finally {
       setSubmittingDispute(false)
     }
+  }
+
+  // --- NUOVA LOGICA SALVATAGGIO RECENSIONE ⭐ ---
+  const submitReview = async () => {
+    if (!comment.trim()) { toast.error("Scrivi un breve commento prima di inviare!"); return }
+    
+    setSubmittingDispute(true)
+    const { error } = await supabase.from('reviews').insert([{
+      rating,
+      comment,
+      reviewer_id: user.id,
+      reviewed_user_id: selectedTransaction.announcements.user_id,
+      transaction_id: selectedTransaction.id
+    }])
+
+    if (!error) {
+      toast.success("Recensione pubblicata con successo! Grazie! ⭐")
+      setShowReviewModal(false)
+      setComment('')
+      setRating(5)
+    } else {
+      // Potrebbe fallire se l'utente prova a recensire la stessa transazione due volte (se hai impostato il vincolo nel db)
+      toast.error("Errore durante il salvataggio della recensione (forse l'hai già lasciata?).")
+    }
+    setSubmittingDispute(false)
   }
 
   if (loading) return <div className="min-h-screen bg-stone-50 p-10 text-center font-bold uppercase text-[10px] tracking-widest text-stone-400 flex items-center justify-center">Caricamento ordini...</div>
@@ -204,8 +234,9 @@ export default function DashboardOrdini() {
       <div className="max-w-5xl mx-auto">
         
         <div className="flex flex-col md:flex-row justify-between items-center mb-8 gap-4">
-          <h1 className="text-3xl md:text-4xl font-black uppercase italic text-stone-900">
-            I Miei Ordini <span className="text-rose-500 text-sm align-top">SECURE</span>
+          <h1 className="text-3xl md:text-4xl font-black uppercase italic text-stone-900 flex items-center gap-3">
+             <Package size={36} className="text-rose-500" strokeWidth={2.5} />
+             I Miei Ordini
           </h1>
         </div>
 
@@ -227,8 +258,8 @@ export default function DashboardOrdini() {
 
         {/* LISTA ORDINI */}
         {displayedItems.length === 0 ? (
-          <div className="bg-white py-24 rounded-[2rem] border border-stone-100 text-center shadow-sm">
-            <span className="text-6xl block mb-4">{activeTab === 'acquisti' ? '🛍️' : '🏷️'}</span>
+          <div className="bg-white py-24 rounded-[2rem] border border-stone-100 text-center shadow-sm flex flex-col items-center">
+            {activeTab === 'acquisti' ? <Package size={64} className="text-stone-300 mb-4" strokeWidth={1} /> : <Truck size={64} className="text-stone-300 mb-4" strokeWidth={1} />}
             <h3 className="text-xl font-black uppercase text-stone-900 mb-2">Nessun {activeTab === 'acquisti' ? 'Acquisto' : 'Ordine ricevuto'}</h3>
             <p className="text-stone-400 font-bold uppercase tracking-widest text-[10px]">Non ci sono transazioni da mostrare qui.</p>
           </div>
@@ -287,36 +318,37 @@ export default function DashboardOrdini() {
                         <button 
                           disabled={actionLoading}
                           onClick={() => handleConfirmReceipt(item.id)}
-                          className="bg-emerald-500 text-white w-full py-3 rounded-xl text-[10px] font-black uppercase tracking-widest hover:bg-emerald-600 transition-all shadow-md"
+                          className="flex items-center justify-center gap-2 bg-emerald-500 text-white w-full py-3 rounded-xl text-[10px] font-black uppercase tracking-widest hover:bg-emerald-600 transition-all shadow-md"
                         >
-                          {actionLoading ? 'Attendi...' : 'Ricevuto!'}
+                          {actionLoading ? 'Attendi...' : <><CheckCircle2 size={16} /> Ricevuto!</>}
                         </button>
                       )}
                       
                       {item.status === 'Ricevuto' && (
-                         <Link href={`/announcement/${item.announcements?.id}`} className="block text-center bg-stone-900 text-white w-full py-3 rounded-xl text-[10px] font-black uppercase tracking-widest hover:bg-stone-800 transition-all shadow-md">
-                           Lascia Feedback
-                         </Link>
+                         <button 
+                           onClick={() => { setSelectedTransaction(item); setShowReviewModal(true); }}
+                           className="flex items-center justify-center gap-2 text-center bg-stone-900 text-white w-full py-3 rounded-xl text-[10px] font-black uppercase tracking-widest hover:bg-stone-800 transition-all shadow-md"
+                         >
+                           <Star size={16} fill="white" /> Lascia Feedback
+                         </button>
                       )}
 
-                      {/* TASTI AZIONE COMPRATORE */}
+                      {/* TASTI AZIONE COMPRATORE (Problema / Reso) */}
                       {(item.status === 'Pagato' || item.status === 'Spedito' || item.status === 'Ricevuto') && (
                         <div className="grid grid-cols-2 gap-2 mt-1">
-                          {/* 1. SEGNALA PROBLEMA (Tribunale) */}
                           <button 
                             onClick={() => { setSelectedTransaction(item); setShowDisputeModal(true); }} 
-                            className="bg-white text-stone-500 py-2 rounded-xl font-bold uppercase text-[8px] tracking-widest hover:bg-rose-50 hover:text-rose-600 border border-stone-200 transition-all"
+                            className="flex items-center justify-center gap-1 bg-white text-stone-500 py-2 rounded-xl font-bold uppercase text-[8px] tracking-widest hover:bg-rose-50 hover:text-rose-600 border border-stone-200 transition-all"
                           >
-                            ⚠️ Problema
+                            <AlertTriangle size={12} /> Problema
                           </button>
                           
-                          {/* 2. CHIEDI RESO NORMALE (Solo se il venditore lo accetta) */}
                           {item.announcements?.accepts_returns ? (
                             <button 
                               onClick={() => { setSelectedTransaction(item); setShowReturnModal(true); }} 
-                              className="bg-white text-stone-500 py-2 rounded-xl font-bold uppercase text-[8px] tracking-widest hover:bg-blue-50 hover:text-blue-600 border border-stone-200 transition-all"
+                              className="flex items-center justify-center gap-1 bg-white text-stone-500 py-2 rounded-xl font-bold uppercase text-[8px] tracking-widest hover:bg-blue-50 hover:text-blue-600 border border-stone-200 transition-all"
                             >
-                              🔄 Reso
+                              <RefreshCcw size={12} /> Reso
                             </button>
                           ) : (
                             <div className="flex items-center justify-center bg-stone-50 text-stone-400 py-2 rounded-xl font-bold uppercase text-[7px] tracking-widest border border-stone-100 text-center px-1">
@@ -356,8 +388,8 @@ export default function DashboardOrdini() {
                       )}
                       
                       {item.status === 'Ricevuto' && (
-                        <p className="text-[10px] text-center font-black text-emerald-600 uppercase tracking-widest bg-emerald-50 p-3 rounded-xl border border-emerald-100">
-                          ✓ Pagamento Sbloccato
+                        <p className="flex items-center justify-center gap-2 text-[10px] text-center font-black text-emerald-600 uppercase tracking-widest bg-emerald-50 p-3 rounded-xl border border-emerald-100">
+                          <CheckCircle2 size={16} /> Pagamento Sbloccato
                         </p>
                       )}
                       
@@ -366,7 +398,7 @@ export default function DashboardOrdini() {
                            <p className="text-[9px] text-center font-black text-rose-600 uppercase tracking-widest bg-rose-50 p-2 rounded-xl border border-rose-100">
                              Reso in corso
                            </p>
-                           <Link href="/chat" className="text-center text-[10px] font-bold text-stone-500 underline">
+                           <Link href="/chat" className="text-center text-[10px] font-bold text-stone-500 hover:text-rose-500 underline transition-colors">
                              Accorda spedizione in chat
                            </Link>
                          </div>
@@ -381,13 +413,13 @@ export default function DashboardOrdini() {
         )}
       </div>
 
-      {/* --- MODALE CONTROVERSIA (PROBLEMA REALE: TRUFFA/DANNI) --- */}
+      {/* --- MODALE CONTROVERSIA --- */}
       {showDisputeModal && (
         <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4 bg-stone-900/80 backdrop-blur-sm">
           <div className="bg-white rounded-[2rem] shadow-2xl p-8 max-w-md w-full relative animate-in zoom-in duration-200">
             <button onClick={() => setShowDisputeModal(false)} className="absolute top-5 right-5 text-stone-400 hover:text-stone-800 text-2xl font-bold">✕</button>
-            <div className="text-center mb-6">
-              <span className="text-6xl block mb-3">⚖️</span>
+            <div className="text-center mb-6 flex flex-col items-center">
+              <AlertTriangle size={64} className="text-rose-500 mb-3" strokeWidth={1.5} />
               <h2 className="text-2xl font-black uppercase italic text-stone-900">Segnala Problema</h2>
               <p className="text-[10px] uppercase font-bold text-rose-500 tracking-widest mt-1">L'assistenza interverrà</p>
             </div>
@@ -420,13 +452,13 @@ export default function DashboardOrdini() {
         </div>
       )}
 
-      {/* --- MODALE RESO NORMALE (ACCORDO DILETTO) --- */}
+      {/* --- MODALE RESO NORMALE --- */}
       {showReturnModal && (
         <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4 bg-stone-900/80 backdrop-blur-sm">
           <div className="bg-white rounded-[2rem] shadow-2xl p-8 max-w-md w-full relative animate-in zoom-in duration-200">
             <button onClick={() => setShowReturnModal(false)} className="absolute top-5 right-5 text-stone-400 hover:text-stone-800 text-2xl font-bold">✕</button>
-            <div className="text-center mb-6">
-              <span className="text-6xl block mb-3">🔄</span>
+            <div className="text-center mb-6 flex flex-col items-center">
+              <RefreshCcw size={64} className="text-blue-500 mb-3" strokeWidth={1.5} />
               <h2 className="text-2xl font-black uppercase italic text-stone-900">Effettua il Reso</h2>
               <p className="text-[10px] uppercase font-bold text-blue-500 tracking-widest mt-1">Reso accettato dal venditore</p>
             </div>
@@ -460,6 +492,39 @@ export default function DashboardOrdini() {
           </div>
         </div>
       )}
+
+      {/* --- NUOVA MODALE RECENSIONE ⭐ --- */}
+      {showReviewModal && selectedTransaction && (
+        <div className="fixed inset-0 z-[10000] bg-stone-900/90 backdrop-blur-md flex items-center justify-center p-4">
+          <div className="bg-white rounded-[3rem] p-8 max-w-md w-full text-center shadow-2xl animate-in zoom-in duration-300 relative">
+            <button onClick={() => setShowReviewModal(false)} className="absolute top-5 right-5 text-stone-400 hover:text-stone-800 text-2xl font-bold">✕</button>
+            <Star size={64} fill="#f59e0b" className="text-yellow-500 mx-auto mb-4" strokeWidth={1} />
+            <h2 className="text-2xl font-black uppercase italic text-stone-900 mb-2">Com'è andata?</h2>
+            <p className="text-[10px] font-bold text-stone-400 uppercase tracking-widest mb-6">Valuta la tua esperienza con l'utente</p>
+            
+            <div className="flex justify-center gap-2 mb-8">
+              {[1, 2, 3, 4, 5].map(s => (
+                <button key={s} onClick={() => setRating(s)} className="transition-transform hover:scale-125 focus:outline-none">
+                  <Star size={40} fill={s <= rating ? "#f59e0b" : "none"} className={s <= rating ? "text-yellow-500" : "text-stone-200"} strokeWidth={1.5} />
+                </button>
+              ))}
+            </div>
+
+            <textarea 
+              value={comment} 
+              onChange={e => setComment(e.target.value)} 
+              placeholder="Scrivi due parole sull'oggetto e sul venditore..." 
+              className="w-full p-5 bg-stone-50 border border-stone-100 rounded-2xl font-medium text-sm outline-none focus:bg-white focus:border-yellow-400 transition-all resize-none mb-6"
+              rows={3}
+            />
+
+            <button onClick={submitReview} disabled={submittingDispute} className="w-full bg-stone-900 text-white py-4 rounded-2xl font-black uppercase tracking-widest text-xs shadow-lg hover:bg-yellow-500 transition-colors disabled:opacity-50">
+              {submittingDispute ? 'Salvataggio...' : 'Pubblica Feedback'}
+            </button>
+          </div>
+        </div>
+      )}
+
     </div>
   )
 }
